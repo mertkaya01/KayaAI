@@ -9,9 +9,10 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 
 | Faz | İçerik | Durum |
 |---|---|---|
-| 0 | Ortam denetimi + mimari + teknik rapor | Kod hazır — Windows'ta çalıştırılması bekleniyor |
-| 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | Kod + birim testleri geçti — **gerçek model testi bekleniyor** |
-| 2+ | MCP, çoklu worker, arayüz, ekran, ses, otomasyon, hafıza, iş ajanları | Planlandı |
+| 0 | Ortam denetimi + mimari + teknik rapor | **Tamamlandı** (Windows 11, RTX 5070 Ti) |
+| 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | **Tamamlandı** — qwen3:8b ~138 token/sn, %100 GPU |
+| 2 | MCP sunucusu: Claude Code yerel modeli araç olarak çağırır | Kod + testler hazır — **Claude Code ile doğrulama bekleniyor** |
+| 3+ | Çoklu worker, arayüz, ekran, ses, otomasyon, hafıza, iş ajanları | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -62,6 +63,50 @@ Sonuç `data\smoke_report.json` dosyasına yazılır.
 
 > `-ExecutionPolicy Bypass` yalnızca o komut için geçerlidir; sistem güvenlik ayarınızı değiştirmez.
 
+**Güncelleme (sonraki sürümleri çekmek için)**
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File scripts\windows\setup.ps1
+```
+
+## Claude Code ile kullanım (MCP, Faz 2)
+
+kayaAI bir MCP sunucusu içerir: Claude Code, yerel modelinizi araç olarak çağırabilir. Sunucu yalnızca
+stdio üzerinden konuşur, **ağ portu açmaz**; yalnızca yerel modele soru sorma ve görev yönetimi araçları
+vardır (dosya yazma / komut çalıştırma yok).
+
+**1. Claude Code'u kurun** (bir kez):
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+**2. MCP sunucusunu test edip `.mcp.json` oluşturun:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\mcp_setup.ps1
+```
+
+Gerçek modelle stdio üzerinden test eder (`data\mcp_check.json`), sonra proje kökünde bu bilgisayara
+özgü `.mcp.json` yazar (git'e girmez).
+
+**3. Claude Code'u proje klasöründe başlatın:**
+
+```powershell
+claude
+```
+
+`kayaai` sunucusunu kullanma onayı istenince kabul edin. `/mcp` yazınca `kayaai` **connected** görünmeli.
+Örnek istek: *"kayaai_ask aracıyla yerel modele sor: Türkiye'nin başkenti neresi?"*
+
+| Araç | Ne yapar |
+|---|---|
+| `kayaai_ask` | Yerel modele soru/metin görevi (isteğe bağlı `context` güvenilmez veri olarak) |
+| `kayaai_submit_task` / `kayaai_run_task` | Görev oluştur / çalıştır (bağımlılıklarla) |
+| `kayaai_task_status` / `kayaai_list_tasks` / `kayaai_cancel_task` | Görev takibi |
+| `kayaai_list_models` / `kayaai_health` | Model kaydı, Ollama/GPU durumu |
+
 ## Kullanım
 
 ```powershell
@@ -73,6 +118,7 @@ kayaai tasks                          # görev geçmişi
 kayaai task <görev-id>                # görev ayrıntısı + olay günlüğü
 kayaai models                         # model kayıt defteri
 kayaai audit                          # Python ile ortam denetimi
+kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi başlatır)
 ```
 
 `Activate.ps1` "running scripts is disabled" hatası verirse, sanal ortamı etkinleştirmeden:
@@ -95,10 +141,12 @@ kayaai/            Python paketi (çekirdek)
   llm/             Ollama istemcisi, model kayıt defteri
   workers/         worker arayüzü + genel worker
   system/          ortam denetimi
+  mcp_server.py    MCP sunucusu (Faz 2)
 config/            settings.yaml, models.yaml
 scripts/audit/     ortam denetim scriptleri
-scripts/windows/   setup / smoke / run
+scripts/windows/   setup / smoke / run / mcp_setup
 scripts/smoke_ollama.py   gerçek model kabul testleri
+scripts/mcp_check.py      MCP sunucusu doğrulaması (stdio, gerçek model)
 tests/             birim testleri (sahte Ollama HTTP sunucusu ile)
 docs/              faz raporları
 ```

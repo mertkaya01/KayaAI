@@ -189,6 +189,7 @@ if ($doctorExit -eq 0) {
     Write-Host "Kurulum tamamlandı." -ForegroundColor Green
     Write-Host "Gerçek kabul testleri için:  powershell -ExecutionPolicy Bypass -File scripts\windows\smoke.ps1"
     Write-Host "Soru sormak için:            powershell -ExecutionPolicy Bypass -File scripts\windows\run.ps1 ask `"Merhaba`""
+    Write-Host "Claude Code (MCP) için:      powershell -ExecutionPolicy Bypass -File scripts\windows\mcp_setup.ps1"
 } else {
     Write-Host "Kurulum bitti ama doctor eksik buldu (yukarıdaki HATA satırları)." -ForegroundColor Yellow
 }

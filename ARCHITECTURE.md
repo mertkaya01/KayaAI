@@ -81,10 +81,31 @@ Worker'lar birbirine serbest metin değil **`Task` nesnesi** ile iş verir. Faz 
 | **Docker yok** | Windows'ta GPU geçişi ve ses/ekran erişimi Docker ile zorlaşır; şu an fayda sağlamıyor. |
 | **Proje içi `data/`** | Taşınabilirlik; `KAYAAI_DATA_DIR` ile değiştirilebilir. |
 
-## Sonraki fazlarda eklenecek bileşenler
+## MCP katmanı (Faz 2)
 
-- **Faz 2:** `kayaai/mcp_server.py` — resmi `mcp` Python SDK ile stdio sunucusu; araçlar:
-  `kayaai_ask`, `kayaai_submit_task`, `kayaai_task_status`, `kayaai_list_models`, `kayaai_health`.
-  Yalnızca `llm.inference` izinli araçlar açılır; dosya/komut araçları açılmaz.
+`kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code
+sunucuyu `.mcp.json`'daki komutla alt süreç olarak başlatır; ağ portu açılmaz.
+
+```
+Claude Code ──stdio(JSON-RPC)──► kayaai.mcp_server ──► Runtime/Orchestrator ──► Ollama ──► GPU
+```
+
+| Araç | Orkestratör karşılığı |
+|---|---|
+| `kayaai_ask(question, context?, worker?, timeout_s?)` | `submit` + `run`; `context` → `input` (güvenilmez veri) |
+| `kayaai_submit_task` / `kayaai_run_task` | `submit` / `run` (bağımlılıklar korunur) |
+| `kayaai_task_status` / `kayaai_list_tasks` / `kayaai_cancel_task` | `TaskStore` / `cancel` |
+| `kayaai_list_models` / `kayaai_health` | `ModelRegistry` + Ollama + `nvidia-smi` |
+
+Kurallar:
+- Çıktılar Pydantic şemalı (`structuredContent` + MCP `outputSchema`).
+- Görev `succeeded` değilse araç **`is_error`** döner; doğrulama hataları mesajda yer alır.
+- Onaylayıcı yok → `llm.inference` dışı izin isteyen worker'lar otomatik reddedilir.
+- Girdi sınırları: metin ≤ 20.000 karakter, `timeout_s` 1–600.
+- Runtime ilk araç çağrısında kurulur; sunucu Ollama kapalıyken de başlar ve `kayaai_health` sorunu raporlar.
+- stdout protokole ait; kayaAI logları yalnızca `data/logs/kayaai.log`.
+- SDK alt sürece kısıtlı ortam verir; `scripts/mcp_check.py` `KAYAAI_*` değişkenlerini açıkça aktarır.
+
+## Sonraki fazlarda eklenecek bileşenler
 - **Faz 3:** worker'lar (software, research, data, document, qa), LLM tabanlı yönlendirici, doğrulayıcı worker.
 - **Faz 4:** FastAPI (yalnızca 127.0.0.1, token kimlik doğrulama) + React arayüzü, GPU/VRAM izleme.

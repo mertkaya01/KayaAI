@@ -20,3 +20,6 @@ config/*.local.yaml
 Thumbs.db
 .vscode/
 .idea/
+
+# Claude Code MCP yapılandırması: makineye özgü mutlak yol içerir (mcp_setup.ps1 üretir)
+.mcp.json

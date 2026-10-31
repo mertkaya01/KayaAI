@@ -6,6 +6,7 @@
     kayaai task <id>         Görev ayrıntısı ve olayları
     kayaai models            Model kayıt defteri ve kurulu modeller
     kayaai audit             Ortam denetimi (data/audit_report.json)
+    kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
 
 from __future__ import annotations
@@ -224,6 +225,13 @@ def cmd_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from .mcp_server import main as mcp_main
+
+    mcp_main()  # stdio üzerinden MCP; istemci (Claude Code) bu süreci kendisi başlatır
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     from .config import PROJECT_ROOT
     from .system.audit import main as audit_main
@@ -260,6 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("models", help="model kayıt defteri").set_defaults(func=cmd_models)
     sub.add_parser("audit", help="ortam denetimi raporu").set_defaults(func=cmd_audit)
+    sub.add_parser("mcp", help="MCP sunucusunu stdio üzerinden başlat (Claude Code için)").set_defaults(func=cmd_mcp)
     return p
 
 

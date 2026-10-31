@@ -2,6 +2,17 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.2.0] - 2026-10-31
+
+### Eklendi (Faz 2 — MCP)
+- `kayaai/mcp_server.py`: resmi `mcp` SDK 2.x ile stdio MCP sunucusu; 8 araç (`kayaai_ask`,
+  `kayaai_submit_task`, `kayaai_run_task`, `kayaai_task_status`, `kayaai_cancel_task`,
+  `kayaai_list_tasks`, `kayaai_list_models`, `kayaai_health`), şemalı yapılandırılmış çıktı
+- `kayaai mcp` CLI komutu
+- `scripts/mcp_check.py`: sunucuyu stdio üzerinden gerçek modelle doğrular → `data/mcp_check.json`
+- `scripts/windows/mcp_setup.ps1`: doğrulama + Claude Code için `.mcp.json` üretimi
+- MCP testleri: süreç içi ve gerçek stdio alt süreci
+
 ## [0.1.1] - 2026-10-31
 
 Gerçek donanımdaki (RTX 5070 Ti) ilk smoke/benchmark sonuçlarına göre düzeltmeler.

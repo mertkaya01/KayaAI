@@ -35,6 +35,18 @@
 - [x] Görev olay günlüğü (SQLite `task_events`) ve dönen dosya logları
 - [x] Kurulum scriptleri: yönetici yetkisi istemez, kurulum/indirme öncesi sorar, sistem ayarı değiştirmez
 
+## Faz 2'de uygulananlar (MCP)
+
+- [x] MCP sunucusu yalnızca stdio: ağ portu açmaz, uzaktan erişilemez
+- [x] Sadece `llm.inference` araçları; dosya/komut/ağ aracı yok; onaylayıcı olmadığından hassas izinler reddedilir
+- [x] MCP istemcisinden gelen `context`/`input` modele `<input_data>` içinde veri olarak verilir
+- [x] Girdi boyutu ve zaman aşımı sınırları
+- [x] Başarısız/doğrulanmamış görevler hata olarak döner
+- [x] `.mcp.json` makineye özgüdür ve git'e girmez; üzerine yazmadan önce sorulur, yedek alınır
+
+**Not:** Claude Code, MCP araç sonuçlarını kendi bağlamına alır. Yerel modelin cevabı da güvenilmez
+çıktıdır; Claude Code tarafında yüksek etkili işlemler yine kullanıcı onayına tabidir.
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Kimlik doğrulama (Faz 4), dosya yükleme doğrulaması (Faz 4/9), hız sınırlama (Faz 4), sandbox'lı kod

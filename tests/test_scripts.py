@@ -9,7 +9,7 @@ PS1_FILES = sorted((PROJECT_ROOT / "scripts").rglob("*.ps1"))
 
 def test_ps1_files_exist():
     names = {p.name for p in PS1_FILES}
-    assert {"audit_windows.ps1", "setup.ps1", "smoke.ps1", "run.ps1"} <= names
+    assert {"audit_windows.ps1", "setup.ps1", "smoke.ps1", "run.ps1", "mcp_setup.ps1"} <= names
 
 
 def test_ps1_files_have_utf8_bom():

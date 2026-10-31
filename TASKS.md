@@ -28,7 +28,7 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 2 | Python ↔ Ollama | [x] Ollama 0.33.3 |
 | 3 | Orkestratör görevi worker'a delege ediyor | [x] |
 | 4 | Worker doğrulanmış yapılandırılmış çıktı döndürüyor | [x] |
-| 5 | Claude Code MCP ile yerel araçlara erişiyor | [ ] Faz 2 |
+| 5 | Claude Code MCP ile yerel araçlara erişiyor | [~] sunucu hazır, Claude Code ile doğrulama bekleniyor |
 | 6 | PDF okunup özetleniyor | [ ] |
 | 7 | Excel analiz ediliyor | [ ] |
 | 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [ ] Faz 5 |
@@ -39,12 +39,14 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 13 | Yeniden başlatmada görev geçmişi geri yükleniyor | [x] |
 
 ## Faz 2 — Claude Code ve MCP entegrasyonu
-- [ ] Yerel MCP sunucusu (stdio)
-- [ ] Güvenli görev araçları (yalnızca llm.inference)
-- [ ] Claude Code yerel worker'ları çağırabiliyor (kabul testi #5)
-- [ ] Yapılandırılmış iletişimin doğrulanması
+- [x] Yerel MCP sunucusu (stdio) — SDK istemcisiyle gerçek alt süreç testi geçti (sahte Ollama)
+- [x] Güvenli görev araçları (yalnızca llm.inference, girdi sınırları, hata = is_error)
+- [x] Yapılandırılmış iletişim (outputSchema + structuredContent) testli
+- [~] `scripts/mcp_check.py` gerçek modelle — Windows'ta çalıştırılacak
+- [~] `mcp_setup.ps1` (.mcp.json üretimi) — Windows'ta çalıştırılmadı
+- [~] Claude Code yerel worker'ları çağırabiliyor (kabul testi #5) — kullanıcı doğrulaması bekleniyor
 
 ## Sıradaki adımlar
-1. Faz 2: MCP sunucusu (bu oturumda).
-2. Kullanıcı: `git pull` → `setup.ps1` → `smoke.ps1` (dil düzeltmesinin gerçek modelle ölçümü) → Claude Code ile MCP testi.
+1. Kullanıcı: `git pull` → `setup.ps1` → `smoke.ps1` (dil düzeltmesi ölçümü) → `mcp_setup.ps1` → Claude Code'da `/mcp` ve `kayaai_ask` denemesi.
+2. Raporlar: `data\smoke_report.json`, `data\mcp_check.json`, `data\audit_windows.json` (CUDA satırı kontrolü).
 3. Faz 3: uzman worker'lar; qwen2.5-coder:7b ve llama3.1:8b benchmark.
