@@ -1,0 +1,38 @@
+# kayaAI genel ayarları.
+# Yerel değişiklikler için bu dosyayı kopyalayıp config/settings.local.yaml yapın
+# (git'e girmez, buradaki değerleri ezer). Ortam değişkenleri en yüksek önceliğe sahiptir:
+#   KAYAAI_OLLAMA_URL, KAYAAI_DATA_DIR, KAYAAI_LOG_LEVEL
+
+app_name: kayaAI
+
+# Görev geçmişi (SQLite), loglar ve raporlar. Göreli yol proje köküne göredir.
+data_dir: data
+
+ollama:
+  # Güvenlik: varsayılan yalnızca bu bilgisayar (localhost). Ağa açmayın.
+  base_url: http://127.0.0.1:11434
+  connect_timeout_s: 5
+  # İlk istekte model diske/VRAM'e yüklenir; 16 GB VRAM'de 8B model ~5-20 sn sürebilir.
+  request_timeout_s: 300
+  max_retries: 2          # bağlantı hatası / 5xx için tekrar sayısı
+  retry_backoff_s: 1.5    # her denemede katlanarak artar
+
+orchestrator:
+  default_worker: general
+  default_timeout_s: 240
+  # Tek GPU: aynı anda birden çok LLM görevi VRAM'i böler ve yavaşlatır. Varsayılan 1.
+  max_parallel: 1
+  # Worker çıktısı şemaya uymazsa, hata geri bildirimiyle kaç kez denensin.
+  max_output_attempts: 3
+
+permissions:
+  # Bu izinleri gerektiren görevler onay sormadan çalışır.
+  # Diğer her izin (fs.write, net, exec, screen, audio ...) kullanıcı onayı ister.
+  auto_approve:
+    - llm.inference
+
+logging:
+  level: INFO
+  file: logs/kayaai.log
+  max_bytes: 5000000
+  backup_count: 5

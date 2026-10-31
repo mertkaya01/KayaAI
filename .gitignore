@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+
+# kayaAI runtime verisi (görev geçmişi, loglar, raporlar) - asla commit edilmez
+data/
+
+# Yerel gizli ayarlar
+.env
+config/*.local.yaml
+
+# OS / editör
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
