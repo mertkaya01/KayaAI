@@ -10,6 +10,7 @@
 #   options       : Ollama options (temperature, top_p, ...)
 #   approx_vram_gb: yaklaşık VRAM (Q4_K_M, 8K bağlam) - sadece bilgi amaçlı
 #   license       : lisans (ticari kullanım öncesi doğrulayın)
+#   status        : active (varsayılan) | candidate (aday, worker'a atanamaz)
 
 models:
   general-8b:
@@ -23,7 +24,31 @@ models:
     approx_vram_gb: 6.5
     license: Apache-2.0
 
-  # Benchmark sonrası etkinleştirilecek adaylar (henüz indirmeyin):
+  # coder ajanının modeli. scripts/coder_bench.py --execute (2026-10-31, RTX 5070 Ti):
+  # qwen2.5-coder:7b 4/5, qwen3:8b 3/5; ~152 tok/s. Düşünme modu yok (think ayarı gönderilmez).
+  coder-7b:
+    name: qwen2.5-coder:7b
+    purpose: Kod yazma, inceleme, hata ayıklama (coder ajanı)
+    context_length: 8192
+    keep_alive: 10m
+    options:
+      temperature: 0.2
+    approx_vram_gb: 4.7
+    license: Apache-2.0
+    status: active
+
+  # --- Adaylar: kurulu, benchmark bekliyor. status: candidate olan model ajana atanamaz.
+
+  llama31-8b:
+    name: llama3.1:8b
+    purpose: Genel model alternatifi (karşılaştırma için)
+    context_length: 8192
+    keep_alive: 10m
+    approx_vram_gb: 6.0
+    license: Llama 3.1 Community License (atıf zorunlu, 700M+ MAU kısıtı)
+    status: candidate
+
+  # Benchmark sonrası denenebilir (henüz indirmeyin):
   # general-14b:
   #   name: qwen3:14b
   #   purpose: Daha güçlü ana model (benchmark sonrası)

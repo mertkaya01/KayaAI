@@ -31,6 +31,47 @@ permissions:
   auto_approve:
     - llm.inference
 
+claude:
+  # Claude modu: Claude Pro aboneliği varken Claude Code (Opus şef) takviye olarak devreye girer.
+  # Kapalıyken kayaAI tamamen yerel çalışır. Her iki modda da önce yerel model kullanılır (D15).
+  # Bu değer sadece varsayılandır; `kayaai claude on|off` ile değiştirilen durum data/ içinde saklanır.
+  enabled: false
+  # Claude Code bu kadar dakika içinde kayaAI'yi kullandıysa "yakın temas" gösterilir.
+  contact_window_min: 15
+  # Claude modunda şef (Opus) Claude Code oturumunun açılacağı klasör (`kayaai claude sync` üretir).
+  # Boş bırakılırsa: C:\Users\<kullanıcı>\kayaAI-workspace. kayaAI repo'sunun içinde olamaz.
+  workspace_dir:
+
+conductor:
+  # Yerel şef (`kayaai do`): en fazla adım, gözden geçirme (never | plan | always), düzeltme turu
+  max_steps: 4
+  review: plan
+  max_revisions: 1
+  # Çok adımlı işte nihai cevap: assemble (adım cevapları başlıklarla, LLM'siz) | llm (genel ajan yeniden yazar)
+  merge: assemble
+  # Karmaşıklık skoru (adım sayısı, mimari/tasarım/ödünleşim gibi kelimeler, uzunluk) >= bu değer -> Claude önerilir
+  claude_threshold: 3
+
+api:
+  # Yerel API sunucusu (`kayaai api`): arayüzler buna bağlanır. Güvenlik: yalnızca 127.0.0.1; ağa açılamaz.
+  host: 127.0.0.1
+  port: 8765
+
+files:
+  # Ajanların dosya araçları YALNIZCA bu klasörlerde çalışır (sahip kararı, Adım 5).
+  # kayaAI'nin kendi klasörü (okuma + yazma). Boşsa: C:\Users\<kullanıcı>\kayaAI-files
+  home_dir:
+  # Ek klasörler. access: read (yalnızca okuma) | read_write. Örnek:
+  #   - path: C:\Users\MERT\Documents\Faturalar
+  #     access: read
+  allowed_dirs: []
+  max_read_mb: 2
+  max_write_mb: 5
+
+approvals:
+  # Bu kadar saat içinde karar verilmeyen onay talebi geçersiz olur (expired).
+  expire_hours: 24
+
 logging:
   level: INFO
   file: logs/kayaai.log

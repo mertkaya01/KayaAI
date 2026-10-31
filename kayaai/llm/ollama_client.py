@@ -48,9 +48,12 @@ class ChatResult:
     eval_duration_s: float = 0.0
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
+    # Çok kısa çıktılarda (ör. 4 token) token/sn ölçümü anlamsız ve yanıltıcıdır.
+    MIN_TOKENS_FOR_SPEED = 16
+
     @property
     def tokens_per_second(self) -> float | None:
-        if self.eval_duration_s > 0 and self.output_tokens:
+        if self.eval_duration_s > 0 and self.output_tokens >= self.MIN_TOKENS_FOR_SPEED:
             return round(self.output_tokens / self.eval_duration_s, 2)
         return None
 

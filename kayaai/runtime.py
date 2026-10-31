@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .config import Settings, load_settings
+from .core.claude_mode import ClaudeMode
+from .core.permissions import PermissionEngine
 from .core.orchestrator import Approver, Orchestrator
 from .core.store import TaskStore
 from .llm.ollama_client import OllamaClient
@@ -20,7 +22,10 @@ class Runtime:
     registry: ModelRegistry
     workers: WorkerRegistry
     orchestrator: Orchestrator
+    claude: ClaudeMode | None = None
     recovered_task_ids: list[str] = field(default_factory=list)
+    permissions: PermissionEngine | None = None
+    files: "FileTools | None" = None  # noqa: F821 - aşağıda import edilir
 
     def close(self) -> None:
         self.llm.close()
@@ -44,8 +49,17 @@ def build_runtime(
     recovered = store.recover_interrupted()
     registry = ModelRegistry.load(settings.models_file)
     llm = llm or OllamaClient(settings.ollama)
-    workers = workers or default_workers()
+    workers = workers or default_workers(registry, settings.config_dir / "agents")
     orch = Orchestrator(
         store, workers, llm, registry, settings.orchestrator, settings.permissions, approver=approver
     )
-    return Runtime(settings, store, llm, registry, workers, orch, recovered)
+    from .tools.files import FileTools
+
+    files = FileTools(settings)
+    permissions = PermissionEngine(store, files.executors(), expire_hours=settings.approvals.expire_hours)
+    files.engine = permissions
+    return Runtime(
+        settings, store, llm, registry, workers, orch,
+        claude=ClaudeMode(store, settings.claude), recovered_task_ids=recovered,
+        permissions=permissions, files=files,
+    )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 import yaml
@@ -42,6 +42,60 @@ class PermissionSettings(BaseModel):
     auto_approve: list[str] = Field(default_factory=lambda: ["llm.inference"])
 
 
+class ClaudeSettings(BaseModel):
+    """Claude modu (MASTER_PROMPT v2 D2): isteğe bağlı takviye; kayaAI onsuz tam çalışır."""
+
+    # Varsayılan değer. Çalışma anındaki aç/kapa durumu SQLite'ta saklanır ve bunu ezer
+    # (`kayaai claude on|off`), böylece arayüzden değiştirilebilir.
+    enabled: bool = False
+    # Claude Code'un MCP sunucusunu en son kullanmasından bu kadar dakika geçtiyse "yakın temas" sayılır.
+    contact_window_min: int = Field(15, ge=1, le=24 * 60)
+    # Şef (Opus) Claude Code oturumunun açılacağı klasör; boşsa ~/kayaAI-workspace. Repo'nun içinde olamaz.
+    workspace_dir: str | None = None
+
+
+class ConductorSettings(BaseModel):
+    """Yerel şef (`kayaai do`)."""
+
+    max_steps: int = Field(4, ge=1, le=8)
+    # Gözden geçirme: never | plan (yalnızca çok adımlı işlerde) | always
+    review: Literal["never", "plan", "always"] = "plan"
+    max_revisions: int = Field(1, ge=0, le=3)
+    # Çok adımlı işte nihai cevap: assemble = adım cevaplarını başlıklarla sırayla birleştir (LLM'siz, bilgi kaybı yok);
+    # llm = genel ajan yeniden yazar (8B modelde bilgi kaybı gözlendi, 2026-10-31).
+    merge: Literal["assemble", "llm"] = "assemble"
+    # Karmaşıklık skoru bu eşiğe ulaşırsa planlayıcı demese de "Claude önerilir" (kayaai/conductor/complexity.py).
+    claude_threshold: int = Field(3, ge=1, le=10)
+
+
+class AllowedDir(BaseModel):
+    path: str
+    access: Literal["read", "read_write"] = "read"
+
+
+class FilesSettings(BaseModel):
+    """Dosya araçlarının erişebileceği klasörler (Adım 5; sahip kararı: kayaAI klasörü + seçilen klasörler)."""
+
+    # kayaAI'nin kendi klasörü (okuma + yazma). Boşsa ~/kayaAI-files.
+    home_dir: str | None = None
+    # Ek klasörler; listede olmayan hiçbir yere erişilmez.
+    allowed_dirs: list[AllowedDir] = Field(default_factory=list)
+    max_read_mb: float = Field(2.0, gt=0, le=50)
+    max_write_mb: float = Field(5.0, gt=0, le=50)
+
+
+class ApprovalSettings(BaseModel):
+    # Bu süreden uzun bekleyen onay talebi geçersiz sayılır (expired).
+    expire_hours: int = Field(24, ge=1, le=24 * 30)
+
+
+class ApiSettings(BaseModel):
+    """Yerel API sunucusu (Adım 4). Yalnızca bu bilgisayardan erişilir."""
+
+    host: str = "127.0.0.1"
+    port: int = Field(8765, ge=1024, le=65535)
+
+
 class LoggingSettings(BaseModel):
     level: str = "INFO"
     file: str = "logs/kayaai.log"
@@ -56,6 +110,11 @@ class Settings(BaseModel):
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     orchestrator: OrchestratorSettings = Field(default_factory=OrchestratorSettings)
     permissions: PermissionSettings = Field(default_factory=PermissionSettings)
+    claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
+    conductor: ConductorSettings = Field(default_factory=ConductorSettings)
+    api: ApiSettings = Field(default_factory=ApiSettings)
+    files: FilesSettings = Field(default_factory=FilesSettings)
+    approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property
@@ -99,6 +158,8 @@ def load_settings(config_dir: Path | None = None) -> Settings:
         raw.setdefault("ollama", {})["base_url"] = url
     if data_dir := os.environ.get("KAYAAI_DATA_DIR"):
         raw["data_dir"] = data_dir
+    if files_dir := os.environ.get("KAYAAI_FILES_DIR"):
+        raw.setdefault("files", {})["home_dir"] = files_dir
     if level := os.environ.get("KAYAAI_LOG_LEVEL"):
         raw.setdefault("logging", {})["level"] = level
 

@@ -34,6 +34,12 @@ Approver = Callable[[Task, list[str]], bool]
 _POLL_S = 0.1
 
 
+def _agent_timeout(worker: Any) -> float | None:
+    """config/agents tanımındaki limits.timeout_s (varsa)."""
+    definition = getattr(worker, "definition", None)
+    return definition.limits.timeout_s if definition is not None else None
+
+
 class Orchestrator:
     def __init__(
         self,
@@ -76,7 +82,7 @@ class Orchestrator:
             objective=objective,
             input=input or {},
             expected_output=expected_output or w.output_model.__name__,
-            timeout_s=timeout_s or self.settings.default_timeout_s,
+            timeout_s=timeout_s or _agent_timeout(w) or self.settings.default_timeout_s,
             permissions=sorted({p.value for p in w.required_permissions} | set(permissions)),
             depends_on=list(depends_on),
             parent_id=parent_id,
@@ -172,11 +178,13 @@ class Orchestrator:
     def run_all(self, task_ids: Iterable[str]) -> list[Task]:
         """Görevleri bağımlılık sırasına göre, en fazla max_parallel paralel çalıştırır."""
         ids = list(dict.fromkeys(task_ids))
-        remaining = set(ids)
+        batch = set(ids)
+        remaining = set(ids)   # henüz başlatılmamış
+        finished: set[str] = set()  # bitmiş (sonucu ne olursa olsun)
         running: dict[Future[Task], str] = {}
         with ThreadPoolExecutor(max_workers=self.settings.max_parallel, thread_name_prefix="kayaai") as pool:
             while remaining or running:
-                ready = [tid for tid in ids if tid in remaining and self._deps_settled(tid, remaining)]
+                ready = [tid for tid in ids if tid in remaining and self._deps_finished(tid, batch, finished)]
                 for tid in ready:
                     remaining.discard(tid)
                     running[pool.submit(self.run, tid)] = tid
@@ -190,6 +198,7 @@ class Orchestrator:
                 done, _ = wait(running, return_when=FIRST_COMPLETED)
                 for fut in done:
                     tid = running.pop(fut)
+                    finished.add(tid)
                     exc = fut.exception()
                     if exc is not None:  # run() kendi hatalarını yakalar; buraya düşmemeli
                         log.exception("run(%s) beklenmeyen hata", tid, exc_info=exc)
@@ -201,16 +210,20 @@ class Orchestrator:
         if task.status.is_terminal:
             return False
         self._cancel_event(task_id).set()
-        if task.status == TaskStatus.PENDING:
+        if task.status in (TaskStatus.PENDING, TaskStatus.WAITING_CLAUDE):
             self._finish(task, TaskStatus.CANCELLED, error="kullanıcı iptal etti")
         self.store.log_event(task_id, "cancel_requested")
         return True
 
     # ------------------------------------------------------------------ yardımcılar
 
-    def _deps_settled(self, tid: str, remaining: set[str]) -> bool:
+    def _deps_finished(self, tid: str, batch: set[str], finished: set[str]) -> bool:
+        """Bu partideki bağımlılıklar BİTMİŞ olmalı (yalnızca başlatılmış olması yetmez).
+
+        Parti dışındaki bağımlılıkların durumunu run() kontrol eder.
+        """
         task = self._require(tid)
-        return all(dep not in remaining for dep in task.depends_on)
+        return all(dep not in batch or dep in finished for dep in task.depends_on)
 
     def _cancel_event(self, task_id: str) -> threading.Event:
         with self._lock:

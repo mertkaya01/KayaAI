@@ -6,7 +6,7 @@ Model değiştirmek kod değişikliği gerektirmez; sadece YAML güncellenir.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -22,6 +22,8 @@ class ModelSpec(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
     approx_vram_gb: float | None = None
     license: str | None = None
+    # active: bir worker'a atanabilir; candidate: kurulu/aday, benchmark bekliyor
+    status: Literal["active", "candidate"] = "active"
 
     def ollama_options(self) -> dict[str, Any]:
         opts = dict(self.options)
@@ -39,6 +41,9 @@ class RegistryFile(BaseModel):
         missing = {w: m for w, m in self.workers.items() if m not in self.models}
         if missing:
             raise ValueError(f"workers bölümü tanımsız modellere işaret ediyor: {missing}")
+        candidates = {w: m for w, m in self.workers.items() if self.models[m].get("status") == "candidate"}
+        if candidates:
+            raise ValueError(f"'candidate' modeller worker'a atanamaz (önce benchmark): {candidates}")
         return self
 
 

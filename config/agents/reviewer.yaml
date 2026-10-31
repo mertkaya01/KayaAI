@@ -1,0 +1,9 @@
+name: reviewer
+description: Başka bir ajanın cevabını isteğe göre kontrol eder (doğruluk, eksiklik, dil); cevabı yeniden yazmaz
+output: review
+local_model: general-8b
+claude_tier: sonnet
+permissions: [llm.inference]
+limits:
+  timeout_s: 120
+status: permanent

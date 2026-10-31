@@ -23,6 +23,7 @@ class TaskStatus(str, Enum):
     REJECTED = "rejected"        # kullanıcı onay vermedi
     CANCELLED = "cancelled"
     TIMED_OUT = "timed_out"
+    WAITING_CLAUDE = "waiting_claude"  # Claude kutusunda bekliyor (terminal değil, yeniden başlatmada korunur)
 
     @property
     def is_terminal(self) -> bool:

@@ -3,15 +3,19 @@
 Yerel çalışan, çok-ajanlı kişisel yapay zeka sistemi. Windows + NVIDIA GPU üzerinde, ücretsiz ve
 açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz.
 
-> Vizyon ve tüm gereksinimler: [`MASTER_PROMPT.md`](MASTER_PROMPT.md)
+> Vizyon, kararlar ve yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (v2).
+> Claude isteğe bağlıdır: kayaAI tamamen yerel ve ücretsiz çalışır; Claude Pro varsa "Claude modu" ile takviye olarak eklenir.
 
 ## Durum
 
 | Faz | İçerik | Durum |
 |---|---|---|
-| 0 | Ortam denetimi + mimari + teknik rapor | Kod hazır — Windows'ta çalıştırılması bekleniyor |
-| 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | Kod + birim testleri geçti — **gerçek model testi bekleniyor** |
-| 2+ | MCP, çoklu worker, arayüz, ekran, ses, otomasyon, hafıza, iş ajanları | Planlandı |
+| 0 | Ortam denetimi + mimari + teknik rapor | **Tamamlandı** (Windows 11, RTX 5070 Ti) |
+| 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | **Tamamlandı** — qwen3:8b ~138 token/sn, %100 GPU |
+| 2 | MCP sunucusu: Claude Code yerel modeli araç olarak çağırır | **Tamamlandı** — Claude Code → `kayaai_ask` → qwen3:8b doğrulandı |
+| 3–5 | Ajan ekibi + yerel şef, Claude modu, yerel API, izin motoru + dosya araçları | **Tamamlandı** (Windows'ta doğrulandı) |
+| 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Yeni** — Windows'ta doğrulama bekleniyor |
+| 7+ | Ajan sistemi, asistan çalışma alanı, hafıza, iş modülleri, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -62,6 +66,110 @@ Sonuç `data\smoke_report.json` dosyasına yazılır.
 
 > `-ExecutionPolicy Bypass` yalnızca o komut için geçerlidir; sistem güvenlik ayarınızı değiştirmez.
 
+**Güncelleme (sonraki sürümleri çekmek için)**
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File scripts\windows\setup.ps1
+```
+
+## Claude modu (isteğe bağlı)
+
+kayaAI Claude olmadan tam çalışır. Claude Pro aboneliğin varken:
+
+```powershell
+kayaai claude on      # Claude modunu açar ve şef çalışma alanını üretir (~\kayaAI-workspace)
+cd $HOME\kayaAI-workspace
+claude                # Opus burada şef: CLAUDE.md kurallarını ve kayaai-* alt ajanlarını kullanır
+```
+
+Kurallar: her iki modda da önce yerel model; Claude yalnızca gerektiğinde. Claude gerektiren işler
+`kayaai inbox`'ta bekler; Claude Code oturumunda "kutuyu işle" de. `kayaai claude off` bekleyenleri yerelde yapar.
+
+Doğrulama: Claude Code'da `/mcp` → `kayaai` connected. Alt ajanlar (`kayaai-general`, `kayaai-coder`,
+`kayaai-reviewer`) `.claude/agents/` klasöründen otomatik okunur; güncel Claude Code sürümlerinde `/agents` komutu
+yok — Claude'a "hangi alt ajanların var?" diye sorabilirsin. Pro planında Opus 5.5 kullanılabildiği doğrulandı.
+
+## Dosya araçları ve onaylar
+
+Ajanlar yalnızca izinli klasörlerde çalışır: `C:\Users\<kullanıcı>\kayaAI-files` (okuma+yazma) ve
+`config/settings.yaml` → `files.allowed_dirs` içinde listelediğin klasörler (`read` ya da `read_write`).
+
+```powershell
+kayaai files roots                       # izinli klasörler
+kayaai files write notlar.md --text "..." # yeni dosya: hemen (R1)
+kayaai files write notlar.md --text "..." # var olan dosya: ONAY BEKLER (R2), önce yedek alınır
+kayaai approvals                         # bekleyen onaylar
+kayaai approvals show <id>               # önizleme (eski/yeni içerik, geri alma)
+kayaai approvals approve <id>            # ya da: reject <id>
+```
+
+Onayı yalnızca sen verirsin (CLI ya da anahtarlı API). Claude Code'un MCP üzerinden onay verme aracı yoktur.
+
+## Yerel API (arayüzler için)
+
+```powershell
+kayaai api            # http://127.0.0.1:8765  — yalnızca bu bilgisayar; Ctrl+C ile durur
+kayaai api token      # erişim anahtarı (data\api_token)
+```
+
+Tarayıcıda `http://127.0.0.1:8765/docs` → **Authorize** → anahtarı yapıştır → uç noktaları dene.
+Kontrol: ikinci terminalde `python scripts\api_check.py`.
+
+## Control Center (arayüz)
+
+Koyu temalı yerel web arayüzü: CPU/RAM/GPU/VRAM canlı grafikleri, ajan kartları (boşta/çalışıyor/bekliyor/tamamlandı/
+başarısız), **onay merkezi** (eski/yeni içerik yan yana → Onayla/Reddet), Claude modu aç/kapat düğmesi, canlı olaylar.
+
+```powershell
+# 1. terminal
+.venv\Scripts\kayaai api
+# 2. terminal
+.venv\Scripts\kayaai ui          # tarayıcıyı anahtarlı adresle açar
+```
+
+- Arayüz `setup.ps1` tarafından derlenir (Node.js 18+ gerekir; yoksa API/CLI yine çalışır). Elle: `cd ui; npm ci; npm run build`.
+- Adres yalnızca `http://127.0.0.1:8765`. `kayaai ui` anahtarı adresin `#token=` kısmında verir (sunucuya gitmez);
+  arayüz onu sekmeye alıp adres çubuğundan siler. `kayaai ui --print` adresi yazar — **paylaşmayın**.
+- Geliştirme: `cd ui; npm run dev` (Vite, http://127.0.0.1:5173, `/api` → 8765'e yönlendirilir) · `npm test`.
+
+## Claude Code ile kullanım (MCP, Faz 2)
+
+kayaAI bir MCP sunucusu içerir: Claude Code, yerel modelinizi araç olarak çağırabilir. Sunucu yalnızca
+stdio üzerinden konuşur, **ağ portu açmaz**; yalnızca yerel modele soru sorma ve görev yönetimi araçları
+vardır (dosya yazma / komut çalıştırma yok).
+
+**1. Claude Code'u kurun** (bir kez):
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+**2. MCP sunucusunu test edip `.mcp.json` oluşturun:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows\mcp_setup.ps1
+```
+
+Gerçek modelle stdio üzerinden test eder (`data\mcp_check.json`), sonra proje kökünde bu bilgisayara
+özgü `.mcp.json` yazar (git'e girmez).
+
+**3. Claude Code'u proje klasöründe başlatın:**
+
+```powershell
+claude
+```
+
+`kayaai` sunucusunu kullanma onayı istenince kabul edin. `/mcp` yazınca `kayaai` **connected** görünmeli.
+Örnek istek: *"kayaai_ask aracıyla yerel modele sor: Türkiye'nin başkenti neresi?"*
+
+| Araç | Ne yapar |
+|---|---|
+| `kayaai_ask` | Yerel modele soru/metin görevi (isteğe bağlı `context` güvenilmez veri olarak) |
+| `kayaai_submit_task` / `kayaai_run_task` | Görev oluştur / çalıştır (bağımlılıklarla) |
+| `kayaai_task_status` / `kayaai_list_tasks` / `kayaai_cancel_task` | Görev takibi |
+| `kayaai_list_models` / `kayaai_health` | Model kaydı, Ollama/GPU durumu |
+
 ## Kullanım
 
 ```powershell
@@ -73,6 +181,12 @@ kayaai tasks                          # görev geçmişi
 kayaai task <görev-id>                # görev ayrıntısı + olay günlüğü
 kayaai models                         # model kayıt defteri
 kayaai audit                          # Python ile ortam denetimi
+kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi başlatır)
+kayaai claude [on|off]                # Claude modu: durum / aç / kapat (varsayılan kapalı)
+kayaai agents                         # tanımlı ajanlar (config/agents/*.yaml)
+kayaai do "istek"                     # şef: planla → ajanlara dağıt → birleştir → gözden geçir
+kayaai inbox                          # Claude kutusu (Claude gerektiren işler); run <id> → yerelde yap
+kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder / reviewer)
 ```
 
 `Activate.ps1` "running scripts is disabled" hatası verirse, sanal ortamı etkinleştirmeden:
@@ -95,10 +209,14 @@ kayaai/            Python paketi (çekirdek)
   llm/             Ollama istemcisi, model kayıt defteri
   workers/         worker arayüzü + genel worker
   system/          ortam denetimi
+  api/             yerel API (FastAPI) + Control Center sunumu
+  mcp_server.py    MCP sunucusu (Faz 2)
+ui/                Control Center (React + TypeScript + Vite); derleme çıktısı ui/dist (git'e girmez)
 config/            settings.yaml, models.yaml
 scripts/audit/     ortam denetim scriptleri
-scripts/windows/   setup / smoke / run
+scripts/windows/   setup / smoke / run / mcp_setup
 scripts/smoke_ollama.py   gerçek model kabul testleri
+scripts/mcp_check.py      MCP sunucusu doğrulaması (stdio, gerçek model)
 tests/             birim testleri (sahte Ollama HTTP sunucusu ile)
 docs/              faz raporları
 ```

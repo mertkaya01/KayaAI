@@ -6,11 +6,20 @@
     kayaai task <id>         Görev ayrıntısı ve olayları
     kayaai models            Model kayıt defteri ve kurulu modeller
     kayaai audit             Ortam denetimi (data/audit_report.json)
+    kayaai do "istek"        Şef: planla → ajanlara dağıt → birleştir → gözden geçir
+    kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
+    kayaai claude [on|off|sync]  Claude modu durumu / aç (+çalışma alanı) / kapat / alanı yeniden üret
+    kayaai inbox [run|cancel] [id]  Claude kutusu
+    kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
+    kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
+    kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import json
 import sys
 from typing import Any
@@ -120,6 +129,18 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     finally:
         client.close()
 
+    try:
+        from .core.claude_mode import ClaudeMode
+        from .core.store import TaskStore
+
+        store = TaskStore(settings.db_path)
+        try:
+            _print(f"[BİLGİ] {ClaudeMode(store, settings.claude).status().label}")
+        finally:
+            store.close()
+    except Exception as exc:  # noqa: BLE001 - doctor bilgi satırı yüzünden düşmemeli
+        _print(f"[UYARI] Claude modu okunamadı: {exc}")
+
     _print("\nSonuç: " + ("HAZIR" if ok else "EKSİKLER VAR (yukarıdaki HATA satırlarına bakın)"))
     return 0 if ok else 1
 
@@ -224,6 +245,366 @@ def cmd_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_do(args: argparse.Namespace) -> int:
+    from .conductor import Conductor
+    from .logging_setup import setup_logging
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    setup_logging(settings, console=True)
+    request = " ".join(args.request).strip()
+    if not request:
+        _print("İstek boş olamaz.")
+        return 2
+    force = "local" if args.local else ("claude" if args.claude else None)
+    with build_runtime(settings, approver=interactive_approver) as rt:
+        _print("[şef] planlıyor... (yerel modeller)")
+        res = Conductor(rt).run(request, force=force)
+    if args.json:
+        _print(res.model_dump_json(indent=2))
+        return 0 if res.status == "succeeded" else 1
+    if res.status == "succeeded":
+        _print("\n" + res.answer)
+    elif res.status == "waiting_claude":
+        _print(f"\nİş Claude kutusunda bekliyor (iş {res.job_id}). Sebep: {res.routing.reason}")
+        _print("Yerelde yaptırmak için:  kayaai do --local \"...\"")
+    else:
+        _print(f"\nİş başarısız: {res.error}")
+    for w in res.warnings:
+        _print(f"[UYARI] {w}")
+    steps = " → ".join(f"{s.agent}({s.status})" for s in res.steps)
+    review = f" | gözden geçirme: {res.review.verdict}{' (düzeltildi)' if res.review.revised else ''}" if res.review.performed else ""
+    _print(f"\n— iş {res.job_id} | {res.mode} | {steps}{review} | {res.duration_s} sn | yönlendirme: {res.routing.decision}")
+    return 0 if res.status in ("succeeded", "waiting_claude") else 1
+
+
+def cmd_agents(args: argparse.Namespace) -> int:
+    from .agents.definitions import AgentDefinitionError
+    from .workers import default_workers
+
+    settings = load_settings()
+    registry = ModelRegistry.load(settings.models_file)
+    try:
+        workers = default_workers(registry, settings.config_dir / "agents")
+    except AgentDefinitionError as exc:
+        _print(f"[HATA] Ajan tanımı geçersiz: {exc}")
+        return 1
+    for w in workers.all():
+        d = getattr(w, "definition", None)
+        spec = w.model_spec(registry)
+        _print(
+            f"{w.name:<10} yerel model: {spec.name:<16} çıktı: {w.output_model.__name__:<14} "
+            f"Claude karşılığı: {d.claude_tier if d else '-':<7} izinler: {', '.join(p.value for p in w.required_permissions)}"
+        )
+        _print(f"{'':<10} {w.description}")
+    _print(f"\nTanımlar: {settings.config_dir / 'agents'}")
+    return 0
+
+
+def cmd_claude(args: argparse.Namespace) -> int:
+    from .core.claude_mode import ClaudeMode
+    from .core.store import TaskStore
+
+    settings = load_settings()
+    store = TaskStore(settings.db_path)
+    try:
+        mode = ClaudeMode(store, settings.claude)
+        if args.action in ("on", "sync"):
+            if args.action == "on":
+                st = mode.enable()
+                _print(f"[AÇIK] {st.label}")
+            code = _claude_sync(settings, args.workspace)
+            if code:
+                return code
+            st = mode.status()
+        elif args.action == "off":
+            st = mode.disable()
+            _print(f"[KAPALI] {st.label}")
+            if st.waiting_tasks:
+                if args.keep:
+                    _print(f"Claude kutusunda {st.waiting_tasks} iş bekletiliyor (--keep). Sonra: kayaai inbox run <id>")
+                else:
+                    go = args.yes
+                    if not go:
+                        try:
+                            ans = input(f"Claude kutusunda {st.waiting_tasks} iş var. Şimdi yerelde yapayım mı? [E/h]: ")
+                        except EOFError:
+                            ans = ""
+                        go = ans.strip().lower() not in {"h", "hayır", "hayir", "n", "no"}
+                    if go:
+                        store.close()
+                        return _inbox_run_all()
+                    _print("İşler bekletildi. Sonra: kayaai inbox run <id>")
+        else:
+            st = mode.status()
+            _print(st.label)
+            if st.last_contact:
+                _print(f"Son temas (UTC): {st.last_contact:%Y-%m-%d %H:%M:%S}")
+        if args.json:
+            _print(st.model_dump_json(indent=2))
+    finally:
+        store.close()
+    return 0
+
+
+def _claude_sync(settings, workspace: str | None) -> int:  # noqa: ANN001
+    from pathlib import Path
+
+    from .agents.definitions import AgentDefinitionError, load_definitions
+    from .claude_workspace import WorkspaceError, default_workspace, sync_workspace
+
+    registry = ModelRegistry.load(settings.models_file)
+    try:
+        agents = load_definitions(settings.config_dir / "agents", registry)
+        report = sync_workspace(settings, agents, Path(workspace) if workspace else default_workspace(settings))
+    except (AgentDefinitionError, WorkspaceError, OSError) as exc:
+        _print(f"[HATA] Çalışma alanı üretilemedi: {exc}")
+        return 1
+    _print(f"Claude çalışma alanı: {report.workspace}")
+    for f in report.written:
+        _print(f"  yazıldı      {f}")
+    for f in report.unchanged:
+        _print(f"  değişmedi    {f}")
+    for f in report.removed:
+        _print(f"  kaldırıldı   {f}")
+    for f in report.skipped_foreign:
+        _print(f"  [ATLANDI] {f} — kayaAI'nin üretmediği bir dosya; üzerine yazılmadı")
+    _print("\nŞef oturumunu başlatmak için:")
+    _print(f'  cd "{report.workspace}"')
+    _print("  claude")
+    _print("İlk açılışta 'kayaai' MCP sunucusunu onaylayın; sonra örneğin: \"kutuyu işle\".")
+    return 0
+
+
+def _inbox_run_all() -> int:
+    from .conductor import ClaudeInbox
+    from .logging_setup import setup_logging
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    setup_logging(settings, console=True)
+    ok = True
+    with build_runtime(settings, approver=interactive_approver) as rt:
+        inbox = ClaudeInbox(rt)
+        for item in inbox.items():
+            _print(f"\n[yerelde] {item.job_id}: {item.request[:80]}")
+            res = inbox.release(item.job_id)
+            ok &= res.status == "succeeded"
+            _print(res.answer if res.status == "succeeded" else f"başarısız: {res.error}")
+            for w in res.warnings:
+                _print(f"[UYARI] {w}")
+    return 0 if ok else 1
+
+
+def cmd_inbox(args: argparse.Namespace) -> int:
+    from .conductor import ClaudeInbox
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    if args.action == "run" and args.job_id == "all":
+        return _inbox_run_all()
+    with build_runtime(settings, approver=interactive_approver) as rt:
+        inbox = ClaudeInbox(rt)
+        if args.action == "list":
+            view = inbox.view()
+            _print(view.note)
+            for i in view.items:
+                _print(f"  {i.job_id}  {i.created_at:%Y-%m-%d %H:%M}  {i.request[:70]}")
+                if i.reason:
+                    _print(f"  {'':12}  sebep: {i.reason[:110]}")
+            return 0
+        if not args.job_id:
+            _print("İş id gerekli: kayaai inbox run <id>  (hepsi için: kayaai inbox run all)")
+            return 2
+        if args.action == "cancel":
+            done = inbox.cancel(args.job_id)
+            _print("İptal edildi." if done else "Kutuda böyle bekleyen bir iş yok.")
+            return 0 if done else 1
+        try:
+            res = inbox.release(args.job_id)
+        except (KeyError, ValueError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+    _print("\n" + (res.answer if res.status == "succeeded" else f"İş başarısız: {res.error}"))
+    for w in res.warnings:
+        _print(f"[UYARI] {w}")
+    return 0 if res.status == "succeeded" else 1
+
+
+def _print_submit(res) -> int:  # noqa: ANN001 - SubmitResult
+    if res.status == "done":
+        r = res.result or {}
+        if "entries" in r:
+            _print(r["path"])
+            for e in r["entries"]:
+                size = f"{e['size']:>10,}" if e["size"] is not None else f"{'<klasör>':>10}"
+                _print(f"  {size}  {e['modified']}  {e['name']}")
+            if not r["entries"]:
+                _print("  (boş)")
+        elif "content" in r:
+            _print(r["content"])
+        else:
+            _print(f"[TAMAM] {r.get('path')} ({r.get('bytes')} bayt)" + (f" — yedek: {r['backup']}" if r.get("backup") else ""))
+        return 0
+    if res.status == "awaiting_approval":
+        _print(f"[ONAY BEKLİYOR] {res.risk.value}: {res.message}")
+        return 0
+    _print(f"[HATA] {res.error}")
+    return 1
+
+
+def cmd_files(args: argparse.Namespace) -> int:
+    from .core.permissions import ApprovalError
+    from .runtime import build_runtime
+    from .tools.files import PathNotAllowed, roots
+
+    settings = load_settings()
+    if args.action == "roots":
+        for r in roots(settings):
+            _print(f"  {'okuma+yazma' if r.writable else 'yalnızca okuma':<15} {r.path}")
+        return 0
+    with build_runtime(settings) as rt:
+        try:
+            if args.action == "ls":
+                return _print_submit(rt.files.list_dir(args.path or ".", requested_by="cli"))
+            if not args.path:
+                _print("Yol gerekli.")
+                return 2
+            if args.action == "read":
+                return _print_submit(rt.files.read(args.path, requested_by="cli"))
+            if args.text is None and args.from_file is None:
+                _print("İçerik gerekli: --text \"...\" ya da --from <dosya>")
+                return 2
+            content = args.text if args.text is not None else Path(args.from_file).read_text(encoding="utf-8")
+            return _print_submit(rt.files.write(args.path, content, requested_by="cli"))
+        except (PathNotAllowed, ApprovalError, ValueError, OSError) as exc:
+            _print(f"[REDDEDİLDİ] {exc}")
+            return 1
+
+
+def cmd_approvals(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from .core.permissions import RISK_LABELS, ApprovalError
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    with build_runtime(settings) as rt:
+        eng = rt.permissions
+        try:
+            if args.action == "list":
+                items = eng.list_approvals(None if args.all else "pending")
+                if not items:
+                    _print("Bekleyen onay talebi yok." if not args.all else "Onay talebi yok.")
+                for a in items:
+                    _print(f"  {a.id}  {a.created_at:%Y-%m-%d %H:%M}  {a.status:<9} {a.action.risk.value}  {a.action.summary[:80]}")
+                return 0
+            if not args.approval_id:
+                _print("Talep numarası gerekli: kayaai approvals show <id>")
+                return 2
+            a = eng.get(args.approval_id)
+            if args.action == "show":
+                _print(f"Talep {a.id} — {a.status}")
+                _print(f"Risk    : {a.action.risk.value} — {RISK_LABELS[a.action.risk]}")
+                _print(f"İşlem   : {a.action.summary}")
+                _print(f"İsteyen : {a.action.requested_by}")
+                if a.action.reason:
+                    _print(f"Neden   : {a.action.reason}")
+                if a.action.undo:
+                    _print(f"Geri al : {a.action.undo}")
+                _print("Önizleme:")
+                _print(_json.dumps(a.action.preview, ensure_ascii=False, indent=2))
+                if a.status == "pending":
+                    _print(f"\nOnay: kayaai approvals approve {a.id}   |   Ret: kayaai approvals reject {a.id}")
+                return 0
+            if args.action == "approve":
+                a = eng.approve(args.approval_id, decided_by="cli", note=args.note or "")
+                _print(f"[{a.status.upper()}] {a.action.summary}" + (f" — {a.error}" if a.error else ""))
+                return 0 if a.status == "approved" else 1
+            a = eng.reject(args.approval_id, decided_by="cli", note=args.note or "")
+            _print(f"[REDDEDİLDİ] {a.action.summary}")
+            return 0
+        except ApprovalError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+
+
+def cmd_api(args: argparse.Namespace) -> int:
+    from .api.app import load_or_create_token, token_path
+    from .config import LOCAL_HOSTS
+
+    settings = load_settings()
+    if args.action == "token":
+        token = load_or_create_token(settings)
+        _print(token)
+        _print(f"(dosya: {token_path(settings)})", )
+        return 0
+    host = args.host or settings.api.host
+    port = args.port or settings.api.port
+    if host not in LOCAL_HOSTS:
+        _print(f"[HATA] API yalnızca bu bilgisayarda çalışabilir (127.0.0.1). '{host}' reddedildi.")
+        _print("Ağa açmak güvenlik kararıdır (MASTER_PROMPT §10) ve bu sürümde desteklenmez.")
+        return 2
+    import uvicorn
+
+    from .api import create_app
+    from .logging_setup import setup_logging
+
+    setup_logging(settings, console=True)
+    app = create_app(settings)
+    _print(f"{APP_NAME} API: http://{host}:{port}   (deneme sayfası: http://{host}:{port}/docs)")
+    _print(f"Erişim anahtarı: {token_path(settings)}  — göstermek için: kayaai api token")
+    _print("Durdurmak için Ctrl+C.")
+    uvicorn.run(app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=3)
+    return 0
+
+
+def cmd_ui(args: argparse.Namespace) -> int:
+    """Control Center'ı tarayıcıda açar: http://127.0.0.1:8765/#token=... (URL parçası sunucuya gitmez)."""
+    import webbrowser
+
+    import httpx
+
+    from .api.app import UI_DIST, load_or_create_token
+    from .config import LOCAL_HOSTS
+
+    settings = load_settings()
+    host = args.host or settings.api.host
+    port = args.port or settings.api.port
+    if host not in LOCAL_HOSTS:
+        _print(f"[HATA] Control Center yalnızca bu bilgisayarda açılır (127.0.0.1). '{host}' reddedildi.")
+        return 2
+    token = load_or_create_token(settings)
+    base = f"http://{host}:{port}/"
+    url = f"{base}#token={token}"
+    if args.print:
+        _print(url)
+        return 0
+    if not (UI_DIST / "index.html").is_file():
+        _print("[UYARI] Arayüz derlenmemiş (ui/dist yok). Derlemek için: cd ui; npm ci; npm run build")
+        _print("        (ya da scripts\\windows\\setup.ps1). Tarayıcıda şimdilik bilgilendirme sayfası görünecek.")
+    try:
+        r = httpx.get(f"{base}api/health", headers={"Authorization": f"Bearer {token}"}, timeout=3)
+        ok = r.status_code == 200
+    except httpx.HTTPError:
+        ok = False
+    if not ok:
+        _print(f"[HATA] {base} adresinde kayaAI API'ye ulaşılamadı.")
+        _print("Önce başka bir terminalde çalıştırın:  kayaai api   — sonra yeniden:  kayaai ui")
+        return 1
+    _print(f"Control Center açılıyor: {base}")
+    _print("(Tarayıcı açılmazsa adresi görmek için: kayaai ui --print — adres erişim anahtarını içerir, paylaşmayın.)")
+    webbrowser.open(url)
+    return 0
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from .mcp_server import main as mcp_main
+
+    mcp_main()  # stdio üzerinden MCP; istemci (Claude Code) bu süreci kendisi başlatır
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     from .config import PROJECT_ROOT
     from .system.audit import main as audit_main
@@ -260,6 +641,56 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("models", help="model kayıt defteri").set_defaults(func=cmd_models)
     sub.add_parser("audit", help="ortam denetimi raporu").set_defaults(func=cmd_audit)
+    do = sub.add_parser("do", help="şef: isteği planlayıp ajanlara dağıtır")
+    do.add_argument("request", nargs="+")
+    g = do.add_mutually_exclusive_group()
+    g.add_argument("--local", action="store_true", help="Claude gerekse bile yerelde yap")
+    g.add_argument("--claude", action="store_true", help="Claude modu açıksa Claude kutusuna bırak")
+    do.add_argument("--json", action="store_true")
+    do.set_defaults(func=cmd_do)
+
+    sub.add_parser("agents", help="tanımlı ajanlar (config/agents)").set_defaults(func=cmd_agents)
+
+    c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
+    c.add_argument("action", nargs="?", choices=["status", "on", "off", "sync"], default="status")
+    c.add_argument("--workspace", default=None, help="şef çalışma klasörü (varsayılan: ~/kayaAI-workspace)")
+    c.add_argument("--json", action="store_true")
+    c.add_argument("--keep", action="store_true", help="kapatırken kutudaki işleri beklet")
+    c.add_argument("--yes", action="store_true", help="kapatırken kutudaki işleri sormadan yerelde yap")
+
+    fl = sub.add_parser("files", help="dosya araçları (yalnızca izinli klasörler)")
+    fl.add_argument("action", choices=["roots", "ls", "read", "write"])
+    fl.add_argument("path", nargs="?")
+    fl.add_argument("--text", default=None, help="write: yazılacak metin")
+    fl.add_argument("--from", dest="from_file", default=None, help="write: içeriği bu yerel dosyadan al")
+    fl.set_defaults(func=cmd_files)
+
+    apv = sub.add_parser("approvals", help="onay kuyruğu: listele / göster / onayla / reddet")
+    apv.add_argument("action", nargs="?", choices=["list", "show", "approve", "reject"], default="list")
+    apv.add_argument("approval_id", nargs="?")
+    apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
+    apv.add_argument("--note", default=None)
+    apv.set_defaults(func=cmd_approvals)
+
+    ap = sub.add_parser("api", help="yerel API sunucusu (yalnızca 127.0.0.1)")
+    ap.add_argument("action", nargs="?", choices=["serve", "token"], default="serve")
+    ap.add_argument("--host", default=None)
+    ap.add_argument("--port", type=int, default=None)
+    ap.set_defaults(func=cmd_api)
+
+    ui = sub.add_parser("ui", help="Control Center'ı tarayıcıda aç (önce: kayaai api)")
+    ui.add_argument("--print", action="store_true", help="tarayıcı açma; yalnızca anahtarlı adresi yaz")
+    ui.add_argument("--host", default=None)
+    ui.add_argument("--port", type=int, default=None)
+    ui.set_defaults(func=cmd_ui)
+
+    ib = sub.add_parser("inbox", help="Claude kutusu: listele / yerelde yap / iptal")
+    ib.add_argument("action", nargs="?", choices=["list", "run", "cancel"], default="list")
+    ib.add_argument("job_id", nargs="?")
+    ib.set_defaults(func=cmd_inbox)
+    c.set_defaults(func=cmd_claude)
+
+    sub.add_parser("mcp", help="MCP sunucusunu stdio üzerinden başlat (Claude Code için)").set_defaults(func=cmd_mcp)
     return p
 
 

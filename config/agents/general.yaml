@@ -1,0 +1,19 @@
+# Genel zeka ajanı. Bu klasördeki her dosya bir ajan tanımlar (MASTER_PROMPT v2 D14: tek kaynak).
+# Alanlar:
+#   name         : dosya adıyla aynı olmalı
+#   description  : ne iş yapar (şef ajan seçerken bunu okur)
+#   output       : answer (cevap) | review (gözden geçirme)
+#   role         : rol talimatı; boşsa çıktı türünün varsayılan talimatı kullanılır
+#   local_model  : config/models.yaml anahtarı (aday modeller atanamaz)
+#   claude_tier  : Claude modunda karşılığı: none | haiku | sonnet | opus (Adım 3e)
+#   claude_role  : Claude alt ajanının talimatı (boşsa açıklamadan üretilir; yerel `role` kullanılmaz)
+#   permissions  : gereken izinler (llm.inference dışındakiler onay ister)
+#   limits       : timeout_s
+#   status       : permanent | temporary
+name: general
+description: Genel sohbet, soru-cevap, özet, çeviri, planlama ve sınıflandırma (Türkçe/İngilizce)
+output: answer
+local_model: general-8b
+claude_tier: haiku
+permissions: [llm.inference]
+status: permanent

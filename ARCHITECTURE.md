@@ -81,10 +81,128 @@ Worker'lar birbirine serbest metin değil **`Task` nesnesi** ile iş verir. Faz 
 | **Docker yok** | Windows'ta GPU geçişi ve ses/ekran erişimi Docker ile zorlaşır; şu an fayda sağlamıyor. |
 | **Proje içi `data/`** | Taşınabilirlik; `KAYAAI_DATA_DIR` ile değiştirilebilir. |
 
-## Sonraki fazlarda eklenecek bileşenler
+## Claude modu (Adım 3a)
 
-- **Faz 2:** `kayaai/mcp_server.py` — resmi `mcp` Python SDK ile stdio sunucusu; araçlar:
-  `kayaai_ask`, `kayaai_submit_task`, `kayaai_task_status`, `kayaai_list_models`, `kayaai_health`.
-  Yalnızca `llm.inference` izinli araçlar açılır; dosya/komut araçları açılmaz.
+Claude isteğe bağlıdır (MASTER_PROMPT v2 D2). `kayaai/core/claude_mode.py`:
+- Aç/kapa: `config/settings.yaml` → `claude.enabled` varsayılan; `kayaai claude on|off` ile değiştirilen
+  durum SQLite `meta` tablosunda (`claude.enabled`) saklanır ve varsayılanı ezer.
+- "Son temas": kayaAI Claude'u çağıramaz; Claude Code MCP sunucusunu kullandıkça `claude.last_contact`
+  güncellenir. Durumlar: `off` / `on_no_contact` / `on_recent_contact` / `on_stale_contact`.
+- `waiting_claude` görev durumu Claude kutusu (3d) içindir; terminal değildir, yeniden başlatmada korunur.
+
+## Ajan tanımları (Adım 3b)
+
+`config/agents/<ad>.yaml` → `kayaai/agents/definitions.py` → yerel worker. Alanlar: `name`, `description`,
+`output` (`answer` → `GeneralAnswer`, `review` → `ReviewResult`), `role` (sistem talimatı), `local_model`
+(models.yaml anahtarı; aday model reddedilir), `claude_tier` (Claude modunda karşılığı, 3e), `permissions`,
+`limits.timeout_s`, `status`. Şema ve anlamsal doğrulama çıktı türünün worker sınıfından gelir.
+Tanım klasörü yoksa yerleşik `general` worker kullanılır.
+
+## Yerel şef (Adım 3c)
+
+`kayaai/conductor/conductor.py` — `kayaai do` ve MCP `kayaai_do`:
+
+```
+istek → planner (RoutePlan: direct | 2-4 adım, needs_claude)  ── geçersiz plan: geri bildirim → yine geçersiz: general
+      → yönlendirme (D15/D16): local | local_with_warning | claude_inbox(waiting_claude)
+      → adımlar sırayla (önceki sonuçlar <input_data> olarak)
+      → birleştirme: merge=assemble (varsayılan; adım cevapları başlıklarla, LLM'siz) | merge=llm
+      → reviewer (review=plan): YALNIZCA eksiklik + dil → missing_parts varsa general yazar, "Ek" olarak eklenir
+        (≤ max_revisions); diğer notlar "doğrulanmadı" uyarısı
+```
+- Claude ihtiyacı = planlayıcının görüşü **veya** `complexity_signals` skoru ≥ `claude_threshold`
+  (`kayaai/conductor/complexity.py`: adım sayısı, mimari/tasarım/ödünleşim/ölçekleme… ifadeleri, uzunluk).
+  Gerekçe: 8B planlayıcı kendi sınırını bilemiyor (gerçek ölçüm).
+- İş kaydı: `worker="conductor"` üst görev; tüm adımlar `parent_id` ile alt görev.
+- `origin="claude"` (MCP): Claude zaten şef olduğu için kutuya gönderilmez; planlayıcının görüşü uyarı olur.
+- Yerel sonuç üretilemezse: Claude açık → kutu, kapalı → `failed` (asla sahte başarı).
+
+## Claude kutusu (Adım 3d)
+
+```
+kayaai do (Claude gerekli + Claude modu açık) ──► iş: waiting_claude  ◄── kayaai_claude_inbox (Claude Code)
+                                                     │                    kayaai_claude_complete → succeeded, model=claude
+                                                     │                    kayaai_claude_release  → yerel ekip (aynı iş)
+kayaai claude off ──► bekleyenler yerelde (D16 uyarısı) | --keep: bekler
+kayaai inbox run <id> / cancel <id>
+```
+kayaAI Claude'a iş gönderemez; Claude Code kutuyu okur. Kutu SQLite'ta, yeniden başlatmada korunur.
+
+## Claude çalışma alanı (Adım 3e)
+
+`kayaai/claude_workspace.py` — `kayaai claude on|sync`. Geliştirme repo'sundan ayrı klasör (repo içi reddedilir):
+`CLAUDE.md` (şef kuralları) · `.claude/agents/kayaai-<ajan>.md` (`claude_tier` → `model`, `claude_role` → talimat) ·
+`.mcp.json` (bu bilgisayardaki `.venv` Python'u ile `kayaai.mcp_server`) · `README.md`.
+Hepsi `config/agents` ve ayarlardan türetilir (D14); yalnızca `kayaai-generated` işaretli dosyalar güncellenir.
+
+## Yerel API ve olay akışı (Adım 4)
+
+`kayaai/api/app.py` (FastAPI) — `kayaai api` ile 127.0.0.1:8765. Anahtar: `data/api_token` (Bearer).
+
+```
+CLI ─┐                      ┌─ GET /api/health|system|agents|models|tasks|claude|inbox
+MCP ─┼─► SQLite (tasks, events) ◄─┤  POST /api/ask|do|claude|inbox/{id}/run|tasks/{id}/cancel  → 202 + id
+API ─┘        ▲                   └─ WS  /api/events  (events tablosunu izler, 0.5 sn)
+              └── TaskStore.save(): durum değişince events'e "task.status"; ClaudeMode: "claude.mode"
+```
+- Neden SQLite olay tablosu: kayaAI aynı anda birden çok süreçte çalışır (CLI, Claude Code'un başlattığı MCP sunucusu,
+  API); bellek içi olay yolu diğer süreçleri göremez.
+- Uzun işler tek iş parçacıklı kuyrukta (tek GPU); ajan durumu görev geçmişinden türetilir (`core/agent_status.py`).
+
+## İzin motoru v2 ve dosya araçları (Adım 5)
+
+```
+araç (FileTools.write …) → ToolAction{tool, params, risk, summary, preview, undo, requested_by}
+   → PermissionEngine.submit:  R0/R1 → çalıştır → "tool.used"
+                               R2/R3 → approvals tablosu (pending) → "approval.requested" → çağırana approval_id
+   sahip: kayaai approvals approve | POST /api/approvals/{id}/approve → kayıtlı işlem çalışır → "approval.decided"
+```
+- Dosya kökleri: `files.home_dir` (rw) + `files.allowed_dirs`; yol `resolve()` sonrası köklere göre denetlenir
+  (Windows'ta `normcase`); salt-okunur köke yazma onaysız reddedilir.
+- Onay yalnızca sahipten: CLI ve anahtarlı API. MCP yalnızca bekleyenleri okuyabilir.
+
+## Control Center v1 (Adım 6)
+
+```
+tarayıcı (http://127.0.0.1:8765/#token=…)          kayaai api (FastAPI)
+  ui/dist  ◄──── GET /, /assets/*  (anahtarsız, CSP) ──┤
+  fetch    ───── GET/POST /api/*   (Bearer anahtar) ───┤──► Runtime (store, conductor, permissions, files)
+  WebSocket ──── /api/events?token=…&backlog=50 ───────┘    SQLite events tablosu
+```
+- `ui/` — Vite + React 18 + TypeScript, ek UI kütüphanesi yok (CSS değişkenleri + elle yazılmış SVG çizgi grafikler).
+  Bileşenler: `TopBar` (sürüm, canlı/Ollama/Claude rozetleri, Claude aç/kapat), `SystemPanel` (2 sn'de bir `/api/system`,
+  son 2 dk grafik), `AgentsPanel` (`task.status` olayında yenilenir), `ApprovalsPanel` (bekleyen/geçmiş, önizleme,
+  onay/ret + not), `EventsPanel` (son 50 olay).
+- Veri akışı: periyodik çekme + olay geldiğinde ilgili paneli hemen yenileme (`usePolling(path, ms, refreshKey)`);
+  WS koparsa 2 sn sonra kaldığı olaydan (`after`) devam eder; ilk bağlantıda `backlog=50` ile son olaylar gelir.
+- Sunum: `ui/dist` varsa FastAPI `/` altında sunar (bilinmeyen yollar → `index.html`; `/api/*` hiçbir zaman arayüze
+  düşmez); yoksa "arayüz derlenmemiş" yardım sayfası. `kayaai ui` sunucuyu yoklar ve tarayıcıyı anahtarlı adresle açar.
+
+## MCP katmanı (Faz 2)
+
+`kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code
+sunucuyu `.mcp.json`'daki komutla alt süreç olarak başlatır; ağ portu açılmaz.
+
+```
+Claude Code ──stdio(JSON-RPC)──► kayaai.mcp_server ──► Runtime/Orchestrator ──► Ollama ──► GPU
+```
+
+| Araç | Orkestratör karşılığı |
+|---|---|
+| `kayaai_ask(question, context?, worker?, timeout_s?)` | `submit` + `run`; `context` → `input` (güvenilmez veri) |
+| `kayaai_submit_task` / `kayaai_run_task` | `submit` / `run` (bağımlılıklar korunur) |
+| `kayaai_task_status` / `kayaai_list_tasks` / `kayaai_cancel_task` | `TaskStore` / `cancel` |
+| `kayaai_list_models` / `kayaai_health` | `ModelRegistry` + Ollama + `nvidia-smi` |
+
+Kurallar:
+- Çıktılar Pydantic şemalı (`structuredContent` + MCP `outputSchema`).
+- Görev `succeeded` değilse araç **`is_error`** döner; doğrulama hataları mesajda yer alır.
+- Onaylayıcı yok → `llm.inference` dışı izin isteyen worker'lar otomatik reddedilir.
+- Girdi sınırları: metin ≤ 20.000 karakter, `timeout_s` 1–600.
+- Runtime ilk araç çağrısında kurulur; sunucu Ollama kapalıyken de başlar ve `kayaai_health` sorunu raporlar.
+- stdout protokole ait; kayaAI logları yalnızca `data/logs/kayaai.log`.
+- SDK alt sürece kısıtlı ortam verir; `scripts/mcp_check.py` `KAYAAI_*` değişkenlerini açıkça aktarır.
+
+## Sonraki fazlarda eklenecek bileşenler
 - **Faz 3:** worker'lar (software, research, data, document, qa), LLM tabanlı yönlendirici, doğrulayıcı worker.
 - **Faz 4:** FastAPI (yalnızca 127.0.0.1, token kimlik doğrulama) + React arayüzü, GPU/VRAM izleme.
