@@ -149,7 +149,7 @@ def test_agent_model_needs_owner_approval_and_persists(rt, fake_ollama, tmp_path
     ("data", "coder-7b", "kurulu değil"),
     ("data", "embed-m3", "embedding"),
     ("data", "general-8b", "zaten"),
-    ("data", "yok-model", "Kayıtlı model değil"),
+    ("data", "yok-model", "ne kayaAI'de kayıtlı ne de Ollama'da kurulu"),
     ("yokajan", "general-8b", "Bilinmeyen ajan"),
 ])
 def test_agent_model_refusals(rt, agent, key, err):
@@ -254,6 +254,47 @@ def test_compare_with_missing_candidate_records_failure(rt, fake_ollama):
     assert start_compare(rt, "general", "llama31-8b")["status"] == "done"
 
 
+# ---------------------------------------------------------------- Windows geri bildirimi (v0.11.1): kayıtsız / bekleyen aday
+
+QWEN4 = {"name": "qwen3:4b", "model": "qwen3:4b", "size": 2_500_000_000}
+
+
+@pytest.mark.parametrize("ref", ["qwen3:4b", "qwen3-4b"])
+def test_compare_accepts_installed_but_unregistered_model(rt, fake_ollama, ref):
+    fake_ollama.models.append(dict(QWEN4))  # `ollama pull qwen3:4b` ile kayaAI dışında indirilmiş
+    fake_ollama.chat_replies = [_reply] * 20
+    rec = start_compare(rt, "general", ref)
+    assert rec["status"] == "done" and rec["candidate"] == "qwen3-4b"
+    assert rec["summary"]["candidate"]["model"] == "qwen3:4b" and rec["summary"]["candidate"]["ok"] == 2
+    local = yaml.safe_load(local_registry_path(rt.settings).read_text(encoding="utf-8"))
+    assert local["models"]["qwen3-4b"]["status"] == "candidate"
+    assert any(e["type"] == "model.registered" for e in rt.store.events_since(0))
+    with pytest.raises(mm.ModelAdminError, match="aday"):  # kayıt aday: ajana atanamaz
+        mm.request_agent_model(rt, "general", "qwen3:4b")
+    assert mm.request_activate(rt, "qwen3:4b").status == "awaiting_approval"  # Ollama adıyla da
+
+
+def test_compare_with_pending_pull_says_approve(rt):
+    r = mm.request_pull(rt, "qwen3:4b")
+    with pytest.raises(CompareError, match=f"kayaai approvals approve {r.approval_id}"):
+        start_compare(rt, "data", "qwen3-4b")
+
+
+def test_compare_not_installed_says_pull(rt):
+    with pytest.raises(CompareError, match="kayaai models pull qwen3:4b"):
+        start_compare(rt, "data", "qwen3:4b")
+    with pytest.raises(CompareError, match="kayaai models pull <ad:etiket>"):
+        start_compare(rt, "data", "qwen3-4b")
+
+
+def test_assign_unregistered_installed_model_points_to_compare(rt, fake_ollama):
+    fake_ollama.models.append(dict(QWEN4))
+    with pytest.raises(mm.ModelAdminError, match="kayaai models compare <ajan> qwen3:4b"):
+        mm.request_agent_model(rt, "data", "qwen3:4b")
+    with pytest.raises(mm.ModelAdminError, match="kayaai models compare"):
+        mm.request_pull(rt, "qwen3:4b")
+
+
 # ---------------------------------------------------------------- API
 
 def test_api_model_admin_flow(fake_ollama, tmp_path, monkeypatch):
@@ -310,3 +351,8 @@ def test_cli_models(fake_ollama, tmp_path, monkeypatch, capsys):
     assert main(["models", "assign", "data", "llama31-8b"]) == 1 and "aday" in capsys.readouterr().out
     assert main(["models", "pull", "qwen3:4b"]) == 0 and "kayaai approvals approve" in capsys.readouterr().out
     assert main(["models", "assign"]) == 2
+    fake_ollama.models.append(dict(QWEN4))
+    fake_ollama.chat_replies = [_reply] * 20
+    assert main(["models", "compare", "general", "qwen3:4b"]) == 0
+    out = capsys.readouterr().out
+    assert "Aday" in out and "2/3 doğru" in out

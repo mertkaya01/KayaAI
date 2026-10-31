@@ -147,6 +147,70 @@ def _installed_names(rt: "Runtime") -> list[dict[str, Any]]:
         raise ModelAdminError(f"Ollama'ya ulaşılamadı: {exc}") from exc
 
 
+def find_key(rt: "Runtime", ref: str) -> str | None:
+    """Kayıt anahtarı ya da Ollama adı ('qwen3-4b' ≡ 'qwen3:4b') → kayıt anahtarı (yoksa None)."""
+    ref = (ref or "").strip()
+    if ref in rt.registry.models:
+        return ref
+    return rt.registry.key_for_name(ref.lower())
+
+
+def _slug(name: str) -> str:
+    return model_key_slug(name.removesuffix(":latest"))
+
+
+def _pending_pull(rt: "Runtime", ref: str) -> str | None:
+    assert rt.permissions is not None
+    for a in rt.permissions.list_approvals("pending"):
+        if a.action.tool == "model.pull" and _slug(a.action.params.get("name", "")) == _slug(ref):
+            return a.id
+    return None
+
+
+def _not_found(rt: "Runtime", ref: str) -> ModelAdminError:
+    pending = _pending_pull(rt, ref)
+    if pending:
+        return ModelAdminError(f"'{ref}' henüz inmedi: indirme sahip onayı bekliyor → kayaai approvals approve {pending}")
+    example = ref if ":" in ref else "<ad:etiket> (ör. qwen3:4b)"
+    return ModelAdminError(f"'{ref}' ne kayaAI'de kayıtlı ne de Ollama'da kurulu. Önce indir: kayaai models pull {example} "
+                           f"(sahip onayı gerekir) ya da Modeller → Yeni model indir")
+
+
+def resolve_candidate(rt: "Runtime", ref: str) -> str:
+    """Karşılaştırma adayı: kayıtlıysa anahtarı; Ollama'da kurulu ama kayıtsızsa (ör. `ollama pull` ile indirilmiş)
+    yerel kayda **aday** olarak ekler (indirme yok, ajana atanamaz); hiçbiri değilse ne yapılacağını söyleyen hata."""
+    key = find_key(rt, ref)
+    if key:
+        return key
+    inst = next((m for m in _installed_names(rt)
+                 if m.get("name") and (_match(ref.strip().lower(), [m]) or _slug(m["name"]) == _slug(ref))), None)
+    if inst is None:
+        raise _not_found(rt, ref)
+    name = inst["name"]
+    key = _slug(name)
+    while key in rt.registry.models:  # başka bir modelin anahtarıyla çakışmasın
+        key += "-x"
+    _add_local_model(rt, key, {"name": name, "purpose": "Ollama'da kuruluydu; karşılaştırma için aday olarak eklendi",
+                               "keep_alive": "10m", "approx_vram_gb": _gb(inst.get("size")), "license": "kontrol et",
+                               "status": "candidate"})
+    rt.store.emit("model.registered", {"key": key, "name": name, "status": "candidate"})
+    return key
+
+
+def _known_key(rt: "Runtime", ref: str) -> str:
+    key = find_key(rt, ref)
+    if key:
+        return key
+    try:
+        installed = _match(ref.strip().lower(), _installed_names(rt))
+    except ModelAdminError:
+        installed = None
+    if installed:
+        raise ModelAdminError(f"'{ref}' Ollama'da kurulu ama kayaAI'de kayıtlı değil; önce karşılaştır: "
+                              f"kayaai models compare <ajan> {installed['name']}")
+    raise _not_found(rt, ref)
+
+
 def request_load(rt: "Runtime", name: str, unload: bool = False, requested_by: str = "user") -> SubmitResult:
     if not _match(name, _installed_names(rt)):
         raise ModelAdminError(f"Model kurulu değil: {name}")
@@ -167,9 +231,8 @@ def request_agent_model(rt: "Runtime", agent: str, key: str, requested_by: str =
     d = getattr(rt.workers.get(agent), "definition", None)
     if d is None:
         raise ModelAdminError(f"{agent} tanımlı bir ajan değil")
-    spec = rt.registry.models.get(key)
-    if spec is None:
-        raise ModelAdminError(f"Kayıtlı model değil: {key}")
+    key = _known_key(rt, key)
+    spec = rt.registry.get(key)
     if spec.status != "active":
         raise ModelAdminError(f"'{key}' aday model; önce karşılaştırıp aktif yap (Modeller → Karşılaştır)")
     if key == rt.settings.memory.embed_model:
@@ -194,7 +257,7 @@ def request_pull(rt: "Runtime", name: str, requested_by: str = "user") -> Submit
     if not MODEL_NAME.match(name):
         raise ModelAdminError("Geçersiz model adı (ör. qwen3:4b, llama3.2:3b)")
     if _match(name, _installed_names(rt)):
-        raise ModelAdminError(f"Zaten kurulu: {name}")
+        raise ModelAdminError(f"Zaten kurulu: {name} — karşılaştırmak için: kayaai models compare <ajan> {name}")
     return _submit(rt, ToolAction(
         tool="model.pull", params={"name": name}, risk=Risk.R2,
         summary=f"Yeni model indir: {name} (Ollama kütüphanesinden)",
@@ -206,9 +269,8 @@ def request_pull(rt: "Runtime", name: str, requested_by: str = "user") -> Submit
 def request_activate(rt: "Runtime", key: str, requested_by: str = "user") -> SubmitResult:
     from .compare import list_compares
 
-    spec = rt.registry.models.get(key)
-    if spec is None:
-        raise ModelAdminError(f"Kayıtlı model değil: {key}")
+    key = _known_key(rt, key)
+    spec = rt.registry.get(key)
     if spec.status == "active":
         raise ModelAdminError(f"'{key}' zaten aktif")
     done = [c for c in list_compares(rt) if c.get("candidate") == key and c.get("status") == "done"]

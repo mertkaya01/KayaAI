@@ -163,8 +163,12 @@ def start_compare(rt: "Runtime", agent: str, candidate_key: str) -> dict[str, An
     d = rt.workers.get(agent).definition  # type: ignore[attr-defined]
     if d.output != "answer":
         raise CompareError("Yalnızca cevap üreten ajanlar karşılaştırılabilir (planlayıcı/gözden geçirici değil)")
-    if candidate_key not in rt.registry.models:
-        raise CompareError(f"Kayıtlı model değil: {candidate_key}")
+    from .manager import ModelAdminError, resolve_candidate
+
+    try:
+        candidate_key = resolve_candidate(rt, candidate_key)  # anahtar ya da Ollama adı; kurulu+kayıtsız → aday
+    except ModelAdminError as exc:
+        raise CompareError(str(exc)) from exc
     if candidate_key == d.local_model:
         raise CompareError("Aday, ajanın şu anki modeliyle aynı")
     if candidate_key == rt.settings.memory.embed_model:

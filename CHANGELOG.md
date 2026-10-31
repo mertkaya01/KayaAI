@@ -2,6 +2,17 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.11.1] - 2026-10-31
+
+### Düzeltildi (Windows geri bildirimi)
+- `kayaai models compare data qwen3-4b` → "Kayıtlı model değil" hatası. Model `ollama pull` ile kayaAI dışında
+  indirildiyse (Ollama'da kurulu, kayaAI kaydında yok) karşılaştırma artık onu **aday** olarak kaydedip çalışır
+  (indirme yok; aday ajana atanamaz kuralı aynı).
+- Model komutları anahtar **ya da** Ollama adı kabul eder (`qwen3-4b` ≡ `qwen3:4b`): compare, assign, activate.
+- Anlaşılır hatalar: indirme onay bekliyorsa `kayaai approvals approve <id>`; hiç kurulu değilse `kayaai models pull …`;
+  `kayaai models` listesi kayıtsız modeller için karşılaştırma komutunu gösterir.
+- Modeller → Karşılaştır: kurulu kayıtsız modeller de aday olarak seçilebilir.
+
 ## [0.11.0] - 2026-10-31
 
 ### Eklendi (Adım 11 — görsel iş akışı + model yönetimi)

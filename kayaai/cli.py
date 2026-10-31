@@ -259,7 +259,7 @@ def cmd_models(args: argparse.Namespace) -> int:
                 return _print_model_submit(res, f"{args.name} {'bellekten çıkarıldı' if args.action == 'unload' else 'belleğe yüklendi'}")
             if args.action == "assign":
                 if not args.name or not args.model:
-                    _print("Kullanım: kayaai models assign <ajan> <model-anahtarı>  (ör. data coder-7b)")
+                    _print("Kullanım: kayaai models assign <ajan> <model>  (anahtar ya da Ollama adı, ör. data coder-7b)")
                     return 2
                 return _print_model_submit(mm.request_agent_model(rt, args.name, args.model, requested_by="cli"), "Atandı")
             if args.action == "activate":
@@ -269,7 +269,7 @@ def cmd_models(args: argparse.Namespace) -> int:
                 return _print_model_submit(mm.request_activate(rt, args.name, requested_by="cli"), "Aktif")
             if args.action == "compare":
                 if not args.name or not args.model:
-                    _print("Kullanım: kayaai models compare <ajan> <aday-model-anahtarı>")
+                    _print("Kullanım: kayaai models compare <ajan> <aday>  (anahtar ya da Ollama adı, ör. data qwen3:4b)")
                     return 2
                 _print(f"Karşılaştırılıyor: {args.name} ajanı, mevcut model ↔ {args.model} (birkaç dakika sürebilir)...")
                 rec = start_compare(rt, args.name, args.model)
@@ -302,8 +302,11 @@ def cmd_models(args: argparse.Namespace) -> int:
                    f"lisans: {m['license'] or '-'}  kullanan: {', '.join(m['agents']) or '-'}")
             if m["purpose"]:
                 _print(f"{'':<14} {m['purpose']}")
+            if m["status"] == "unregistered":
+                _print(f"{'':<14} kayaAI kaydında yok (Ollama'da kurulu). Karşılaştırmak için: "
+                       f"kayaai models compare <ajan> {m['name']}")
         _print("\nKomutlar: kayaai models load|unload <ad> · assign <ajan> <anahtar> · pull <ad> · "
-               "compare <ajan> <aday> · activate <anahtar>")
+               "compare <ajan> <aday> · activate <model>  (model: anahtar ya da Ollama adı, ör. qwen3:4b)")
     return 0
 
 

@@ -191,9 +191,11 @@ function Compare({ data, act, progress, onStarted }: {
   const agents = data.agents.filter((a) => a.output === "answer");
   const [agent, setAgent] = useState(agents[0]?.name ?? "");
   const current = agents.find((a) => a.name === agent)?.model_key;
-  const cands = data.models.filter((m) => m.key && m.installed && !m.embedding && m.key !== current);
+  // Kayıtsız (ör. `ollama pull` ile kurulmuş) modeller de seçilebilir: sunucu onları aday olarak kaydeder.
+  const cands = data.models.filter((m) => m.installed && !m.embedding && m.key !== current && !(m.key === null && /embed|bge/.test(m.name)));
+  const value = (m: ModelRow) => m.key ?? m.name;
   const [cand, setCand] = useState("");
-  const candidate = cands.some((c) => c.key === cand) ? cand : cands[0]?.key ?? "";
+  const candidate = cands.some((c) => value(c) === cand) ? cand : (cands[0] ? value(cands[0]) : "");
   const running = data.compares.find((c) => c.status === "running");
   const [error, setError] = useState<string | null>(null);
 
@@ -212,7 +214,7 @@ function Compare({ data, act, progress, onStarted }: {
       <div className="compare-form">
         <label>Ajan <select value={agent} onChange={(e) => setAgent(e.target.value)}>{agents.map((a) => <option key={a.name}>{a.name}</option>)}</select></label>
         <label>Aday <select value={candidate} onChange={(e) => setCand(e.target.value)}>
-          {cands.map((c) => <option key={c.key} value={c.key!}>{c.name}{c.status === "candidate" ? " (aday)" : ""}</option>)}
+          {cands.map((c) => <option key={value(c)} value={value(c)}>{c.name}{c.status === "candidate" ? " (aday)" : c.status === "unregistered" ? " (kayıtsız)" : ""}</option>)}
         </select></label>
         <button disabled={!agent || !candidate || !!running || act.busy !== null} onClick={() => void start()}>Karşılaştır</button>
       </div>
