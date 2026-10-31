@@ -2,6 +2,15 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.2.2] - 2026-10-31
+
+### Doğrulandı (Windows, gerçek model)
+- Kabul testi #5: Claude Code → MCP `kayaai_ask` → qwen3:8b; görevler `kayaai tasks` geçmişinde
+- Dil eşleşmesi 6/6 (v0.1.1 düzeltmesi), MCP sağlık kontrolünde GPU görünüyor
+
+### Düzeltildi
+- Smoke: model zaten VRAM'deyse ilk çağrı artık "soğuk başlangıç" olarak etiketlenmiyor
+
 ## [0.2.1] - 2026-10-31
 
 Windows'taki gerçek test çalıştırmasında bulunan hatalar.

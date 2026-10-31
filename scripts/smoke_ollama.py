@@ -105,6 +105,8 @@ def main() -> int:
 
     # #1 Yerel LLM yanıt veriyor (ham sohbet, ilk çağrı modeli yükler)
     def t1() -> dict[str, Any]:
+        # Gerçek soğuk başlangıç mı? Model zaten VRAM'deyse (ör. başka bir uygulama yüklediyse) değildir.
+        already_loaded = any(m.get("name") == spec.name for m in rt.llm.running_models())
         res = rt.llm.chat(
             spec.name,
             [{"role": "user", "content": "Türkiye'nin başkenti neresidir? Sadece şehir adını yaz."}],
@@ -115,7 +117,7 @@ def main() -> int:
         return {
             "passed": "ankara" in res.content.lower(),
             "answer": res.content.strip()[:200],
-            "cold_start": True,  # ilk çağrı: model diskten VRAM'e yüklenir + GPU ısınması
+            "cold_start": not already_loaded,  # True: model bu çağrıda diskten VRAM'e yüklendi
             **res.metrics(),
         }
 
@@ -130,6 +132,7 @@ def main() -> int:
                 options=spec.ollama_options(), think=spec.think, keep_alive=spec.keep_alive,
             )
             report.data["latency"] = {
+                "first_call_was_cold": report.data["acceptance"]["#1"].get("cold_start"),
                 "cold_total_s": report.data["acceptance"]["#1"].get("total_duration_s"),
                 "cold_load_s": report.data["acceptance"]["#1"].get("load_duration_s"),
                 "warm_total_s": round(warm.total_duration_s, 3),

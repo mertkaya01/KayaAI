@@ -140,7 +140,7 @@ sunucusu olarak Claude Code'a açılır, Faz 4'te FastAPI + web arayüzü ekleni
 |---|---|---|
 | 0 | Ortam denetimi, mimari, rapor | **Tamamlandı** — Windows'ta doğrulandı |
 | 1 | Ollama + Python çekirdeği, görev yöneticisi, worker registry | **Tamamlandı** — kabul testleri #1-4, #13 geçti |
-| 2 | MCP sunucusu: Claude Code yerel worker'ları çağırır | Devam ediyor |
+| 2 | MCP sunucusu: Claude Code yerel worker'ları çağırır | **Tamamlandı** — kabul testi #5 geçti |
 | 3 | Uzman worker'lar, delegasyon, doğrulama | |
 | 4 | Masaüstü/web arayüzü | |
 | 5 | Ekran zekası (yakalama, OCR, görsel model) | |

@@ -58,6 +58,8 @@ Faz 10'da genişletilecek: kodlama, uzun bağlam, Türkçe-İngilizce çeviri ka
    tok/sn raporlanmıyor, soğuk ve sıcak gecikme ayrı ölçülüyor.
 4. `confidence` her cevapta 0.9–1.0: modelin öz-güven değeri kalibre değil, karar verirken kullanılmamalı.
 
+| 2026-10-31 | qwen3:8b (v0.2.1 kodu) | RTX 5070 Ti | **~137** | 6/6 | **6/6** | 5.86 GB, %100 GPU | Dil düzeltmesi doğrulandı; doğrulama tekrarı gerekmedi |
+
 ## Model değiştirme
 
 1. `ollama pull <etiket>`

@@ -11,7 +11,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 |---|---|---|
 | 0 | Ortam denetimi + mimari + teknik rapor | **Tamamlandı** (Windows 11, RTX 5070 Ti) |
 | 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | **Tamamlandı** — qwen3:8b ~138 token/sn, %100 GPU |
-| 2 | MCP sunucusu: Claude Code yerel modeli araç olarak çağırır | Kod + testler hazır — **Claude Code ile doğrulama bekleniyor** |
+| 2 | MCP sunucusu: Claude Code yerel modeli araç olarak çağırır | **Tamamlandı** — Claude Code → `kayaai_ask` → qwen3:8b doğrulandı |
 | 3+ | Çoklu worker, arayüz, ekran, ses, otomasyon, hafıza, iş ajanları | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)

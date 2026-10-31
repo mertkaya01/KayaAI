@@ -19,7 +19,7 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [x] Orkestratör: delegasyon, doğrulama, retry, timeout, iptal, onay, bağımlılıklar
 - [x] CLI: doctor / ask / tasks / task / models / audit
 - [x] Gerçek yerel çıkarım testi (`scripts/smoke_ollama.py`)
-- [~] Dil tutarlılığı düzeltmesi (v0.1.1) — birim testli; smoke ile tekrar ölçülecek
+- [x] Dil tutarlılığı düzeltmesi (v0.1.1) — Windows'ta dil eşleşmesi 6/6 (önce 3/5)
 
 ## Kabul testleri (MASTER_PROMPT §20)
 | # | Test | Durum |
@@ -28,7 +28,7 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 2 | Python ↔ Ollama | [x] Ollama 0.33.3 |
 | 3 | Orkestratör görevi worker'a delege ediyor | [x] |
 | 4 | Worker doğrulanmış yapılandırılmış çıktı döndürüyor | [x] |
-| 5 | Claude Code MCP ile yerel araçlara erişiyor | [~] sunucu hazır, Claude Code ile doğrulama bekleniyor |
+| 5 | Claude Code MCP ile yerel araçlara erişiyor | [x] 2026-10-31 — Claude Code `kayaai_ask` → qwen3:8b, görev geçmişinde doğrulandı |
 | 6 | PDF okunup özetleniyor | [ ] |
 | 7 | Excel analiz ediliyor | [ ] |
 | 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [ ] Faz 5 |
@@ -42,11 +42,12 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [x] Yerel MCP sunucusu (stdio) — SDK istemcisiyle gerçek alt süreç testi geçti (sahte Ollama)
 - [x] Güvenli görev araçları (yalnızca llm.inference, girdi sınırları, hata = is_error)
 - [x] Yapılandırılmış iletişim (outputSchema + structuredContent) testli
-- [~] `scripts/mcp_check.py` gerçek modelle — Windows'ta çalıştırılacak
-- [~] `mcp_setup.ps1` (.mcp.json üretimi) — Windows'ta çalıştırılmadı
-- [~] Claude Code yerel worker'ları çağırabiliyor (kabul testi #5) — kullanıcı doğrulaması bekleniyor
+- [x] `scripts/mcp_check.py` gerçek modelle — Windows'ta geçti (GPU tespiti v0.2.1'de düzeltildi)
+- [x] `mcp_setup.ps1` (.mcp.json üretimi) — Windows'ta çalıştı
+- [x] Claude Code yerel worker'ları çağırabiliyor (kabul testi #5)
+- [ ] Claude'un yerel modeli ne zaman kendiliğinden kullanacağı (yönlendirme kuralları, `CLAUDE.md`) — mimari raporda
 
 ## Sıradaki adımlar
-1. Kullanıcı: `git pull` → `setup.ps1` → `smoke.ps1` (dil düzeltmesi ölçümü) → `mcp_setup.ps1` → Claude Code'da `/mcp` ve `kayaai_ask` denemesi.
-2. Raporlar: `data\smoke_report.json`, `data\mcp_check.json`, `data\audit_windows.json` (CUDA satırı kontrolü).
-3. Faz 3: uzman worker'lar; qwen2.5-coder:7b ve llama3.1:8b benchmark.
+1. "Architecture & UI Design" fazı: repo denetimi + mimari + UI önerisi + yol haritası (kod değişikliği yok).
+   Alınan kararlar: Claude (Pro, Claude Code) en üstte — Opus şef, Sonnet/Haiku alt ajanlar; geri kalan her şey yerel ve 0 TL.
+2. Karar soruları tek tek: sıradaki frontend teknolojisi.
