@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 
 /** Basit yönlendirme (History API): "/" Kontrol Merkezi, "/asistan[/<sohbet-id>]" Asistan. Sunucu SPA'ya düşürür. */
-export type Route = { page: "control" } | { page: "chat"; convId: string | null };
+export type Route = { page: "control" } | { page: "memory" } | { page: "chat"; convId: string | null };
 
 export function parseRoute(pathname: string): Route {
   const m = /^\/asistan(?:\/([A-Za-z0-9]+))?\/?$/.exec(pathname);
   if (m) return { page: "chat", convId: m[1] ?? null };
+  if (/^\/hafiza\/?$/.test(pathname)) return { page: "memory" };
   return { page: "control" };
 }
 
 export function routePath(r: Route): string {
-  return r.page === "chat" ? `/asistan${r.convId ? `/${r.convId}` : ""}` : "/";
+  if (r.page === "chat") return `/asistan${r.convId ? `/${r.convId}` : ""}`;
+  return r.page === "memory" ? "/hafiza" : "/";
 }
 
 export function useRoute(): [Route, (r: Route) => void] {

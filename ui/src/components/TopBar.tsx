@@ -60,6 +60,9 @@ export function TopBar({
           <button aria-selected={route.page === "chat"} onClick={() => onNavigate({ page: "chat", convId: route.page === "chat" ? route.convId : null })}>
             Asistan
           </button>
+          <button aria-selected={route.page === "memory"} onClick={() => onNavigate({ page: "memory" })}>
+            Hafıza
+          </button>
           <button aria-selected={route.page === "control"} onClick={() => onNavigate({ page: "control" })}>
             Kontrol Merkezi
           </button>

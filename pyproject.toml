@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kayaai"
-version = "0.8.0"
+version = "0.9.1"
 description = "kayaAI - yerel, çok-ajanlı kişisel yapay zeka sistemi"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,6 +17,7 @@ dependencies = [
     "fastapi>=0.115,<1",
     "websockets>=13,<18",
     "psutil>=6,<8",
+    "numpy>=1.26,<3",
 ]
 
 [project.optional-dependencies]

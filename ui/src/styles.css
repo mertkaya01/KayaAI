@@ -180,6 +180,28 @@ button.danger { color: var(--bad); }
 .composer-bar select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
 .hint { font-size: 12px; }
 .chat-side h2 { font-size: 14px; }
+.chat-side button { margin-bottom: 16px; }
+
+/* Hafıza (Adım 9) */
+.mem-input { font: inherit; width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; }
+.mem-list, .doc-list, .side-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mem-item { background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.mem-item.sens-private { border-left-color: var(--warn); }
+.mem-item.sens-secret { border-left-color: var(--bad); }
+.mem-text { margin: 0 0 6px; white-space: pre-wrap; }
+.mem-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.mem-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mem-edit textarea { flex: 1 1 100%; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.badge.sens-private { color: var(--warn); border-color: var(--warn); }
+.badge.sens-secret { color: var(--bad); border-color: var(--bad); }
+.doc-list li { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; border-bottom: 1px solid var(--line); padding: 4px 0; }
+.doc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.found p { margin: 6px 0; font-size: 13px; }
+.recall { margin-top: 8px; font-size: 12px; }
+.recall details ul { margin: 4px 0 0; padding-left: 18px; }
+.user-actions { justify-content: flex-end; margin-top: 4px; }
+.side-list li { font-size: 12px; color: var(--muted); }
 
 /* Markdown */
 .md { overflow-wrap: anywhere; }

@@ -106,8 +106,20 @@ sohbetten devretme Claude kutusu üzerinden (arka planda `claude -p` yok).
   sonrası geçmiş, Claude'a devret → başka süreçten tamamlama → sohbette, dar ekran); Windows (2026-10-31): gerçek
   sohbet, otomatik yönlendirme (general / data), data cevabı gözden geçirildi + düzeltildi, doğru hesap
 
+## Adım 9 — Hafıza (kişisel hafıza + belge araması)
+Sahip kararları (2026-10-31): SQLite + bge-m3 (Ollama, MIT); v1 kapsamı kişisel hafıza + belge araması (RAG).
+- [x] Kişisel hafıza: kategori + hassasiyet, gizli bilgi tespiti (açık izinsiz saklanmaz), Claude önerileri onaylı,
+  `hatırla:` komutu + "Hafızaya ekle", düzenle/sil/dışa aktar; anlam (numpy) + kelime (FTS5) araması
+- [x] Belge araması: izinli klasörler, artımlı dizin, gizli dosya/parça atlama, kaynak gösterme (`dosya:satır`)
+- [x] Sohbette otomatik hatırlama (yerel: özel dahil; Claude'a: yalnız kişisel/herkese açık, belge yok);
+  Hafıza sekmesi; `kayaai memory`; MCP `kayaai_memory_search` / `kayaai_memory_propose`; doctor + setup bge-m3
+- Testler: Python 297, Vitest 12, Playwright (Adım 9 akışı 15 kontrol); Windows `memory_check` (2026-10-31, gerçek bge-m3):
+  hafıza 10/10, belge 10/10; hafıza ilgili 0.655–0.831 / ilgisiz ≤0.541, belge ilgili 0.553–0.679 / ilgisiz ≤0.389 →
+  v0.9.1'de tür başına eşik (hafıza 0.60, belge 0.50); betiğin tek eşik önerisi yanlış etiketliyordu, düzeltildi
+- Riskler: benzerlik eşiği (gerçek bge-m3 ile ölçülecek); büyük klasörlerde ilk dizinleme süresi (artımlı, sınırlı)
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 7 tamamlandı (2026-10-31). Şu an: Adım 8 Windows doğrulaması → Adım 9 (hafıza: yerel embedding + RAG).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 8 tamamlandı (2026-10-31). Şu an: Adım 9 Windows doğrulaması → Adım 10 (iş modülleri: PDF/Excel).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

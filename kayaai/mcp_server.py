@@ -416,6 +416,40 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
                          permissions=list(d.permissions), status=d.status, base=d.base)
 
     @server.tool(
+        name="kayaai_memory_search",
+        description=(
+            "Search the owner's local memory (preferences, decisions, project notes) for items relevant to a query. "
+            "Only public/personal items are returned: private and secret items and the owner's local documents are "
+            "never sent to Claude."
+        ),
+    )
+    def kayaai_memory_search(query: str) -> dict[str, Any]:
+        query = _check_text("query", query)
+        res = rt().memory.recall(query, for_claude=True)
+        return {"memories": [{"text": m["text"], "category": m["category"]} for m in res.memories],
+                "note": "Özel/gizli öğeler ve yerel belgeler Claude'a verilmez."}
+
+    @server.tool(
+        name="kayaai_memory_propose",
+        description=(
+            "Propose a fact for the owner's long-term memory (e.g. a decision or preference they stated). It is stored "
+            "as a PROPOSAL and used only after the owner approves it. Never propose passwords, keys or secrets."
+        ),
+    )
+    def kayaai_memory_propose(
+        text: str,
+        category: Literal["preference", "project", "decision", "instruction", "file", "note"] = "note",
+    ) -> dict[str, Any]:
+        from .memory import MemoryError as MemError
+
+        try:
+            item, _ = rt().memory.book.propose(_check_text("text", text)[:1000], category=category, source="claude")
+        except MemError as exc:
+            raise ToolError(str(exc)) from exc
+        return {"id": item.id, "status": item.status,
+                "note": "Öneri kaydedildi; sahip Hafıza ekranından onaylayınca kullanılır."}
+
+    @server.tool(
         name="kayaai_disputes",
         description=(
             "List open disagreements between kayaAI agents (a producer disputed a reviewer's issue). Read-only: "

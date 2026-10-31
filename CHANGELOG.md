@@ -2,6 +2,37 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.9.1] - 2026-10-31
+
+### Değişti
+- Tek benzerlik eşiği yerine tür başına eşik: `memory.min_score_memory: 0.60`, `memory.min_score_docs: 0.50`
+  (Windows ölçümü, gerçek bge-m3: hafıza ilgili ≥0.655 / ilgisiz ≤0.541; belge ilgili ≥0.553 / ilgisiz ≤0.389).
+  Eski `min_score` ayarı okunursa ikisine uygulanır.
+
+### Düzeltildi
+- `memory_check` eşik önerisi yanlış etiketliyordu (hafıza sorusunda dönen ilgili belge parçasını "ilgisiz" sayıyordu →
+  0.62 önerdi). Artık yalnızca beklenen öğe ilgili; tür başına öneri; süre embedding / arama olarak ayrı ölçülür.
+
+### Doğrulandı (Windows, v0.9.0)
+- `memory_check`: hafıza 10/10, belge 10/10, ortalama 910 ms (bazı sorgular ~2 sn — v0.9.1 ölçümü kaynağını gösterecek)
+
+## [0.9.0] - 2026-10-31
+
+### Eklendi (Adım 9 — hafıza; sahip kararı: SQLite + bge-m3)
+- `kayaai/memory/`: kişisel hafıza (`MemoryBook`: kategori, hassasiyet, öneri/onay), belge dizini (`DocumentIndex`:
+  izinli klasörler, artımlı, satır sınırında parçalama), gizli bilgi tespiti (`secrets.py`), yerel vektörler
+  (Ollama `/api/embed`, numpy) + FTS5 kelime araması; `Memory.recall(query, for_claude)`
+- Sohbette: `hatırla: …` komutu, mesajda "Hafızaya ekle", her soruda ilgili hafıza + belge parçaları bağlama eklenir,
+  cevapta Kaynaklar (`dosya:satır`) ve kullanılan hafıza; Claude'a devretmede özel öğeler ve belgeler gitmez
+- Arayüzde **Hafıza** sekmesi: ekle (elle / otomatik sınıflandır / gizli olarak), öneriler (onayla), liste (süz, düzenle,
+  sil, gizliyi tek tek göster), JSON dışa aktarma, belge dizini (Şimdi dizinle, durum), hafızada ara
+- API: `/api/memory` (+ `from-text`, `{id}`, `approve`, `reveal`), `/api/memory-export`, `/api/memory-search`,
+  `/api/documents`, `/api/documents/index`; olaylar `memory.added|updated|deleted|indexed|revealed`
+- CLI `kayaai memory [list|add|rm|approve|search|index|status|export]`; MCP `kayaai_memory_search` (özel/gizli/belge
+  yok), `kayaai_memory_propose` (öneri); `config/models.yaml` → `embed-m3: bge-m3`; `memory:` ayarları
+- `kayaai doctor` ve `setup.ps1` bge-m3'ü kontrol eder / indirmeyi sorar; `scripts/memory_check.py` (eşik ölçümü)
+- Bağımlılık: `numpy` (vektör araması)
+
 ## [0.8.0] - 2026-10-31
 
 ### Eklendi (Adım 8 — Asistan çalışma alanı v1)

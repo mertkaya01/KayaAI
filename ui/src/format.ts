@@ -39,6 +39,22 @@ export const APPROVAL_STATUS_LABEL: Record<string, string> = {
   failed: "Çalıştırılamadı",
 };
 
+export const MEM_CATEGORY_LABEL: Record<string, string> = {
+  preference: "tercih",
+  project: "proje",
+  decision: "karar",
+  instruction: "talimat",
+  file: "dosya",
+  note: "not",
+};
+
+export const SENSITIVITY_LABEL: Record<string, string> = {
+  public: "herkese açık",
+  personal: "kişisel",
+  private: "özel",
+  secret: "gizli",
+};
+
 export const DISPUTE_RESOLUTION_LABEL: Record<string, string> = {
   producer: "üretici haklı bulundu",
   reviewer: "gözden geçirici haklı bulundu",
@@ -74,6 +90,14 @@ export function describeEvent(e: KEvent): string {
       return `Araç başarısız: ${d.tool} — ${d.error}`;
     case "claude.mode":
       return d.enabled ? "Claude modu açıldı" : "Claude modu kapatıldı";
+    case "memory.added":
+      return `Hafızaya eklendi (${MEM_CATEGORY_LABEL[String(d.category)] ?? d.category}, ${SENSITIVITY_LABEL[String(d.sensitivity)] ?? d.sensitivity})${d.status === "proposed" ? " — onay bekliyor" : ""}`;
+    case "memory.updated":
+      return d.status === "active" ? "Hafıza önerisi onaylandı" : "Hafıza öğesi güncellendi";
+    case "memory.deleted":
+      return "Hafıza öğesi silindi";
+    case "memory.indexed":
+      return `Belgeler dizinlendi: ${d.indexed} dosya işlendi, toplam ${d.chunks} parça${d.embed_available ? "" : " (anlam araması yok: bge-m3 kurulu değil)"}`;
     case "agent.created":
       return `Yeni geçici ajan: ${d.name} (temel: ${d.base}, oluşturan: ${d.created_by})`;
     case "agent.promoted":

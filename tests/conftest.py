@@ -26,11 +26,28 @@ from kayaai.workers import default_workers
 Handler = Callable[[dict[str, Any]], tuple[int, Any]]
 
 
+def fake_embedding(text: str, dim: int = 64) -> list[float]:
+    """Deterministik "anlam" vektörü: kelime köklerinin (ilk 5 harf) karma torbası. Ortak kelime → yüksek benzerlik."""
+    import hashlib
+    import math
+    import re
+
+    vec = [0.0] * dim
+    for w in re.findall(r"\w+", text.lower()):
+        if len(w) < 3:
+            continue
+        h = int(hashlib.md5(w[:5].encode()).hexdigest(), 16)
+        vec[h % dim] += 1.0
+    norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+    return [v / norm for v in vec]
+
+
 class FakeOllama:
     def __init__(self) -> None:
         self.requests: list[tuple[str, str, Any]] = []
         self.chat_replies: list[Any] = []  # sırayla tüketilir: str içerik | (status, body) | callable
-        self.models = [{"name": "qwen3:8b", "model": "qwen3:8b", "size": 5_200_000_000}]
+        self.models = [{"name": "qwen3:8b", "model": "qwen3:8b", "size": 5_200_000_000},
+                       {"name": "bge-m3", "model": "bge-m3", "size": 1_200_000_000}]
         self.chat_delay_s = 0.0
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler_class())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -61,6 +78,10 @@ class FakeOllama:
             return 200, {"models": self.models}
         if path == "/api/ps":
             return 200, {"models": []}
+        if path == "/api/embed":
+            if body.get("model") not in {m["name"] for m in self.models}:
+                return 404, {"error": f"model \"{body.get('model')}\" not found, try pulling it first"}
+            return 200, {"model": body["model"], "embeddings": [fake_embedding(t) for t in body["input"]]}
         if path == "/api/chat":
             if self.chat_delay_s:
                 import time

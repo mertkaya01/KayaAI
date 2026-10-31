@@ -219,7 +219,12 @@ export interface ChatMessage {
   handoff: boolean;
   attachments: AttachmentRef[];
   warnings: string[];
+  recall?: {
+    memories?: { id: string; text: string; category: string; sensitivity: string }[];
+    sources?: { path: string; name: string; line: number }[];
+  };
   meta: {
+    memory_saved?: string;
     agents?: string[];
     model?: string | null;
     routing?: string | null;
@@ -234,4 +239,46 @@ export interface ChatMessage {
 export interface ConversationView {
   conversation: Conversation;
   messages: ChatMessage[];
+}
+
+// ---------------------------------------------------------------- Hafıza (Adım 9)
+
+export type MemCategory = "preference" | "project" | "decision" | "instruction" | "file" | "note";
+export type Sensitivity = "public" | "personal" | "private" | "secret";
+
+export interface MemoryItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  text: string;
+  category: MemCategory;
+  sensitivity: Sensitivity;
+  status: "active" | "proposed";
+  source: string;
+  conv_id: string | null;
+  embedded: boolean;
+  secret_kinds: string[];
+  masked?: boolean;
+}
+
+export interface DocInfo {
+  id: string;
+  path: string;
+  root: string;
+  size: number;
+  chunks: number;
+  skipped_secret_chunks: number;
+  embedded: boolean;
+  indexed_at: string;
+}
+
+export interface DocumentsView {
+  status: { roots: string[]; documents: number; chunks: number; not_embedded: number; last_indexed: string | null; embed_model: string };
+  documents: DocInfo[];
+}
+
+export interface RecallView {
+  memories: { id: string; text: string; category: string; sensitivity: string; score: number }[];
+  documents: { chunk_id: string; path: string; name: string; line: number; text: string; score: number }[];
+  warnings: string[];
 }

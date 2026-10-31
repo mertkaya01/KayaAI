@@ -28,8 +28,11 @@ class Runtime:
     permissions: PermissionEngine | None = None
     files: "FileTools | None" = None  # noqa: F821 - aşağıda import edilir
     disputes: DisputeBook | None = None
+    memory: "Memory | None" = None  # noqa: F821 - Adım 9
 
     def close(self) -> None:
+        if self.memory is not None:
+            self.memory.close()
         self.llm.close()
         self.store.close()
 
@@ -71,4 +74,10 @@ def build_runtime(
     permissions.executors["agent.promote"] = lambda params: exec_promote(rt, params)
     if load_user_agents:
         sync_user_agents(rt)  # data/agents: sonradan oluşturulan (geçici / kalıcı yapılmış) ajanlar
+    from .memory import Memory
+    from .memory.classify import MemoryClassifierWorker
+
+    if "memory.classify" not in workers:
+        workers.register(MemoryClassifierWorker(), internal=True)
+    rt.memory = Memory(rt)
     return rt

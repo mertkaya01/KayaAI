@@ -76,6 +76,8 @@ class ChatMessage(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     context_warnings: list[str] = Field(default_factory=list)  # bağlam kesme uyarıları (iş uyarılarından ayrı)
     meta: dict[str, Any] = Field(default_factory=dict)
+    # Adım 9: bu cevap için hafızadan/belgelerden getirilenler (arayüzde "Kaynaklar" / "Kullanılan hafıza")
+    recall: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConversationView(BaseModel):
@@ -234,6 +236,13 @@ class ChatBook:
             refs.append(AttachmentRef(id=a.id, name=a.name, chars=a.chars))
         user = ChatMessage(conv_id=conv_id, role="user", content=text, agent=agent, attachments=refs)
         self._save_msg(user)
+        from ..memory import REMEMBER_RE
+
+        if (m := REMEMBER_RE.match(text)) and not refs:
+            reply, runner = self._remember(conv_id, user, m.group(1))
+            self._touch(conv, text)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": user.id, "role": "user"})
+            return user, reply, runner
         reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent=agent, reply_to=user.id)
         ctx, warnings = self.build_context(conv_id, user, refs)
         reply.warnings = reply.context_warnings = warnings
@@ -263,6 +272,51 @@ class ChatBook:
         self._touch(conv)
         return reply, runner
 
+    def _remember(self, conv_id: str, user: ChatMessage, body: str) -> tuple[ChatMessage, Callable[[], None]]:
+        """"hatırla: …" — sahibin açık isteği: not hafızaya kaydedilir (gizli bilgi reddedilir)."""
+        reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent="memory", reply_to=user.id)
+        self._save_msg(reply)
+
+        def run_remember() -> None:
+            from ..memory import remember
+
+            msg = ChatMessage.model_validate(self.store.get_message(reply.id))
+            try:
+                item, text, warnings = remember(self.rt, body, source="chat", conv_id=conv_id)
+                msg.content, msg.warnings = text, warnings
+                msg.meta = {"memory_saved": item.id} if item else {"memory_refused": True}
+                msg.status = "done"
+            except Exception as exc:  # noqa: BLE001 - mesaj her durumda kapanmalı
+                msg.content, msg.status = f"Hafızaya kaydedilemedi: {exc}", "failed"
+            self._save_msg(msg)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": msg.id, "role": "assistant",
+                                             "status": msg.status})
+        return reply, run_remember
+
+    def _recall(self, reply: ChatMessage, text: str, for_claude: bool) -> dict[str, Any]:
+        """İlgili hafıza öğeleri ve belge parçaları (Adım 9). Hata sohbeti durdurmaz."""
+        mem = self.rt.memory
+        if mem is None or not self.rt.settings.memory.recall_in_chat:
+            return {}
+        try:
+            rec = mem.recall(text, for_claude=for_claude)
+        except Exception as exc:  # noqa: BLE001
+            rec = None
+            warn = [f"Hafıza kullanılamadı: {exc}"]
+        else:
+            warn = rec.warnings
+        msg = ChatMessage.model_validate(self.store.get_message(reply.id))
+        if rec is not None:
+            msg.recall = {
+                "memories": [{"id": m["id"], "text": m["text"], "category": m["category"],
+                              "sensitivity": m["sensitivity"]} for m in rec.memories],
+                "sources": [{"path": d["path"], "name": d["name"], "line": d["line"]} for d in rec.documents],
+            }
+        msg.context_warnings = _merge(msg.context_warnings, warn)
+        msg.warnings = _merge(msg.warnings, warn)
+        self._save_msg(msg)
+        return rec.context() if rec is not None else {}
+
     def _start(self, reply: ChatMessage, text: str, agent: str, ctx: dict[str, Any],
                force: Literal["claude"] | None) -> Callable[[], None]:
         from ..conductor import Conductor
@@ -275,6 +329,10 @@ class ChatBook:
 
             def run_conductor() -> None:
                 try:
+                    extra = self._recall(reply, text, for_claude=force == "claude")
+                    if extra:
+                        job.input["context"] = {**(job.input.get("context") or {}), **extra}
+                        self.rt.store.save(job)
                     conductor.run_job(job)
                 finally:
                     self.refresh(reply, emit=True)
@@ -285,6 +343,12 @@ class ChatBook:
 
         def run_task() -> None:
             try:
+                extra = self._recall(reply, text, for_claude=False)
+                if extra:
+                    t = self.store.get(task.id)
+                    if t is not None:
+                        t.input = {**t.input, **extra}
+                        self.store.save(t)
                 self.rt.orchestrator.run(task.id)
             finally:
                 self.refresh(reply, emit=True)

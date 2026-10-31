@@ -8,7 +8,7 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
@@ -92,6 +92,42 @@ class FilesSettings(BaseModel):
     max_write_mb: float = Field(5.0, gt=0, le=50)
 
 
+class MemorySettings(BaseModel):
+    """Adım 9 — hafıza ve belge araması (sahip kararı: SQLite + bge-m3, tamamen yerel)."""
+
+    enabled: bool = True
+    embed_model: str = "embed-m3"            # config/models.yaml anahtarı
+    # Sohbette ilgili hafıza ve belge parçaları otomatik bağlama eklensin mi
+    recall_in_chat: bool = True
+    top_memories: int = Field(5, ge=0, le=20)
+    top_chunks: int = Field(4, ge=0, le=20)
+    # Kosinüs benzerliği eşikleri (bge-m3); altındaki sonuçlar "ilgisiz" sayılır. Windows ölçümü (memory_check,
+    # 2026-10-31): hafıza ilgili 0.655–0.831 / ilgisiz ≤0.541; belge ilgili 0.553–0.679 / ilgisiz ≤0.389.
+    min_score_memory: float = Field(0.60, ge=0, le=1)
+    min_score_docs: float = Field(0.50, ge=0, le=1)
+    chunk_chars: int = Field(900, ge=200, le=4000)
+    chunk_overlap: int = Field(120, ge=0, le=1000)
+    max_file_mb: float = Field(2.0, gt=0, le=50)
+    max_files: int = Field(5000, ge=1, le=100_000)
+    # Dizinlenmeyen klasör ve dosya adları (gizli bilgi taşıyabilecek dosyalar dahil)
+    skip_dirs: list[str] = Field(default_factory=lambda: [
+        ".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".idea", ".vscode"])
+    skip_files: list[str] = Field(default_factory=lambda: [
+        ".env", ".env.*", "*.key", "*.pem", "id_rsa*", "*secret*", "*password*", "*credential*", "*.kdbx"])
+
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_min_score(cls, data: Any) -> Any:
+        # v0.9.0'daki tek `min_score` ayarı (settings.local.yaml'da kalmış olabilir) iki eşiğe uygulanır
+        if isinstance(data, dict) and "min_score" in data:
+            data = dict(data)
+            legacy = data.pop("min_score")
+            data.setdefault("min_score_memory", legacy)
+            data.setdefault("min_score_docs", legacy)
+        return data
+
+
 class ApprovalSettings(BaseModel):
     # Bu süreden uzun bekleyen onay talebi geçersiz sayılır (expired).
     expire_hours: int = Field(24, ge=1, le=24 * 30)
@@ -123,6 +159,7 @@ class Settings(BaseModel):
     api: ApiSettings = Field(default_factory=ApiSettings)
     files: FilesSettings = Field(default_factory=FilesSettings)
     approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property

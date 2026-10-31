@@ -139,6 +139,13 @@ def render_claude_md(agents: list, settings: Settings) -> str:
         "oluşturabilirsin (mevcut bir ajana dayanır, ondan fazla izin alamaz). Kalıcı yapmak yalnızca kullanıcının "
         "onayıyla olur. Açık anlaşmazlıkları `kayaai_disputes` ile görebilirsin; kararı kullanıcı verir.",
         "",
+        "## Kural 3c — Hafıza",
+        "",
+        "- Kullanıcının tercihleri, kararları ve proje notları için önce `kayaai_memory_search` ile yerel hafızaya bak "
+        "(özel/gizli öğeler ve yerel belgeler sana zaten verilmez — bunu aşmaya çalışma).",
+        "- Kullanıcı kalıcı bir karar ya da tercih belirttiğinde `kayaai_memory_propose` ile öner; öneri kullanıcı "
+        "onaylayınca geçerli olur. Parola, anahtar, kimlik numarası gibi gizli bilgileri asla önerme.",
+        "",
         "## Kural 4 — Dürüstlük ve güvenlik",
         "",
         "- Araç sonucu görmeden bir işin başarılı olduğunu söyleme. Araç hata dönerse bunu kullanıcıya söyle.",

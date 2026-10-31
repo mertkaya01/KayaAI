@@ -42,6 +42,19 @@ claude:
   # Boş bırakılırsa: C:\Users\<kullanıcı>\kayaAI-workspace. kayaAI repo'sunun içinde olamaz.
   workspace_dir:
 
+memory:
+  # Adım 9 — hafıza ve belge araması (tamamen yerel). Model: config/models.yaml → embed-m3 (bge-m3)
+  enabled: true
+  embed_model: embed-m3
+  recall_in_chat: true        # sohbette ilgili hafıza/belge parçaları otomatik kullanılsın
+  top_memories: 5
+  top_chunks: 4
+  # Benzerlik eşikleri (bge-m3, Windows ölçümü 2026-10-31); scripts/memory_check.py tür başına önerir
+  min_score_memory: 0.60
+  min_score_docs: 0.50
+  chunk_chars: 900
+  chunk_overlap: 120
+
 conductor:
   # Yerel şef (`kayaai do`): en fazla adım, gözden geçirme (never | plan | always), düzeltme turu
   max_steps: 4

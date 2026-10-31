@@ -118,6 +118,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 _print(f"[OK] Model kurulu: {spec.name} (worker: {worker})")
             else:
                 _print(f"[HATA] Model kurulu değil: {spec.name} (worker: {worker}) -> çalıştırın: ollama pull {spec.name}")
+        try:  # Adım 9: hafıza modeli zorunlu değil (yoksa kelime araması), ama önerilir
+            emb = registry.get(settings.memory.embed_model)
+            if emb.name in installed or f"{emb.name}:latest" in installed:
+                _print(f"[OK] Hafıza modeli kurulu: {emb.name}")
+            else:
+                _print(f"[UYARI] Hafıza modeli kurulu değil: {emb.name} — anlam araması için: ollama pull {emb.name} "
+                       "(yoksa hafıza yalnızca kelime aramasıyla çalışır)")
+        except KeyError as exc:
+            _print(f"[UYARI] Hafıza modeli tanımlı değil: {exc}")
         for m in client.running_models():
             vram = (m.get("size_vram") or 0) / 1024**3
             total = (m.get("size") or 0) / 1024**3
@@ -542,6 +551,97 @@ def cmd_files(args: argparse.Namespace) -> int:
             return 1
 
 
+def cmd_memory(args: argparse.Namespace) -> int:
+    """Hafıza (Adım 9): kişisel notlar + belge dizini. Her şey yerel."""
+    import json as _json
+
+    from .memory import CATEGORY_LABELS, SENSITIVITY_LABELS, MemoryError as MemError, remember
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    with build_runtime(settings) as rt:
+        mem = rt.memory
+        assert mem is not None
+        try:
+            if args.action == "list":
+                items = mem.book.list()
+                if not items:
+                    _print("Hafıza boş. Eklemek için: kayaai memory add \"...\"  (ya da sohbette: hatırla: ...)")
+                for m in items:
+                    flag = " [ÖNERİ]" if m.status == "proposed" else ""
+                    text = "•••• (gizli)" if m.sensitivity == "secret" else m.text[:90]
+                    _print(f"  {m.id}  {CATEGORY_LABELS[m.category]:<8} {SENSITIVITY_LABELS[m.sensitivity]:<13}{flag} {text}")
+                return 0
+            if args.action == "add":
+                text = " ".join(args.text).strip()
+                if not text:
+                    _print("Metin gerekli: kayaai memory add \"Kahvemi şekersiz içerim\"")
+                    return 2
+                if args.category or args.sensitivity or args.secret:
+                    item, warnings = mem.book.add(text, category=args.category or "note",
+                                                  sensitivity="secret" if args.secret else (args.sensitivity or "personal"),
+                                                  source="owner", allow_secret=args.secret)
+                    _print(f"[OK] Kaydedildi: {item.id} ({CATEGORY_LABELS[item.category]} · {SENSITIVITY_LABELS[item.sensitivity]})")
+                else:
+                    item, message, warnings = remember(rt, text, source="owner")
+                    _print(("[OK] " if item else "[REDDEDİLDİ] ") + message.replace("*", ""))
+                for w in warnings:
+                    _print(f"[UYARI] {w}")
+                return 0 if item else 1
+            if args.action in ("rm", "approve"):
+                if not args.text:
+                    _print(f"Öğe numarası gerekli: kayaai memory {args.action} <id>")
+                    return 2
+                if args.action == "rm":
+                    mem.book.delete(args.text[0])
+                    _print(f"[OK] Silindi: {args.text[0]}")
+                else:
+                    mem.book.approve(args.text[0])
+                    _print(f"[OK] Onaylandı: {args.text[0]}")
+                return 0
+            if args.action == "search":
+                res = mem.recall(" ".join(args.text))
+                for m in res.memories:
+                    _print(f"  hafıza  {m['score']:.2f}  {m['text'][:100]}")
+                for d in res.documents:
+                    _print(f"  belge   {d['score']:.2f}  {d['name']}:{d['line']}  {d['text'][:80]!r}")
+                if not (res.memories or res.documents):
+                    _print("İlgili bir şey bulunamadı.")
+                for w in res.warnings:
+                    _print(f"[UYARI] {w}")
+                return 0
+            if args.action == "index":
+                _print("Belgeler dizinleniyor (izinli klasörler)...")
+                rep = mem.docs.index()
+                _print(f"Taranan {rep.scanned}, işlenen {rep.indexed}, değişmeyen {rep.unchanged}, kaldırılan {rep.removed}, "
+                       f"parça {rep.chunks_total}, gizli bilgi nedeniyle atlanan parça {rep.secret_chunks_skipped}, "
+                       f"{rep.duration_s} sn")
+                for reason, n in rep.skipped.items():
+                    _print(f"  atlandı ({reason}): {n}")
+                for e in rep.errors:
+                    _print(f"[UYARI] {e}")
+                if mem.book.reindex():
+                    _print("Vektörü eksik hafıza öğeleri tamamlandı.")
+                return 0
+            if args.action == "status":
+                st = mem.docs.status()
+                items = mem.book.list()
+                _print(f"Hafıza öğeleri: {len(items)} (öneri: {sum(m.status == 'proposed' for m in items)})")
+                _print(f"Belgeler: {st['documents']} dosya, {st['chunks']} parça; vektörsüz: {st['not_embedded']}; "
+                       f"model: {st['embed_model']}")
+                _print("Kökler: " + ", ".join(st["roots"]))
+                return 0
+            if args.action == "export":
+                out = Path(args.out or (settings.data_dir / "memory_export.json"))
+                out.write_text(_json.dumps({"items": mem.book.export()}, ensure_ascii=False, indent=2), encoding="utf-8")
+                _print(f"[OK] Dışa aktarıldı: {out}")
+                return 0
+        except MemError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+    return 2
+
+
 def cmd_disputes(args: argparse.Namespace) -> int:
     """Ajan anlaşmazlıkları (Adım 7): listele / göster / karar ver. Kararı yalnızca sahip verir."""
     from .core.disputes import DisputeError
@@ -816,6 +916,16 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    mp = sub.add_parser("memory", help="hafıza: listele / ekle / sil / ara / belgeleri dizinle / dışa aktar")
+    mp.add_argument("action", nargs="?", choices=["list", "add", "rm", "approve", "search", "index", "status", "export"],
+                    default="list")
+    mp.add_argument("text", nargs="*")
+    mp.add_argument("--category", choices=["preference", "project", "decision", "instruction", "file", "note"])
+    mp.add_argument("--sensitivity", choices=["public", "personal", "private"])
+    mp.add_argument("--secret", action="store_true", help="add: GİZLİ olarak kaydet (açık izin; bağlama girmez)")
+    mp.add_argument("--out", default=None, help="export: dosya yolu")
+    mp.set_defaults(func=cmd_memory)
 
     dp = sub.add_parser("disputes", help="ajan anlaşmazlıkları: listele / göster / karar ver")
     dp.add_argument("action", nargs="?", choices=["list", "show", "resolve"], default="list")

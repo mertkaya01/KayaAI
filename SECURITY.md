@@ -104,6 +104,19 @@
 - [x] Model çıktısı HTML olarak işlenmez (Markdown → React öğeleri, `dangerouslySetInnerHTML` yok); bağlantılar tıklanamaz
 - [x] Sohbet silme kalıcıdır ve onay ister; iç ajanlar (planner/reviewer) sohbetten doğrudan seçilemez
 
+## Adım 9'da uygulananlar (hafıza)
+
+- [x] Tüm hafıza, belge parçaları ve vektörler yerelde (SQLite); vektörler yerel modelle (Ollama bge-m3)
+- [x] **Gizli** öğeler: parola/anahtar/token/IBAN/kart/özel anahtar kalıpları kodla tespit edilir; açık izin olmadan
+      saklanmaz; saklanırsa hiçbir bağlama otomatik girmez; API listesinde metin gönderilmez (tek tek "Göster",
+      `memory.revealed` olayı); Claude gizli bilgi öneremez
+- [x] **Özel** öğeler ve yerel belge parçaları Claude'a giden hiçbir bağlama girmez (devretme, `kayaai_memory_search`)
+- [x] Claude/ajan önerileri `proposed` kalır, sahip onaylamadan kullanılmaz
+- [x] Belge dizini yalnızca izinli kökler; yol doğrulaması; `.env`/anahtar dosyaları/ikili dosyalar ve gizli kalıp geçen
+      parçalar dizine girmez; boyut ve dosya sayısı sınırı
+- [x] Hafıza ve belge içeriği modele güvenilmez VERİ olarak gider; kaynaklar uydurulmaz talimatı
+- [x] Sahip her şeyi görebilir, düzenleyebilir, silebilir, dışa aktarabilir
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

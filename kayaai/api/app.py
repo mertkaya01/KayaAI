@@ -138,6 +138,25 @@ class AttachPathBody(BaseModel):
     path: str = Field(min_length=1, max_length=1000)
 
 
+class MemoryAddBody(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+    category: Literal["preference", "project", "decision", "instruction", "file", "note"] = "note"
+    sensitivity: Literal["public", "personal", "private", "secret"] = "personal"
+    allow_secret: bool = False
+
+
+class MemoryUpdateBody(BaseModel):
+    text: str | None = Field(None, min_length=1, max_length=1000)
+    category: Literal["preference", "project", "decision", "instruction", "file", "note"] | None = None
+    sensitivity: Literal["public", "personal", "private", "secret"] | None = None
+    allow_secret: bool = False
+
+
+class MemoryFromTextBody(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    conv_id: str | None = None
+
+
 class DisputeDecisionBody(BaseModel):
     side: Literal["producer", "reviewer"]
     note: str = Field("", max_length=1000)
@@ -496,6 +515,94 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return chat_call(chat.attach_path, body.path).model_dump(mode="json")
         except PathNotAllowed as exc:
             raise HTTPException(403, str(exc)) from exc
+
+    # ---------------------------------------------------------------- hafıza (Adım 9)
+
+    from ..memory import MemoryError as MemError
+    from ..memory import SecretRefused
+
+    def mem_call(fn: Any, *args: Any, **kw: Any) -> Any:
+        assert rt.memory is not None
+        try:
+            return fn(*args, **kw)
+        except SecretRefused as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except MemError as exc:
+            raise HTTPException(404 if "bulunamadı" in str(exc) else 400, str(exc)) from exc
+
+    @app.get("/api/memory", dependencies=[Depends(auth)])
+    def memory_list(status_: Literal["active", "proposed", "all"] = Query("all", alias="status")) -> list[dict[str, Any]]:
+        assert rt.memory is not None
+        out = []
+        for m in rt.memory.book.list(None if status_ == "all" else status_):
+            d = m.model_dump(mode="json")
+            if m.sensitivity == "secret":  # gizli metin listede gönderilmez; sahip "Göster" ile tek tek açar
+                d["text"], d["masked"] = "", True
+            out.append(d)
+        return out
+
+    @app.get("/api/memory/{mem_id}/reveal", dependencies=[Depends(auth)])
+    def memory_reveal(mem_id: str) -> dict[str, Any]:
+        assert rt.memory is not None
+        item = mem_call(rt.memory.book.get, mem_id)
+        rt.store.emit("memory.revealed", {"id": mem_id})
+        return item.model_dump(mode="json")
+
+    @app.post("/api/memory", status_code=201, dependencies=[Depends(auth)])
+    def memory_add(body: MemoryAddBody) -> dict[str, Any]:
+        assert rt.memory is not None
+        item, warnings = mem_call(rt.memory.book.add, body.text, category=body.category, sensitivity=body.sensitivity,
+                                  source="owner", allow_secret=body.allow_secret)
+        return {"item": item.model_dump(mode="json"), "warnings": warnings}
+
+    @app.post("/api/memory/from-text", status_code=201, dependencies=[Depends(auth)])
+    def memory_from_text(body: MemoryFromTextBody) -> dict[str, Any]:
+        from ..memory import remember
+
+        item, message, warnings = remember(rt, body.text, source="chat", conv_id=body.conv_id)
+        if item is None:
+            raise HTTPException(422, message)
+        return {"item": item.model_dump(mode="json"), "message": message, "warnings": warnings}
+
+    @app.patch("/api/memory/{mem_id}", dependencies=[Depends(auth)])
+    def memory_update(mem_id: str, body: MemoryUpdateBody) -> dict[str, Any]:
+        assert rt.memory is not None
+        item, warnings = mem_call(rt.memory.book.update, mem_id, text=body.text, category=body.category,
+                                  sensitivity=body.sensitivity, allow_secret=body.allow_secret)
+        return {"item": item.model_dump(mode="json"), "warnings": warnings}
+
+    @app.post("/api/memory/{mem_id}/approve", dependencies=[Depends(auth)])
+    def memory_approve(mem_id: str) -> dict[str, Any]:
+        assert rt.memory is not None
+        return mem_call(rt.memory.book.approve, mem_id).model_dump(mode="json")
+
+    @app.delete("/api/memory/{mem_id}", dependencies=[Depends(auth)])
+    def memory_delete(mem_id: str) -> dict[str, Any]:
+        assert rt.memory is not None
+        mem_call(rt.memory.book.delete, mem_id)
+        return {"id": mem_id, "deleted": True}
+
+    @app.get("/api/memory-export", dependencies=[Depends(auth)])
+    def memory_export() -> dict[str, Any]:
+        assert rt.memory is not None
+        return {"app": APP_NAME, "version": __version__, "items": rt.memory.book.export()}
+
+    @app.get("/api/memory-search", dependencies=[Depends(auth)])
+    def memory_search(q: str = Query(min_length=1, max_length=2000)) -> dict[str, Any]:
+        assert rt.memory is not None
+        return rt.memory.recall(q).model_dump(mode="json")
+
+    @app.get("/api/documents", dependencies=[Depends(auth)])
+    def documents() -> dict[str, Any]:
+        assert rt.memory is not None
+        return {"status": rt.memory.docs.status(),
+                "documents": [d.model_dump(mode="json") for d in rt.memory.docs.documents()]}
+
+    @app.post("/api/documents/index", status_code=202, dependencies=[Depends(auth)])
+    def documents_index() -> Accepted:
+        assert rt.memory is not None
+        submit(rt.memory.docs.index)
+        return Accepted(id="index", status="pending", message="Belge dizinleme kuyruğa alındı")
 
     # ---------------------------------------------------------------- anlaşmazlıklar (Adım 7)
 
