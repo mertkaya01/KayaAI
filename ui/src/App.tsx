@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type ClaudeStatus, type Dispute, type Health, type KEvent, type SystemMetrics } from "./api";
 import { AgentsPanel } from "./components/AgentsPanel";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
+import { ChatView } from "./components/ChatView";
 import { DisputesPanel } from "./components/DisputesPanel";
 import { EventsPanel } from "./components/EventsPanel";
 import { SystemPanel } from "./components/SystemPanel";
 import { TopBar } from "./components/TopBar";
 import { useEvents, usePolling } from "./hooks";
+import { useRoute } from "./route";
 
 function Login({ onToken, failed }: { onToken: (t: string) => void; failed: boolean }) {
   const [value, setValue] = useState("");
@@ -27,34 +29,69 @@ function Login({ onToken, failed }: { onToken: (t: string) => void; failed: bool
   );
 }
 
+interface Keys {
+  agents: number;
+  approvals: number;
+  disputes: number;
+}
+
+/** Kontrol Merkezi sayfası: yalnızca açıkken veri çeker (sohbet ekranında sistem metrikleri yoklanmaz). */
+function ControlCenter({ keys, bump, events, health, onUnauthorized }: {
+  keys: Keys;
+  bump: (k: keyof Keys) => void;
+  events: KEvent[];
+  health: Health | null;
+  onUnauthorized: () => void;
+}) {
+  const system = usePolling<SystemMetrics>("/api/system", 2000);
+  const agents = usePolling<Agent[]>("/api/agents", 5000, keys.agents);
+  const pending = usePolling<Approval[]>("/api/approvals?status=pending", 10000, keys.approvals);
+  const history = usePolling<Approval[]>("/api/approvals?status=all", 15000, keys.approvals);
+  const openDisputes = usePolling<Dispute[]>("/api/disputes?status=open", 10000, keys.disputes);
+  const disputeHistory = usePolling<Dispute[]>("/api/disputes?status=all", 15000, keys.disputes);
+  const unauthorized = [system, agents, pending].some((p) => p.unauthorized);
+  useEffect(() => {
+    if (unauthorized) onUnauthorized();
+  }, [unauthorized, onUnauthorized]);
+  return (
+      <main className="grid">
+        <div className="col">
+          <SystemPanel metrics={system.data} health={health} />
+          <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => bump("approvals")} />
+          <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => bump("disputes")} />
+        </div>
+        <div className="col">
+          <AgentsPanel agents={agents.data} error={agents.error} onChanged={() => { bump("agents"); bump("approvals"); }} />
+          <EventsPanel events={events} />
+        </div>
+      </main>
+  );
+}
+
 function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnauthorized: () => void; onLogout: () => void }) {
-  const [agentsKey, setAgentsKey] = useState(0);
-  const [approvalsKey, setApprovalsKey] = useState(0);
+  const [route, navigate] = useRoute();
+  const [keys, setKeys] = useState<Keys>({ agents: 0, approvals: 0, disputes: 0 });
   const [claudeKey, setClaudeKey] = useState(0);
-  const [disputesKey, setDisputesKey] = useState(0);
+  const [chatKey, setChatKey] = useState(0);
   const [events, setEvents] = useState<KEvent[]>([]);
+  const bump = useCallback((k: keyof Keys) => setKeys((p) => ({ ...p, [k]: p[k] + 1 })), []);
 
   const health = usePolling<Health>("/api/health", 5000, claudeKey);
-  const system = usePolling<SystemMetrics>("/api/system", 2000);
-  const agents = usePolling<Agent[]>("/api/agents", 5000, agentsKey);
   const claude = usePolling<ClaudeStatus>("/api/claude", 5000, claudeKey);
-  const pending = usePolling<Approval[]>("/api/approvals?status=pending", 10000, approvalsKey);
-  const history = usePolling<Approval[]>("/api/approvals?status=all", 15000, approvalsKey);
-  const openDisputes = usePolling<Dispute[]>("/api/disputes?status=open", 10000, disputesKey);
-  const disputeHistory = usePolling<Dispute[]>("/api/disputes?status=all", 15000, disputesKey);
 
-  const unauthorized = [health, system, agents, claude, pending].some((p) => p.unauthorized);
+  const unauthorized = [health, claude].some((p) => p.unauthorized);
   useEffect(() => {
     if (unauthorized) onUnauthorized();
   }, [unauthorized, onUnauthorized]);
 
   const onEvent = useCallback((e: KEvent) => {
     setEvents((prev) => [e, ...prev].slice(0, 50));
-    if (e.type === "task.status" || e.type.startsWith("agent.")) setAgentsKey((k) => k + 1);
-    if (e.type.startsWith("approval.") || e.type === "tool.used") setApprovalsKey((k) => k + 1);
-    if (e.type.startsWith("dispute.")) setDisputesKey((k) => k + 1);
+    if (e.type === "task.status" || e.type.startsWith("agent.")) bump("agents");
+    if (e.type.startsWith("approval.") || e.type === "tool.used") bump("approvals");
+    if (e.type.startsWith("dispute.")) bump("disputes");
+    if (e.type.startsWith("chat.") || (e.type === "task.status" && e.data.worker === "conductor")) setChatKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
-  }, []);
+  }, [bump]);
   const live = useEvents(token, onEvent);
 
   return (
@@ -63,20 +100,21 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         health={health.data}
         claude={claude.data}
         live={live}
+        route={route}
+        onNavigate={navigate}
         onChanged={() => setClaudeKey((k) => k + 1)}
         onLogout={onLogout}
       />
-      <main className="grid">
-        <div className="col">
-          <SystemPanel metrics={system.data} health={health.data} />
-          <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => setApprovalsKey((k) => k + 1)} />
-          <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => setDisputesKey((k) => k + 1)} />
-        </div>
-        <div className="col">
-          <AgentsPanel agents={agents.data} error={agents.error} onChanged={() => { setAgentsKey((k) => k + 1); setApprovalsKey((k) => k + 1); }} />
-          <EventsPanel events={events} />
-        </div>
-      </main>
+      {route.page === "chat" ? (
+        <ChatView
+          convId={route.convId}
+          onSelect={(id) => navigate({ page: "chat", convId: id })}
+          refreshKey={chatKey}
+          claude={claude.data}
+        />
+      ) : (
+        <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized} />
+      )}
     </>
   );
 }

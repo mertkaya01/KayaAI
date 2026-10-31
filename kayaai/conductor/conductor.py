@@ -108,6 +108,8 @@ class _Run:
     result: ConductorResult
     deadline: float
     disputes: list[DisputeRecord] = field(default_factory=list)
+    # Adım 8: sohbet bağlamı (önceki mesajlar, ek içerikleri) — adımlara güvenilmez veri olarak verilir
+    context: dict[str, Any] = field(default_factory=dict)
 
     def over_budget(self) -> bool:
         return time.monotonic() > self.deadline
@@ -120,16 +122,19 @@ class Conductor:
 
     # ------------------------------------------------------------------ giriş noktası
 
-    def run(self, request: str, *, force: Force = None, origin: Origin = "user") -> ConductorResult:
-        return self.run_job(self.create_job(request, force=force, origin=origin))
+    def run(self, request: str, *, force: Force = None, origin: Origin = "user",
+            context: dict[str, Any] | None = None) -> ConductorResult:
+        return self.run_job(self.create_job(request, force=force, origin=origin, context=context))
 
-    def create_job(self, request: str, *, force: Force = None, origin: Origin = "user") -> Task:
+    def create_job(self, request: str, *, force: Force = None, origin: Origin = "user",
+                   context: dict[str, Any] | None = None) -> Task:
         """İş kaydını oluşturur (API arka planda çalıştırmadan önce iş numarasını hemen döndürebilsin diye)."""
         request = request.strip()
         if not request:
             raise ValueError("istek boş olamaz")
         job = Task(worker="conductor", objective=request, status=TaskStatus.PENDING,
-                   expected_output="ConductorResult", input={"force": force, "origin": origin})
+                   expected_output="ConductorResult",
+                   input={"force": force, "origin": origin, **({"context": context} if context else {})})
         self.rt.store.save(job)
         self.rt.store.log_event(job.id, "submitted", {"origin": origin, "force": force})
         return job
@@ -178,8 +183,9 @@ class Conductor:
     # ------------------------------------------------------------------ akış
 
     def _run(self, job: Task, request: str, force: Force, origin: Origin, result: ConductorResult) -> None:
-        run = _Run(job, request, force, origin, result, time.monotonic() + self.settings.time_budget_s)
-        plan = self._plan(job, request, result)
+        run = _Run(job, request, force, origin, result, time.monotonic() + self.settings.time_budget_s,
+                   context=dict(job.input.get("context") or {}))
+        plan = self._plan(job, request, result, run.context)
         result.mode = plan.mode
         result.steps = self._steps_of(plan, request)
 
@@ -252,16 +258,22 @@ class Conductor:
             if w.name not in FORBIDDEN_STEP_AGENTS
         ]
 
-    def _plan(self, job: Task, request: str, result: ConductorResult) -> RoutePlan:
+    def _plan(self, job: Task, request: str, result: ConductorResult,
+              context: dict[str, Any] | None = None) -> RoutePlan:
         if "planner" not in self.rt.workers:
             result.warnings.append("planlayıcı ajan tanımlı değil; tek ajanla cevaplandı")
             return RoutePlan(mode="direct", agent="general")
         from ..agents.lifecycle import sync_user_agents
 
         sync_user_agents(self.rt)  # başka süreçte (MCP/CLI) oluşturulan ajanları da gör
-        task = self._ask(job, "planner", request, {
+        planner_input: dict[str, Any] = {
             "agents": self._agents_for_planner(), "max_steps": self.settings.max_steps,
-            "allow_new_agent": self._new_agents_allowed()})
+            "allow_new_agent": self._new_agents_allowed()}
+        if context:
+            # Yönlendirme için: kısa sohbet geçmişi ("bunu Python'a çevir" gibi devam mesajları) ve ek ADLARI
+            planner_input["conversation"] = context.get("conversation", [])[-4:]
+            planner_input["attachment_names"] = [a.get("name") for a in context.get("attachments", [])]
+        task = self._ask(job, "planner", request, planner_input)
         if task.status != TaskStatus.SUCCEEDED or not task.result:
             result.warnings.append("Plan yapılamadı; istek genel ajanla tek adımda cevaplandı.")
             self.rt.store.log_event(job.id, "plan.fallback", {"error": task.error})
@@ -360,7 +372,8 @@ class Conductor:
                     s.objective,
                     "(Not: Önceki adımların sonuçları girdi verisinde. Onları tekrarlama; yalnızca bu adımın kendi kısmını yaz.)",
                     "(Note: earlier step results are in the input data. Do not repeat them; write only this step's own part.)")
-            task = self._ask(job, s.agent, objective, {"previous_results": prev} if prev else {})
+            task = self._ask(job, s.agent, objective,
+                             {**run.context, **({"previous_results": prev} if prev else {})})
             s.task_id, s.status, s.error = task.id, task.status.value, task.error
             if task.status == TaskStatus.SUCCEEDED and task.result:
                 outputs[s.id] = self._review_step(run, s, task.result)
@@ -390,7 +403,8 @@ class Conductor:
                 s.objective, "Bu cevabı isteğe göre incele: eksik kısımlar ve kanıtlı hatalar.",
                 "Review this answer against the request: missing parts and errors with evidence."),
                 {"request": s.objective, "answer": answer,
-                 "automatic_checks": [f.message for f in view.checks.failures]})
+                 "automatic_checks": [f.message for f in view.checks.failures],
+                 **({"source_context": run.context} if run.context else {})})
             if rv.status == TaskStatus.SUCCEEDED and rv.result:
                 review = rv.result
                 view.verdict = review.get("verdict")
@@ -416,7 +430,7 @@ class Conductor:
             s.objective,
             "(Not: Gözden geçirme sorunları girdi verisinde. Her birini düzelt ya da gerekçeyle itiraz et.)",
             "(Note: the review issues are in the input data. Fix each one or dispute it with a reason.)"),
-            {"current_answer": answer, "issues": issues})
+            {"current_answer": answer, "issues": issues, **run.context})
         if rev.status != TaskStatus.SUCCEEDED or not rev.result:
             result.warnings.append(_lang_note(
                 req, f"{s.agent} cevabı düzeltilemedi; sorunlar: ", f"The {s.agent} answer could not be revised; issues: ")

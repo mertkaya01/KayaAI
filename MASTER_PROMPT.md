@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.7.1)
+## 12. Current state (v0.8.0)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -292,6 +292,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 4 | Local API (FastAPI, 127.0.0.1, token) + cross-process event stream | [x] Windows-verified |
 | 5 | Permission engine v2 (R0–R3, persistent approval queue) + sandboxed file tools | [x] Windows-verified |
 | 6 | Control Center v1 (React + TS): system monitoring, agent cards, approval center, Claude toggle, CSP | [x] Windows-verified |
+| 8 | Assistant Workspace v1: persistent chat, context (last 8 messages + attachments), agent choice, text attachments, hand-off to Claude via the inbox (owner decision), safe Markdown | [x] Windows-verified (real chat, routing, review) |
 | 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [x] Windows-verified (`agents_check` 6/6); v0.7.1 fixes CJK leak, contradictory review items |
 
 Note: everything built so far already works with Claude off; Claude Code is only an MCP *client*.
@@ -329,8 +330,8 @@ work starts, and needs the owner's approval to begin.
 
 
 - Vector index (e.g. SQLite extension vs Chroma vs Qdrant) and local embedding model
-- Whether the Assistant Workspace chat can run Claude Code headless with the subscription (terms must
-  be verified first) or only hands off to an interactive Claude Code session
+- ~~Assistant chat ↔ Claude~~ **Decided 2026-10-31:** hand-off only, through the existing Claude inbox (the owner
+  confirms each hand-off; Opus answers in an interactive Claude Code session; no headless `claude -p`)
 - Scheduler technology (in-process vs Windows Task Scheduler)
 - Desktop wrapper (none / Tauri / Electron) and when
 - Which business module comes first

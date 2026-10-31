@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { post, type ClaudeStatus, type Health } from "../api";
+import type { Route } from "../route";
 
 const CLAUDE_TEXT: Record<ClaudeStatus["state"], string> = {
   off: "Claude kapalı",
@@ -12,12 +13,16 @@ export function TopBar({
   health,
   claude,
   live,
+  route,
+  onNavigate,
   onChanged,
   onLogout,
 }: {
   health: Health | null;
   claude: ClaudeStatus | null;
   live: boolean;
+  route: Route;
+  onNavigate: (r: Route) => void;
   onChanged: () => void;
   onLogout: () => void;
 }) {
@@ -50,8 +55,15 @@ export function TopBar({
       <div className="brand">
         <span className="logo" aria-hidden>◆</span>
         <strong>kayaAI</strong>
-        <span className="muted">Control Center</span>
         {health && <span className="muted ver">v{health.version}</span>}
+        <nav className="tabs main-tabs" aria-label="Sayfalar">
+          <button aria-selected={route.page === "chat"} onClick={() => onNavigate({ page: "chat", convId: route.page === "chat" ? route.convId : null })}>
+            Asistan
+          </button>
+          <button aria-selected={route.page === "control"} onClick={() => onNavigate({ page: "control" })}>
+            Kontrol Merkezi
+          </button>
+        </nav>
       </div>
       <div className="status">
         <span className={`pill ${live ? "ok" : "bad"}`} title="Canlı olay akışı">{live ? "● Canlı" : "○ Bağlantı yok"}</span>

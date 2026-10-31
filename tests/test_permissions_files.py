@@ -88,7 +88,7 @@ def test_unsupported_type_and_size_limits(env):
     home.mkdir(parents=True, exist_ok=True)
     (home / "belge.pdf").write_bytes(b"%PDF-1.7")
     res = rt.files.read("belge.pdf")
-    assert res.status == "failed" and "Adım 9" in res.error
+    assert res.status == "failed" and "Adım 10" in res.error
     rt.settings.files.max_write_mb = 0.0001
     with pytest.raises(ValueError, match="çok büyük"):
         rt.files.write("buyuk.txt", "x" * 1000)

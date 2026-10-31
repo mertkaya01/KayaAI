@@ -16,7 +16,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 3–5 | Ajan ekibi + yerel şef, Claude modu, yerel API, izin motoru + dosya araçları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 7 | Ajan sistemi: uzmanlar (coder, data, document), gözden geçirme, anlaşmazlık yükseltme, geçici ajanlar | **Tamamlandı** (Windows'ta doğrulandı) |
-| 8+ | Asistan çalışma alanı, hafıza (RAG), iş modülleri, ekran/ses, zamanlama | Planlandı |
+| 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Tamamlandı** (Windows'ta doğrulandı) |
+| 9+ | Hafıza (RAG), iş modülleri (PDF/Excel), görsel iş akışı, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -202,6 +203,22 @@ kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder /
 `Activate.ps1` "running scripts is disabled" hatası verirse, sanal ortamı etkinleştirmeden:
 `powershell -ExecutionPolicy Bypass -File scripts\windows\run.ps1 ask "Merhaba"`
 
+## Asistan (Adım 8)
+
+Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`): yerel modellerle sohbet.
+
+- **Kalıcı sohbetler:** solda liste; yeniden adlandır / sil. Sunucu kapanıp açılsa da geçmiş durur (`data\kayaai.db`).
+- **Ajan seçimi:** "Otomatik" → şef isteği uygun uzmana verir ve uzman cevaplarını gözden geçirtir; ya da doğrudan
+  `general` / `coder` / `data` / `document` / geçici ajanlar.
+- **Bağlam:** son 8 mesaj ve bu mesajın ekleri modele veri olarak gider (sınırı aşan ek kısaltılır, uyarı gösterilir).
+- **Ekler:** metin dosyaları (txt, md, csv, json, py, …; en fazla 2 MB) — "Dosya ekle" ya da izinli klasörden
+  "Klasörden ekle" (`~\kayaAI-files` ve `files.allowed_dirs`). PDF/Excel Adım 10'da.
+- **Claude'a devret:** Claude modu açıkken bir cevabın altındaki düğme, soruyu (sohbet geçmişi ve ekleriyle, senin
+  onayınla) Claude kutusuna bırakır. Claude Code oturumunda Opus kutuyu işleyince cevap sohbete kendiliğinden düşer.
+  kayaAI Claude'u kendisi çağırmaz (sahip kararı). Claude kapalıysa düğme pasiftir.
+- Cevaplar güvenli bir Markdown görüntüleyiciyle gösterilir (kod bloğu + kopyala, tablo, liste); HTML/betik çalışmaz.
+- Hafıza paneli Adım 9'da dolacak; sesli giriş sonraki adımlarda.
+
 ## Ajan ekibi (Adım 7)
 
 | Ajan | İş | Yerel model | Gözden geçirme |
@@ -240,6 +257,7 @@ kayaai/            Python paketi (çekirdek)
   workers/         worker arayüzü + genel worker
   system/          ortam denetimi
   api/             yerel API (FastAPI) + Control Center sunumu
+  assistant/       sohbet: konuşmalar, mesajlar, ekler, Claude'a devretme (Adım 8)
   mcp_server.py    MCP sunucusu (Faz 2)
 ui/                Control Center (React + TypeScript + Vite); derleme çıktısı ui/dist (git'e girmez)
 config/            settings.yaml, models.yaml

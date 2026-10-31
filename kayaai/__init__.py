@@ -2,7 +2,7 @@
 
 import logging as _logging
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 APP_NAME = "kayaAI"
 
 # Kütüphane olarak kullanıldığında log yapılandırılmamışsa konsola gürültü basma.

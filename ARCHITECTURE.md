@@ -196,6 +196,21 @@ tarayıcı (http://127.0.0.1:8765/#token=…)          kayaai api (FastAPI)
   başarılı kullanım + `agent.promote` R2 onayı (PermissionEngine). Süreçler arası eşitleme: `sync_user_agents`.
 - Olaylar: `dispute.opened|resolved`, `agent.created|promoted|removed`, `decision.summary`.
 
+## Asistan çalışma alanı (Adım 8)
+
+```
+arayüz /asistan ── POST /api/chat/{id}/messages {text, agent, attachments}
+   ChatBook.send: kullanıcı mesajı + bekleyen asistan mesajı (job_id) ── arka plan kuyruğu
+      agent=auto → Conductor.run(request, context)      agent=<ad> → orchestrator (tek ajan)
+      context = {conversation: son 8 mesaj (≤2000 kr), attachments: [{name, content}] (≤12 000 kr)} → <input_data>
+   ChatBook.refresh: mesaj durumu İŞ KAYDINDAN türetilir (pending/running/waiting_claude/done/failed)
+   Claude'a devret → Conductor(force="claude", context) → Claude kutusu (InboxItem.context)
+      → Claude Code: kayaai_claude_complete → iş SUCCEEDED → sohbet görüntülenince/olayla mesaj güncellenir
+```
+- Tablolar: `conversations`, `messages`, `attachments` (+ dosyalar `data/attachments/<id>.txt`). Olay: `chat.message`.
+- Arayüz: History API ile `/` (Kontrol Merkezi) ve `/asistan/<id>`; Kontrol Merkezi'nin metrik yoklaması yalnızca o sayfa
+  açıkken çalışır. Markdown görüntüleyici (`ui/src/markdown.tsx`) yalnızca React öğesi üretir.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

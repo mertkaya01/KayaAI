@@ -66,6 +66,30 @@ CREATE TABLE IF NOT EXISTS disputes (
 CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status);
 CREATE INDEX IF NOT EXISTS idx_disputes_job ON disputes(job_id);
 
+CREATE TABLE IF NOT EXISTS conversations (
+    id          TEXT PRIMARY KEY,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id          TEXT PRIMARY KEY,
+    conv_id     TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conv_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+
+CREATE TABLE IF NOT EXISTS attachments (
+    id          TEXT PRIMARY KEY,
+    created_at  TEXT NOT NULL,
+    data        TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -170,6 +194,70 @@ class TaskStore:
         with self._lock:
             rows = self._conn.execute(sql + " ORDER BY created_at DESC LIMIT ?", (*args, limit)).fetchall()
         return [json.loads(r["data"]) for r in rows]
+
+    # ------------------------------------------------------------------ sohbet (Adım 8)
+
+    def save_conversation(self, conv_id: str, created_at: str, updated_at: str, data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute(
+                """INSERT INTO conversations(id, created_at, updated_at, data) VALUES (?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at, data=excluded.data""",
+                (conv_id, created_at, updated_at, json.dumps(data, ensure_ascii=False, default=str)),
+            )
+
+    def get_conversation(self, conv_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT data FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+        return json.loads(row["data"]) if row else None
+
+    def list_conversations(self, limit: int = 100) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT data FROM conversations ORDER BY updated_at DESC LIMIT ?", (limit,)).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+    def delete_conversation(self, conv_id: str) -> None:
+        with self._tx() as c:
+            c.execute("DELETE FROM messages WHERE conv_id = ?", (conv_id,))
+            c.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+
+    def save_message(self, msg_id: str, conv_id: str, created_at: str, status: str, data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute(
+                """INSERT INTO messages(id, conv_id, created_at, status, data) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET status=excluded.status, data=excluded.data""",
+                (msg_id, conv_id, created_at, status, json.dumps(data, ensure_ascii=False, default=str)),
+            )
+
+    def get_message(self, msg_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT data FROM messages WHERE id = ?", (msg_id,)).fetchone()
+        return json.loads(row["data"]) if row else None
+
+    def list_messages(self, conv_id: str, limit: int = 500) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT data FROM messages WHERE conv_id = ? ORDER BY created_at, rowid LIMIT ?", (conv_id, limit)
+            ).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+    def list_messages_by_status(self, statuses: tuple[str, ...], limit: int = 200) -> list[dict[str, Any]]:
+        marks = ",".join("?" * len(statuses))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT data FROM messages WHERE status IN ({marks}) ORDER BY created_at LIMIT ?", (*statuses, limit)
+            ).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+    def save_attachment(self, att_id: str, created_at: str, data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute("INSERT OR REPLACE INTO attachments(id, created_at, data) VALUES (?, ?, ?)",
+                      (att_id, created_at, json.dumps(data, ensure_ascii=False, default=str)))
+
+    def get_attachment(self, att_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT data FROM attachments WHERE id = ?", (att_id,)).fetchone()
+        return json.loads(row["data"]) if row else None
 
     def count_worker_results(self, worker: str) -> tuple[int, int]:
         """(biten, başarılı) görev sayısı — bir ajanın kullanım geçmişi (Adım 7c)."""
