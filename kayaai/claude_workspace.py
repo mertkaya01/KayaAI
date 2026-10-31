@@ -124,6 +124,17 @@ def render_claude_md(agents: list, settings: Settings) -> str:
         "2. Her iş için: isteği oku, gerekirse parçalarını yerel ekibe ver (`kayaai_ask`/`kayaai_do`), sonucu sen tamamla.",
         "3. Bitince `kayaai_claude_complete(job_id, answer, summary)` ile sonucu yaz — cevap kullanıcının dilinde, eksiksiz.",
         "4. Yerel ekibin yapabileceğini düşünüyorsan `kayaai_claude_release(job_id)` ile geri ver.",
+        "5. Kutudaki işte `disputes` varsa yerel ajanlar anlaşamamıştır: `local_draft` yerel taslaktır; iki görüşü "
+        "(gözden geçiricinin kanıtı, üreticinin itirazı) tartıp kimin haklı olduğunu `summary`'de kısaca yaz ve "
+        "doğru cevabı `answer` olarak ver.",
+        "",
+        "## Kural 3b — Ajan ekibi",
+        "",
+        "- Uzman ajanların (ör. coder, data, document) cevapları yerelde otomatik gözden geçirilir; `kayaai_do` sonucu "
+        "uyarılarında anlaşmazlık görürsen kararı sen ver ve kullanıcıya iki görüşü özetle.",
+        "- Hiçbir ajan bir işe uymuyorsa ve bu tür iş tekrar edecekse `kayaai_agent_propose` ile **geçici** bir ajan "
+        "oluşturabilirsin (mevcut bir ajana dayanır, ondan fazla izin alamaz). Kalıcı yapmak yalnızca kullanıcının "
+        "onayıyla olur. Açık anlaşmazlıkları `kayaai_disputes` ile görebilirsin; kararı kullanıcı verir.",
         "",
         "## Kural 4 — Dürüstlük ve güvenlik",
         "",

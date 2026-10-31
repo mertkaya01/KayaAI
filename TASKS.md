@@ -74,13 +74,29 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   Windows'ta doğrulandı (2026-10-31)
 
 ## Adım 6 — Control Center v1
-- [~] `ui/` React + TypeScript (Vite, ek UI kütüphanesi yok): üst çubuk (Claude aç/kapat), sistem izleme (CPU/RAM/GPU/VRAM
+- [x] `ui/` React + TypeScript (Vite, ek UI kütüphanesi yok): üst çubuk (Claude aç/kapat), sistem izleme (CPU/RAM/GPU/VRAM
   grafikleri), ajan kartları, onay merkezi (önizleme + onay/ret), canlı olaylar; FastAPI `/` sunumu + CSP; `kayaai ui`;
   `setup.ps1` derleme adımı — Python 199 test, Vitest 7 test, Playwright uçtan uca 23 kontrol (konteyner);
-  Windows'ta doğrulama bekleniyor
+  Windows'ta doğrulandı (2026-10-31): canlı GPU/VRAM, yüklü modeller, ajan kartları, `kayaai ui` ile anahtarlı giriş
+
+## Adım 7 — Ajan sistemi ([referans inceleme](docs/REFERENCES.md))
+Hedef (MASTER_PROMPT §13): yerel uzmanlar, gözden geçirici, anlaşmazlık yükseltme, geçici ajanlar.
+Kabul: üretici → gözden geçirici akışı çalışır; anlaşmazlık yükseltilir.
+- [x] 0 — Dal `main`'e birleştirildi (mertkaya01/KayaAI#2); referans repolar incelendi, lisansları kontrol edildi
+- [x] 7a — `data` ve `document` uzmanları; ajan başına `review` (gözden geçirici + `code_syntax` kontrolü); kanıtlı
+  gözden geçirme (alıntısız sorun kodla elenir); bir tur revizyon (kabul/itiraz); zaman bütçesi; `decision.summary`
+- [x] 7b — `disputes` tablosu; Claude açık → kutu (taslak + iki görüş), kapalı → sahip; `kayaai disputes`,
+  `/api/disputes`, MCP salt-okunur `kayaai_disputes`, arayüzde Anlaşmazlıklar paneli
+- [x] 7c — geçici ajanlar (`data/agents`): izin tavanı, planlayıcı önerisi (`new_agent`), MCP `kayaai_agent_propose`,
+  `kayaai agents new|promote|remove`, kalıcı yapma = başarılı kullanım + R2 sahip onayı; arayüzde rozet ve düğmeler
+- Testler: Python 241, Vitest 7, Playwright (Adım 7 akışı 17 kontrol); Windows `agents_check` (2026-10-31): 6/6 başarılı,
+  doğru ajan ve hesap 6/6, gözden geçirme 6/6, uydurma not 0, anlaşmazlık 0, 15.5 sn — bulunan 3 kusur v0.7.1'de düzeltildi
+  (Çince karakter sızıntısı, çelişkili "eksik", talimat konusunda kapsam yanlış alarmı)
+- Riskler: 8B gözden geçiricinin yanlış alarmı (alıntı şartı + itiraz hakkıyla sınırlandı; ölçülecek); ek GPU süresi
+  (zaman bütçesi, yalnızca uzmanlar gözden geçirilir)
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 5 tamamlandı (2026-10-31). Şu an: Adım 6 Windows doğrulaması → Adım 7 (ajan sistemi).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 5 tamamlandı (2026-10-31). Şu an: Adım 6 + 7 Windows doğrulaması → Adım 8 (Asistan çalışma alanı).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

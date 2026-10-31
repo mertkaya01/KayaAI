@@ -66,6 +66,14 @@ class ConductorSettings(BaseModel):
     merge: Literal["assemble", "llm"] = "assemble"
     # Karmaşıklık skoru bu eşiğe ulaşırsa planlayıcı demese de "Claude önerilir" (kayaai/conductor/complexity.py).
     claude_threshold: int = Field(3, ge=1, le=10)
+    # Adım 7: üretici ↔ gözden geçirici anlaşmazlığı. claude_first: Claude modu açıksa iş Claude kutusuna,
+    # kapalıysa sahibe; owner: her zaman sahibe.
+    disputes: Literal["claude_first", "owner"] = "claude_first"
+    # Bir işin toplam zaman bütçesi (sn). Aşılırsa gözden geçirme/revizyon turları atlanır (yerel GPU zamanı korunur).
+    time_budget_s: float = Field(600, ge=30, le=3600)
+    # Adım 7c: yerel planlayıcı uygun ajan yoksa bir geçici ajan önerebilir (Claude şef her zaman MCP ile önerebilir)
+    allow_temp_agents: bool = True
+    max_temp_agents: int = Field(5, ge=0, le=20)
 
 
 class AllowedDir(BaseModel):

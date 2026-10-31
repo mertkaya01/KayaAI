@@ -29,11 +29,32 @@ def review(verdict: str, issues: list[str] | None = None, missing: list[str] | N
                        "suggestion": "tamamla" if (issues or missing) else ""})
 
 
-class Script:
-    """FakeOllama chat_replies içine konan çağrılabilir: her şema için ayrı kuyruk."""
+def step_review(issues: list[tuple[str, str, str]] | None = None, missing: list[str] | None = None) -> str:
+    """issues: (severity, claim, evidence). verdict kodla belirlenir (postprocess)."""
+    return json.dumps({"verdict": "request_changes" if (issues or missing) else "approve",
+                       "missing_parts": missing or [],
+                       "issues": [{"severity": sv, "claim": c, "evidence": e} for sv, c, e in issues or []]})
 
-    def __init__(self, planner: list[str], answers: list[str], reviews: list[str] | None = None):
-        self.queues = {"RoutePlan": list(planner), "GeneralAnswer": list(answers), "ReviewResult": list(reviews or [])}
+
+def revision(text: str, accepted: list[str] | None = None, disputed: list[tuple[str, str]] | None = None,
+             language: str = "tr") -> str:
+    return json.dumps({"answer": text, "language": language, "accepted": accepted or [],
+                       "disputed": [{"id": i, "reason": r} for i, r in disputed or []]}, ensure_ascii=False)
+
+
+APPROVE = step_review()
+
+
+class Script:
+    """FakeOllama chat_replies içine konan çağrılabilir: her şema için ayrı kuyruk.
+
+    StepReview kuyruğu boşsa "onay" döner (gözden geçirilen ajanlar eski testleri etkilemesin diye).
+    """
+
+    def __init__(self, planner: list[str], answers: list[str], reviews: list[str] | None = None,
+                 step_reviews: list[str] | None = None, revisions: list[str] | None = None):
+        self.queues = {"RoutePlan": list(planner), "GeneralAnswer": list(answers), "ReviewResult": list(reviews or []),
+                       "StepReview": list(step_reviews or []), "Revision": list(revisions or [])}
         self.calls: dict[str, int] = defaultdict(int)
         self.user_messages: dict[str, list[str]] = defaultdict(list)
         self.models_used: list[str] = []
@@ -44,4 +65,6 @@ class Script:
         self.models_used.append(body["model"])
         self.user_messages[title].append(body["messages"][-1]["content"])
         q = self.queues.get(title, [])
-        return q.pop(0) if q else "{}"
+        if q:
+            return q.pop(0)
+        return APPROVE if title == "StepReview" else "{}"

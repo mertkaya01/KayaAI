@@ -88,6 +88,12 @@ input { font: inherit; background: var(--bg); color: var(--text); border: 1px so
 .badge.state-waiting { color: var(--warn); border-color: var(--warn); }
 .badge.state-completed { color: var(--ok); border-color: var(--ok); }
 .badge.state-failed { color: var(--bad); border-color: var(--bad); }
+.badge.temp { color: var(--warn); border-color: var(--warn); margin-left: 6px; vertical-align: middle; }
+.agent.temporary { border-style: dashed; }
+.lifecycle { margin-top: 8px; font-size: 12px; }
+.lifecycle p { margin: 4px 0; }
+.lifecycle .decide { margin-top: 6px; }
+.diff.single { grid-template-columns: 1fr; }
 
 /* onaylar */
 .tabs { display: flex; gap: 4px; }

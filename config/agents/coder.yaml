@@ -18,4 +18,9 @@ claude_role: |
 permissions: [llm.inference]
 limits:
   timeout_s: 300
+# Adım 7: her cevap gözden geçirilir; kod blokları ayrıştırılarak denetlenir (çalıştırılmaz)
+review:
+  required: true
+  reviewer: reviewer
+  checks: [code_syntax]
 status: permanent

@@ -115,6 +115,11 @@ class DecisionBody(BaseModel):
     note: str = Field("", max_length=1000)
 
 
+class DisputeDecisionBody(BaseModel):
+    side: Literal["producer", "reviewer"]
+    note: str = Field("", max_length=1000)
+
+
 class Accepted(BaseModel):
     id: str
     status: str
@@ -203,16 +208,43 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
     @app.get("/api/agents", dependencies=[Depends(auth)])
     def agents() -> list[dict[str, Any]]:
+        from ..agents.lifecycle import sync_user_agents, usage
+
+        sync_user_agents(rt)  # başka süreçte oluşturulan / kalıcı yapılan ajanlar
         statuses = {s.name: s for s in agent_statuses(rt.store, rt.workers.names())}
         out = []
         for w in rt.workers.all():
             d = getattr(w, "definition", None)
+            uses, ok = usage(rt, w.name) if d is not None and d.created_by else (None, None)
             out.append({
+                "lifecycle": d.status if d else "permanent", "base": d.base if d else None,
+                "created_by": d.created_by if d else None, "uses": uses, "successes": ok,
                 "name": w.name, "description": w.description, "output": w.output_model.__name__,
                 "local_model": w.model_spec(rt.registry).name, "claude_tier": d.claude_tier if d else "none",
+                "reviewed_by": d.review.reviewer if d and d.review.required else None,
+                "checks": list(d.review.checks) if d and d.review.required else [],
                 "status": statuses[w.name].model_dump(),
             })
         return out
+
+    @app.post("/api/agents/{name}/promote", dependencies=[Depends(auth)])
+    def agent_promote(name: str) -> dict[str, Any]:
+        from ..agents.lifecycle import AgentLifecycleError, request_promotion
+
+        try:
+            return request_promotion(rt, name, requested_by="api").model_dump(mode="json")
+        except AgentLifecycleError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.post("/api/agents/{name}/remove", dependencies=[Depends(auth)])
+    def agent_remove(name: str) -> dict[str, Any]:
+        from ..agents.lifecycle import AgentLifecycleError, remove_temporary
+
+        try:
+            remove_temporary(rt, name)
+        except AgentLifecycleError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"name": name, "removed": True}
 
     @app.get("/api/models", dependencies=[Depends(auth)])
     def models() -> dict[str, Any]:
@@ -381,6 +413,25 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return rt.permissions.reject(approval_id, decided_by="api", note=(body.note if body else "")).model_dump(mode="json")
         except ApprovalError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- anlaşmazlıklar (Adım 7)
+
+    @app.get("/api/disputes", dependencies=[Depends(auth)])
+    def disputes(status_: Literal["open", "resolved", "all"] = Query("open", alias="status"),
+                 limit: int = Query(100, ge=1, le=500)) -> list[dict[str, Any]]:
+        assert rt.disputes is not None
+        return [d.model_dump(mode="json") for d in rt.disputes.list(None if status_ == "all" else status_, limit=limit)]
+
+    @app.post("/api/disputes/{dispute_id}/resolve", dependencies=[Depends(auth)])
+    def dispute_resolve(dispute_id: str, body: DisputeDecisionBody) -> dict[str, Any]:
+        from ..core.disputes import DisputeError
+
+        assert rt.disputes is not None
+        try:
+            return rt.disputes.resolve(dispute_id, body.side, decided_by="api", note=body.note).model_dump(mode="json")
+        except DisputeError as exc:
+            code = 404 if "bulunamadı" in str(exc) else 409
+            raise HTTPException(code, str(exc)) from exc
 
     # ---------------------------------------------------------------- canlı olaylar
 

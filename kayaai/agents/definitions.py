@@ -19,6 +19,7 @@ from ..workers.base import LLMWorker
 from ..workers.general import GeneralWorker
 from ..workers.planner import PlannerWorker
 from ..workers.reviewer import ReviewerWorker
+from ..workers.step_review import RevisionWorker, StepReviewWorker
 
 # Çıktı türü -> temel worker sınıfı (şema + anlamsal doğrulama oradan gelir)
 OUTPUT_TYPES: dict[str, type[LLMWorker]] = {
@@ -37,6 +38,15 @@ class AgentLimits(BaseModel):
     timeout_s: float | None = Field(None, gt=0, le=600)
 
 
+class AgentReview(BaseModel):
+    """Üretici → gözden geçirici akışı (Adım 7). required: bu ajanın her cevabı incelenir."""
+
+    required: bool = False
+    reviewer: str = "reviewer"
+    # Deterministik kontroller (kayaai/conductor/checks.py); kod çalıştırılmaz, yalnızca ayrıştırılır.
+    checks: list[Literal["code_syntax"]] = Field(default_factory=list)
+
+
 class AgentDefinition(BaseModel):
     name: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,31}$")
     description: str
@@ -52,8 +62,13 @@ class AgentDefinition(BaseModel):
     claude_role: str = ""
     permissions: list[str] = Field(default_factory=lambda: [Permission.LLM_INFERENCE.value])
     limits: AgentLimits = Field(default_factory=AgentLimits)
+    review: AgentReview = Field(default_factory=AgentReview)
     # permanent: sisteme kayıtlı; temporary: şefin bir iş için oluşturduğu geçici ajan (D9)
     status: Literal["permanent", "temporary"] = "permanent"
+    # Adım 7c — yalnızca data/agents altındaki (sonradan oluşturulan) ajanlarda:
+    base: str | None = None          # dayandığı ajan (model, izin ve Claude karşılığı tavanı)
+    created_by: str | None = None    # owner | planner | claude
+    created_at: str | None = None
 
     @field_validator("permissions")
     @classmethod
@@ -64,32 +79,51 @@ class AgentDefinition(BaseModel):
         return v
 
 
+def load_definition_file(path: Path, registry: ModelRegistry) -> AgentDefinition:
+    try:
+        raw: Any = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        d = AgentDefinition.model_validate(raw)
+    except (yaml.YAMLError, ValidationError, OSError) as exc:
+        raise AgentDefinitionError(f"{path.name}: {exc}") from exc
+    if d.name != path.stem:
+        raise AgentDefinitionError(f"{path.name}: 'name' ({d.name}) dosya adıyla aynı olmalı")
+    try:
+        spec = registry.get(d.local_model)
+    except KeyError as exc:
+        raise AgentDefinitionError(f"{path.name}: {exc}") from exc
+    if spec.status == "candidate":
+        raise AgentDefinitionError(f"{path.name}: '{d.local_model}' aday model; benchmark'tan geçmeden ajana atanamaz")
+    return d
+
+
 def load_definitions(agents_dir: Path, registry: ModelRegistry) -> list[AgentDefinition]:
     """Klasördeki tüm *.yaml tanımlarını yükler ve doğrular. Hata varsa hangi dosyada olduğunu söyler."""
     if not agents_dir.is_dir():
         return []
     defs: list[AgentDefinition] = []
     for path in sorted(agents_dir.glob("*.yaml")):
-        try:
-            raw: Any = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            d = AgentDefinition.model_validate(raw)
-        except (yaml.YAMLError, ValidationError) as exc:
-            raise AgentDefinitionError(f"{path.name}: {exc}") from exc
-        if d.name != path.stem:
-            raise AgentDefinitionError(f"{path.name}: 'name' ({d.name}) dosya adıyla aynı olmalı")
-        try:
-            spec = registry.get(d.local_model)
-        except KeyError as exc:
-            raise AgentDefinitionError(f"{path.name}: {exc}") from exc
-        if spec.status == "candidate":
-            raise AgentDefinitionError(
-                f"{path.name}: '{d.local_model}' aday model; benchmark'tan geçmeden ajana atanamaz"
-            )
-        defs.append(d)
+        defs.append(load_definition_file(path, registry))
     names = [d.name for d in defs]
     if len(names) != len(set(names)):
         raise AgentDefinitionError(f"aynı adla birden fazla ajan: {names}")
+    check_review_links(defs)
     return defs
+
+
+def check_review_links(defs: list[AgentDefinition]) -> None:
+    """review.required olan ajanın gözden geçiricisi var olmalı ve 'review' çıktılı olmalı."""
+    by_name = {d.name: d for d in defs}
+    for d in defs:
+        if not d.review.required:
+            continue
+        if d.output != "answer":
+            raise AgentDefinitionError(f"{d.name}.yaml: yalnızca 'answer' çıktılı ajanlar gözden geçirilebilir")
+        rv = by_name.get(d.review.reviewer)
+        if rv is None or rv.output != "review":
+            raise AgentDefinitionError(
+                f"{d.name}.yaml: gözden geçirici '{d.review.reviewer}' tanımlı değil ya da 'review' çıktılı değil")
+        if rv.name == d.name:
+            raise AgentDefinitionError(f"{d.name}.yaml: ajan kendi kendini gözden geçiremez")
 
 
 def make_worker(defn: AgentDefinition) -> LLMWorker:
@@ -110,10 +144,49 @@ def make_worker(defn: AgentDefinition) -> LLMWorker:
     return DefinedWorker()
 
 
+def make_check_worker(defn: AgentDefinition) -> LLMWorker:
+    """'review' çıktılı ajandan kanıta dayalı adım incelemesi yapan iç worker (`<ad>.check`)."""
+
+    class CheckWorker(StepReviewWorker):
+        name: ClassVar[str] = f"{defn.name}.check"
+        definition: ClassVar[AgentDefinition] = defn
+
+        def model_spec(self, registry: ModelRegistry) -> ModelSpec:
+            return registry.get(defn.local_model)
+
+    CheckWorker.__name__ = CheckWorker.__qualname__ = f"Check_{defn.name}"
+    return CheckWorker()
+
+
+def make_revision_worker(defn: AgentDefinition) -> LLMWorker:
+    """Ajanın kendi rolü + revizyon kurallarıyla düzelt/itiraz et worker'ı (`<ad>.revise`)."""
+    base_prompt = defn.role.strip() or OUTPUT_TYPES[defn.output].system_prompt
+
+    class ReviseWorker(RevisionWorker):
+        name: ClassVar[str] = f"{defn.name}.revise"
+        required_permissions: ClassVar[tuple[Permission, ...]] = tuple(Permission(p) for p in defn.permissions)
+        system_prompt: ClassVar[str] = base_prompt + RevisionWorker.REVISION_RULES
+        definition: ClassVar[AgentDefinition] = defn
+
+        def model_spec(self, registry: ModelRegistry) -> ModelSpec:
+            return registry.get(defn.local_model)
+
+    ReviseWorker.__name__ = ReviseWorker.__qualname__ = f"Revise_{defn.name}"
+    return ReviseWorker()
+
+
+def register_definition(reg: Any, defn: AgentDefinition) -> None:  # reg: WorkerRegistry
+    reg.register(make_worker(defn))
+    if defn.output == "review":
+        reg.register(make_check_worker(defn), internal=True)
+    if defn.review.required:
+        reg.register(make_revision_worker(defn), internal=True)
+
+
 def build_workers(agents_dir: Path, registry: ModelRegistry):  # -> WorkerRegistry
     from ..workers import WorkerRegistry
 
     reg = WorkerRegistry()
     for d in load_definitions(agents_dir, registry):
-        reg.register(make_worker(d))
+        register_definition(reg, d)
     return reg

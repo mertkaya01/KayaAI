@@ -51,6 +51,14 @@ conductor:
   merge: assemble
   # Karmaşıklık skoru (adım sayısı, mimari/tasarım/ödünleşim gibi kelimeler, uzunluk) >= bu değer -> Claude önerilir
   claude_threshold: 3
+  # Adım 7 — uzman ajanın cevabını gözden geçirici inceler (ajan tanımında review.required). Üretici bir soruna
+  # itiraz ederse anlaşmazlık: claude_first (Claude modu açıksa Claude kutusuna, değilse sana) | owner (hep sana)
+  disputes: claude_first
+  # Bir işin zaman bütçesi (sn); aşılırsa ek gözden geçirme/revizyon turları atlanır
+  time_budget_s: 600
+  # Geçici ajanlar (data/agents): yerel planlayıcı uygun ajan yoksa bir tane önerebilir; en fazla bu kadar geçici ajan
+  allow_temp_agents: true
+  max_temp_agents: 5
 
 api:
   # Yerel API sunucusu (`kayaai api`): arayüzler buna bağlanır. Güvenlik: yalnızca 127.0.0.1; ağa açılamaz.

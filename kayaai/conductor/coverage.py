@@ -25,6 +25,16 @@ def _normalize(text: str) -> str:
 _SPLIT_ALTERNATIVES = re.compile(r"[/()|,;]+")
 # Konu adında anlam taşımayan genel kelimeler
 _GENERIC = {"için", "olan", "gibi", "ile", "and", "the", "for", "with", "nasıl", "how"}
+# Konu değil TALİMAT/BİÇİM bildiren kelimeler. Gerçek yanlış alarm (Windows, 2026-10-31): "e-posta yazma / email
+# writing" konusu, cevabın kendisi bir e-posta olduğu hâlde "değinilmedi" sayıldı.
+_INSTRUCTION = {
+    "yaz", "yazma", "yazmak", "yazımı", "yazılması", "write", "writing", "written",
+    "e", "posta", "eposta", "email", "mail", "mektup", "letter", "mesaj", "message",
+    "açıkla", "açıklama", "açıklaması", "explain", "explanation", "özet", "özetle", "özetleme", "summary", "summarize",
+    "çeviri", "çevir", "translate", "translation", "metin", "metni", "text", "kısa", "short", "resmi", "formal",
+    "oluştur", "oluşturma", "create", "hazırla", "hazırlama", "prepare", "düzenle", "düzenleme", "edit",
+    "yeniden", "rewrite", "cevap", "answer", "yanıt", "response",
+}
 MIN_ANSWER_CHARS = 150
 
 
@@ -59,7 +69,18 @@ def topic_covered(topic: str, answer: str) -> bool:
     return not checked_any  # içerik kelimesi yoksa (ör. 'API') değerlendirilemez → kapsanmış say
 
 
+def is_instruction_topic(topic: str) -> bool:
+    """Konunun tüm alternatifleri yalnızca talimat/biçim kelimelerinden oluşuyorsa (ör. 'e-posta yazma') True."""
+    for alt in (a for a in _SPLIT_ALTERNATIVES.split(topic) if a.strip()):
+        words = [w.strip("'") for w in _WORD_RE.findall(_normalize(alt.replace("-", " ")))]
+        content = [w for w in words if w and w not in _TR_STOP and w not in _EN_STOP and w not in _GENERIC]
+        if any(w not in _INSTRUCTION for w in content):
+            return False
+    return True
+
+
 def missing_topics(topics: list[str], answer: str) -> list[str]:
     if len(answer.strip()) < MIN_ANSWER_CHARS:
         return []  # kısa olgusal cevaplarda (ör. "Ankara") anlamsız
-    return [t.strip() for t in topics if t.strip() and not topic_covered(t, answer)]
+    return [t.strip() for t in topics
+            if t.strip() and not is_instruction_topic(t) and not topic_covered(t, answer)]

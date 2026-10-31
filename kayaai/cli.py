@@ -272,6 +272,21 @@ def cmd_do(args: argparse.Namespace) -> int:
         _print(f"\nİş başarısız: {res.error}")
     for w in res.warnings:
         _print(f"[UYARI] {w}")
+    for s in res.steps:
+        if s.review:
+            rv = s.review
+            parts = [f"karar: {rv.verdict or '-'}"]
+            if rv.checks and (rv.checks.checked_blocks or rv.checks.failures):
+                parts.append(f"kontrol: {rv.checks.checked_blocks} blok, {len(rv.checks.failures)} hata")
+            if rv.dropped_issues:
+                parts.append(f"{rv.dropped_issues} kanıtsız not elendi")
+            if rv.revised:
+                parts.append("düzeltildi")
+            if rv.disputes:
+                parts.append(f"{len(rv.disputes)} anlaşmazlık")
+            if rv.skipped:
+                parts.append(rv.skipped)
+            _print(f"[gözden geçirme] {s.agent} → {rv.reviewer}: " + ", ".join(parts))
     steps = " → ".join(f"{s.agent}({s.status})" for s in res.steps)
     review = f" | gözden geçirme: {res.review.verdict}{' (düzeltildi)' if res.review.revised else ''}" if res.review.performed else ""
     _print(f"\n— iş {res.job_id} | {res.mode} | {steps}{review} | {res.duration_s} sn | yönlendirme: {res.routing.decision}")
@@ -280,24 +295,67 @@ def cmd_do(args: argparse.Namespace) -> int:
 
 def cmd_agents(args: argparse.Namespace) -> int:
     from .agents.definitions import AgentDefinitionError
-    from .workers import default_workers
+    from .agents.lifecycle import (
+        AgentLifecycleError,
+        AgentProposal,
+        create_temporary,
+        remove_temporary,
+        request_promotion,
+        usage,
+        user_agents_dir,
+    )
+    from .runtime import build_runtime
 
     settings = load_settings()
-    registry = ModelRegistry.load(settings.models_file)
     try:
-        workers = default_workers(registry, settings.config_dir / "agents")
+        rt = build_runtime(settings)
     except AgentDefinitionError as exc:
         _print(f"[HATA] Ajan tanımı geçersiz: {exc}")
         return 1
-    for w in workers.all():
-        d = getattr(w, "definition", None)
-        spec = w.model_spec(registry)
-        _print(
-            f"{w.name:<10} yerel model: {spec.name:<16} çıktı: {w.output_model.__name__:<14} "
-            f"Claude karşılığı: {d.claude_tier if d else '-':<7} izinler: {', '.join(p.value for p in w.required_permissions)}"
-        )
-        _print(f"{'':<10} {w.description}")
-    _print(f"\nTanımlar: {settings.config_dir / 'agents'}")
+    with rt:
+        try:
+            if args.action == "new":
+                if not args.name or not args.description or not (args.role or args.role_file):
+                    _print("Kullanım: kayaai agents new <ad> --base general --description \"...\" --role \"...\" "
+                           "(ya da --role-file dosya.txt)")
+                    return 2
+                role = Path(args.role_file).read_text(encoding="utf-8") if args.role_file else args.role
+                d = create_temporary(rt, AgentProposal(name=args.name, description=args.description, role=role,
+                                                       base=args.base), created_by="owner")
+                _print(f"[OK] Geçici ajan oluşturuldu: {d.name} (temel: {d.base}, model: {d.local_model})")
+                _print(f"Dene: kayaai do \"...\"  ya da  kayaai ask --worker {d.name} \"...\"")
+                return 0
+            if args.action in ("promote", "remove"):
+                if not args.name:
+                    _print(f"Ajan adı gerekli: kayaai agents {args.action} <ad>")
+                    return 2
+                if args.action == "remove":
+                    remove_temporary(rt, args.name)
+                    _print(f"[OK] Geçici ajan kaldırıldı: {args.name}")
+                    return 0
+                res = request_promotion(rt, args.name, requested_by="cli")
+                _print(f"[ONAY BEKLİYOR] {res.message}")
+                _print(f"Onayla: kayaai approvals approve {res.approval_id}  (ya da Control Center → Onay merkezi)")
+                return 0
+        except (AgentLifecycleError, ValueError, OSError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        for w in rt.workers.all():
+            d = getattr(w, "definition", None)
+            spec = w.model_spec(rt.registry)
+            extra = ""
+            if d is not None and d.created_by:
+                done, ok = usage(rt, w.name)
+                kind = "GEÇİCİ" if d.status == "temporary" else "kalıcı"
+                extra = f"  [{kind}, temel: {d.base}, oluşturan: {d.created_by}, kullanım: {ok}/{done} başarılı]"
+            _print(
+                f"{w.name:<10} yerel model: {spec.name:<16} çıktı: {w.output_model.__name__:<14} "
+                f"Claude karşılığı: {d.claude_tier if d else '-':<7} izinler: {', '.join(p.value for p in w.required_permissions)}"
+                + extra
+            )
+            review = f" · gözden geçiren: {d.review.reviewer}" if d is not None and d.review.required else ""
+            _print(f"{'':<10} {w.description}{review}")
+        _print(f"\nTanımlar: {settings.config_dir / 'agents'}  ·  sonradan oluşturulanlar: {user_agents_dir(rt)}")
     return 0
 
 
@@ -350,12 +408,14 @@ def cmd_claude(args: argparse.Namespace) -> int:
 def _claude_sync(settings, workspace: str | None) -> int:  # noqa: ANN001
     from pathlib import Path
 
-    from .agents.definitions import AgentDefinitionError, load_definitions
+    from .agents.definitions import AgentDefinitionError
+    from .agents.lifecycle import claude_definitions
     from .claude_workspace import WorkspaceError, default_workspace, sync_workspace
+    from .runtime import build_runtime
 
-    registry = ModelRegistry.load(settings.models_file)
     try:
-        agents = load_definitions(settings.config_dir / "agents", registry)
+        with build_runtime(settings) as rt:
+            agents = claude_definitions(rt)  # repo ajanları + kalıcı yapılmış kullanıcı ajanları
         report = sync_workspace(settings, agents, Path(workspace) if workspace else default_workspace(settings))
     except (AgentDefinitionError, WorkspaceError, OSError) as exc:
         _print(f"[HATA] Çalışma alanı üretilemedi: {exc}")
@@ -482,6 +542,56 @@ def cmd_files(args: argparse.Namespace) -> int:
             return 1
 
 
+def cmd_disputes(args: argparse.Namespace) -> int:
+    """Ajan anlaşmazlıkları (Adım 7): listele / göster / karar ver. Kararı yalnızca sahip verir."""
+    from .core.disputes import DisputeError
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    with build_runtime(settings) as rt:
+        book = rt.disputes
+        assert book is not None
+        try:
+            if args.action == "list":
+                items = book.list(None if args.all else "open")
+                if not items:
+                    _print("Açık anlaşmazlık yok." if not args.all else "Anlaşmazlık kaydı yok.")
+                for d in items:
+                    state = d.status if d.status == "open" else f"{d.resolution}"
+                    _print(f"  {d.id}  {d.created_at:%Y-%m-%d %H:%M}  {state:<10} {d.producer} ↔ {d.reviewer}: {d.issue[:70]}")
+                return 0
+            if not args.dispute_id:
+                _print("Anlaşmazlık numarası gerekli: kayaai disputes show <id>")
+                return 2
+            if args.action == "show":
+                d = book.get(args.dispute_id)
+                if d is None:
+                    raise DisputeError(f"Anlaşmazlık bulunamadı: {args.dispute_id}")
+                _print(f"Anlaşmazlık {d.id} — {d.status}" + (f" ({d.resolution}, {d.decided_by})" if d.resolution else ""))
+                _print(f"İş           : {d.job_id} / adım {d.step_id}")
+                _print(f"İstek       : {d.request[:300]}")
+                _print(f"Gözden geçirici ({d.reviewer}), {d.severity}: {d.issue}")
+                if d.evidence:
+                    _print(f"  Kanıt (cevaptan alıntı): {d.evidence}")
+                _print(f"Üretici ({d.producer}) itirazı: {d.producer_position}")
+                _print(f"Yükseltildi : {'Claude şef' if d.escalated_to == 'claude' else 'sahip (sen)'}")
+                if d.note:
+                    _print(f"Not         : {d.note}")
+                if d.status == "open":
+                    _print(f"\nKarar: kayaai disputes resolve {d.id} --side producer|reviewer [--note \"...\"]")
+                return 0
+            if not args.side:
+                _print("Taraf gerekli: --side producer (üretici haklı) | reviewer (gözden geçirici haklı)")
+                return 2
+            d = book.resolve(args.dispute_id, args.side, decided_by="cli", note=args.note or "")
+            who = d.producer if args.side == "producer" else d.reviewer
+            _print(f"[KARAR] {d.id}: {who} haklı bulundu.")
+            return 0
+        except DisputeError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+
+
 def cmd_approvals(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -554,9 +664,37 @@ def cmd_api(args: argparse.Namespace) -> int:
     app = create_app(settings)
     _print(f"{APP_NAME} API: http://{host}:{port}   (deneme sayfası: http://{host}:{port}/docs)")
     _print(f"Erişim anahtarı: {token_path(settings)}  — göstermek için: kayaai api token")
+    if args.open:
+        _open_when_ready(host, port, app.state.token)
+        _print("Control Center sunucu hazır olunca tarayıcıda açılacak.")
+    else:
+        _print("Control Center için ikinci terminalde:  kayaai ui   (anahtarla açar; adresi elle açarsan anahtar sorar)")
     _print("Durdurmak için Ctrl+C.")
     uvicorn.run(app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=3)
     return 0
+
+
+def _open_when_ready(host: str, port: int, token: str, timeout_s: float = 20) -> None:
+    """Sunucu yanıt verince tarayıcıyı anahtarlı adresle açar (arka plan iş parçacığı; anahtar ekrana yazılmaz)."""
+    import threading
+    import time
+    import webbrowser
+
+    import httpx
+
+    def run() -> None:
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            try:
+                if httpx.get(f"http://{host}:{port}/api/health", headers={"Authorization": f"Bearer {token}"},
+                             timeout=2).status_code == 200:
+                    webbrowser.open(f"http://{host}:{port}/#token={token}")
+                    return
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.3)
+
+    threading.Thread(target=run, name="kayaai-open-ui", daemon=True).start()
 
 
 def cmd_ui(args: argparse.Namespace) -> int:
@@ -649,7 +787,14 @@ def build_parser() -> argparse.ArgumentParser:
     do.add_argument("--json", action="store_true")
     do.set_defaults(func=cmd_do)
 
-    sub.add_parser("agents", help="tanımlı ajanlar (config/agents)").set_defaults(func=cmd_agents)
+    ag = sub.add_parser("agents", help="ajanlar: listele / geçici ajan oluştur / kalıcı yap / kaldır")
+    ag.add_argument("action", nargs="?", choices=["list", "new", "promote", "remove"], default="list")
+    ag.add_argument("name", nargs="?")
+    ag.add_argument("--base", default="general", help="new: dayandığı ajan (model ve izinler buradan gelir)")
+    ag.add_argument("--description", default=None)
+    ag.add_argument("--role", default=None, help="new: rol talimatı")
+    ag.add_argument("--role-file", default=None, help="new: rol talimatını dosyadan oku")
+    ag.set_defaults(func=cmd_agents)
 
     c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
     c.add_argument("action", nargs="?", choices=["status", "on", "off", "sync"], default="status")
@@ -672,10 +817,19 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
 
+    dp = sub.add_parser("disputes", help="ajan anlaşmazlıkları: listele / göster / karar ver")
+    dp.add_argument("action", nargs="?", choices=["list", "show", "resolve"], default="list")
+    dp.add_argument("dispute_id", nargs="?")
+    dp.add_argument("--all", action="store_true", help="list: kapananlar dahil")
+    dp.add_argument("--side", choices=["producer", "reviewer"], default=None, help="resolve: kim haklı")
+    dp.add_argument("--note", default=None)
+    dp.set_defaults(func=cmd_disputes)
+
     ap = sub.add_parser("api", help="yerel API sunucusu (yalnızca 127.0.0.1)")
     ap.add_argument("action", nargs="?", choices=["serve", "token"], default="serve")
     ap.add_argument("--host", default=None)
     ap.add_argument("--port", type=int, default=None)
+    ap.add_argument("--open", action="store_true", help="sunucu hazır olunca Control Center'ı tarayıcıda aç")
     ap.set_defaults(func=cmd_api)
 
     ui = sub.add_parser("ui", help="Control Center'ı tarayıcıda aç (önce: kayaai api)")

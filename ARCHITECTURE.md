@@ -178,6 +178,24 @@ tarayıcı (http://127.0.0.1:8765/#token=…)          kayaai api (FastAPI)
 - Sunum: `ui/dist` varsa FastAPI `/` altında sunar (bilinmeyen yollar → `index.html`; `/api/*` hiçbir zaman arayüze
   düşmez); yoksa "arayüz derlenmemiş" yardım sayfası. `kayaai ui` sunucuyu yoklar ve tarayıcıyı anahtarlı adresle açar.
 
+## Ajan sistemi (Adım 7)
+
+```
+şef: plan → adım (uzman ajan) ──► kontroller (checks.py: ast/json/yaml ayrıştırma, çalıştırma YOK)
+                                 └► <gözden geçirici>.check: StepReview {missing_parts, issues[severity, claim, evidence]}
+                                      evidence cevapta yoksa → sorun KODLA elenir (dropped_issues)
+          blocker/major/eksik/kontrol hatası varsa ──► <ajan>.revise: Revision {answer, accepted[], disputed[{id, reason}]}
+                                      c* (kontrol hatası) itiraz edilemez → doğrulama hatası
+          disputed ──► disputes tablosu (dispute.opened) ──► Claude açık + claude_first: iş Claude kutusuna (taslak + iki görüş)
+                                                          └► değilse: sahip (CLI/API/arayüz) ── dispute.resolved
+```
+- İç yardımcılar (`coder.revise`, `reviewer.check`) ajan tanımından türetilir; `WorkerRegistry` onları planlayıcıya,
+  arayüze ve MCP'ye göstermez. Ajan durumu hesabında ana ajana sayılır.
+- Ajan yaşam döngüsü (`kayaai/agents/lifecycle.py`): `config/agents` (repo) + `data/agents` (sonradan oluşturulan).
+  Geçici ajan = base ajanın modeli/izinleri ∩ yaratıcının izinleri, her zaman gözden geçirilir; kalıcı yapma =
+  başarılı kullanım + `agent.promote` R2 onayı (PermissionEngine). Süreçler arası eşitleme: `sync_user_agents`.
+- Olaylar: `dispute.opened|resolved`, `agent.created|promoted|removed`, `decision.summary`.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

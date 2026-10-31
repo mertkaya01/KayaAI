@@ -82,6 +82,17 @@
 - [x] Statik dosya sunumu `ui/dist` dışına çıkamaz (yol çözümlendikten sonra denetlenir)
 - [x] Onay kararları arayüzden de yalnızca anahtarlı istekle; kararlar `decided_by=api` ile kaydedilir
 
+## Adım 7'de uygulananlar (ajan sistemi)
+
+- [x] Model tarafından üretilen kod **çalıştırılmaz**; yalnızca ayrıştırılır (Python `ast`, JSON, YAML)
+- [x] Ajanlar birbirine körü körüne güvenmez: her sorun cevaptan alıntıyla kanıtlanmalı, kanıtsızlar kodla elenir;
+      kontrol hatası (kanıt) üretici tarafından itiraz edilemez
+- [x] Anlaşmazlık kararı yalnızca sahipte (CLI, anahtarlı API) ya da kutudaki işi tamamlayan Claude'da; MCP'de karar aracı yok
+- [x] Geçici ajan izin tavanı kodla: dayandığı ajanın izinleri ∩ yaratıcının izinleri; geçici ajana dayanan geçici ajan yok;
+      sayı sınırı (`max_temp_agents`); kalıcı yapmak için başarılı kullanım + sahip onayı (R2, YAML önizlemeli)
+- [x] İç yardımcı worker'lar (`*.revise`, `*.check`) MCP'den çağrılamaz; bozuk/çakışan `data/agents` dosyaları atlanır,
+      repo ajanlarını ezemez
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

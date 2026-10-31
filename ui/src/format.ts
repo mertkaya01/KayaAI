@@ -39,6 +39,13 @@ export const APPROVAL_STATUS_LABEL: Record<string, string> = {
   failed: "Çalıştırılamadı",
 };
 
+export const DISPUTE_RESOLUTION_LABEL: Record<string, string> = {
+  producer: "üretici haklı bulundu",
+  reviewer: "gözden geçirici haklı bulundu",
+  claude: "Claude karar verdi",
+  superseded: "iş yeniden yapıldı",
+};
+
 const TASK_STATUS: Record<string, string> = {
   pending: "sıraya alındı",
   running: "çalışıyor",
@@ -67,6 +74,19 @@ export function describeEvent(e: KEvent): string {
       return `Araç başarısız: ${d.tool} — ${d.error}`;
     case "claude.mode":
       return d.enabled ? "Claude modu açıldı" : "Claude modu kapatıldı";
+    case "agent.created":
+      return `Yeni geçici ajan: ${d.name} (temel: ${d.base}, oluşturan: ${d.created_by})`;
+    case "agent.promoted":
+      return `Ajan kalıcı yapıldı: ${d.name}`;
+    case "agent.removed":
+      return `Geçici ajan kaldırıldı: ${d.name}`;
+    case "dispute.opened":
+      return `Anlaşmazlık: ${d.producer} ↔ ${d.reviewer} — ${d.issue}${d.escalated_to === "claude" ? " (Claude'a)" : " (sana)"}`;
+    case "dispute.resolved":
+      return `Anlaşmazlık kapandı: ${DISPUTE_RESOLUTION_LABEL[String(d.resolution)] ?? d.resolution}`;
+    case "decision.summary":
+      return `İş bitti (${TASK_STATUS[String(d.status)] ?? d.status}): ${d.steps} adım, ${d.reviewed_steps} gözden geçirme`
+        + `${Number(d.revised_steps) ? `, ${d.revised_steps} düzeltme` : ""}${Number(d.disputes) ? `, ${d.disputes} anlaşmazlık` : ""}`;
     default:
       return e.type;
   }

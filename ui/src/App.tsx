@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type ClaudeStatus, type Health, type KEvent, type SystemMetrics } from "./api";
+import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type ClaudeStatus, type Dispute, type Health, type KEvent, type SystemMetrics } from "./api";
 import { AgentsPanel } from "./components/AgentsPanel";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
+import { DisputesPanel } from "./components/DisputesPanel";
 import { EventsPanel } from "./components/EventsPanel";
 import { SystemPanel } from "./components/SystemPanel";
 import { TopBar } from "./components/TopBar";
@@ -30,6 +31,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   const [agentsKey, setAgentsKey] = useState(0);
   const [approvalsKey, setApprovalsKey] = useState(0);
   const [claudeKey, setClaudeKey] = useState(0);
+  const [disputesKey, setDisputesKey] = useState(0);
   const [events, setEvents] = useState<KEvent[]>([]);
 
   const health = usePolling<Health>("/api/health", 5000, claudeKey);
@@ -38,6 +40,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   const claude = usePolling<ClaudeStatus>("/api/claude", 5000, claudeKey);
   const pending = usePolling<Approval[]>("/api/approvals?status=pending", 10000, approvalsKey);
   const history = usePolling<Approval[]>("/api/approvals?status=all", 15000, approvalsKey);
+  const openDisputes = usePolling<Dispute[]>("/api/disputes?status=open", 10000, disputesKey);
+  const disputeHistory = usePolling<Dispute[]>("/api/disputes?status=all", 15000, disputesKey);
 
   const unauthorized = [health, system, agents, claude, pending].some((p) => p.unauthorized);
   useEffect(() => {
@@ -46,8 +50,9 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
 
   const onEvent = useCallback((e: KEvent) => {
     setEvents((prev) => [e, ...prev].slice(0, 50));
-    if (e.type === "task.status") setAgentsKey((k) => k + 1);
+    if (e.type === "task.status" || e.type.startsWith("agent.")) setAgentsKey((k) => k + 1);
     if (e.type.startsWith("approval.") || e.type === "tool.used") setApprovalsKey((k) => k + 1);
+    if (e.type.startsWith("dispute.")) setDisputesKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
   }, []);
   const live = useEvents(token, onEvent);
@@ -65,9 +70,10 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         <div className="col">
           <SystemPanel metrics={system.data} health={health.data} />
           <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => setApprovalsKey((k) => k + 1)} />
+          <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => setDisputesKey((k) => k + 1)} />
         </div>
         <div className="col">
-          <AgentsPanel agents={agents.data} error={agents.error} />
+          <AgentsPanel agents={agents.data} error={agents.error} onChanged={() => { setAgentsKey((k) => k + 1); setApprovalsKey((k) => k + 1); }} />
           <EventsPanel events={events} />
         </div>
       </main>

@@ -56,6 +56,16 @@ CREATE TABLE IF NOT EXISTS approvals (
 );
 CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
 
+CREATE TABLE IF NOT EXISTS disputes (
+    id          TEXT PRIMARY KEY,
+    created_at  TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    job_id      TEXT,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status);
+CREATE INDEX IF NOT EXISTS idx_disputes_job ON disputes(job_id);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -132,6 +142,43 @@ class TaskStore:
         with self._lock:
             rows = self._conn.execute(sql + " ORDER BY created_at DESC LIMIT ?", (*args, limit)).fetchall()
         return [json.loads(r["data"]) for r in rows]
+
+    # ------------------------------------------------------------------ anlaşmazlıklar (Adım 7)
+
+    def save_dispute(self, dispute_id: str, created_at: str, status: str, job_id: str | None,
+                     data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute(
+                """INSERT INTO disputes(id, created_at, status, job_id, data) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET status=excluded.status, data=excluded.data""",
+                (dispute_id, created_at, status, job_id, json.dumps(data, ensure_ascii=False, default=str)),
+            )
+
+    def get_dispute(self, dispute_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT data FROM disputes WHERE id = ?", (dispute_id,)).fetchone()
+        return json.loads(row["data"]) if row else None
+
+    def list_disputes(self, status: str | None = None, job_id: str | None = None,
+                      limit: int = 100) -> list[dict[str, Any]]:
+        where, args = [], []
+        if status:
+            where.append("status = ?"); args.append(status)
+        if job_id:
+            where.append("job_id = ?"); args.append(job_id)
+        sql = "SELECT data FROM disputes" + (" WHERE " + " AND ".join(where) if where else "")
+        with self._lock:
+            rows = self._conn.execute(sql + " ORDER BY created_at DESC LIMIT ?", (*args, limit)).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+    def count_worker_results(self, worker: str) -> tuple[int, int]:
+        """(biten, başarılı) görev sayısı — bir ajanın kullanım geçmişi (Adım 7c)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT SUM(status IN ('succeeded', 'failed', 'cancelled', 'timed_out', 'rejected')), "
+                "SUM(status = 'succeeded') FROM tasks WHERE worker = ?", (worker,)
+            ).fetchone()
+        return int(row[0] or 0), int(row[1] or 0)
 
     def count_by_status(self, status: TaskStatus) -> int:
         with self._lock:

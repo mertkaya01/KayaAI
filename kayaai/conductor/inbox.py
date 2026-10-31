@@ -25,6 +25,9 @@ class InboxItem(BaseModel):
     reason: str = ""
     suggested_steps: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime
+    # Adım 7: ajanlar anlaşamadıysa yerel taslak cevap ve iki görüş (karar Claude'da)
+    local_draft: str = ""
+    disputes: list[dict[str, str]] = Field(default_factory=list)
 
 
 class InboxView(BaseModel):
@@ -41,7 +44,14 @@ class ClaudeInbox:
         out = []
         for job in self.rt.store.list_tasks(limit=200, status=TaskStatus.WAITING_CLAUDE):
             res = job.result or {}
+            disputes = [
+                {"id": d.id, "producer": d.producer, "reviewer": d.reviewer, "issue": d.issue,
+                 "evidence": d.evidence, "producer_position": d.producer_position}
+                for d in (self.rt.disputes.list(status="open", job_id=job.id) if self.rt.disputes else [])
+            ]
             out.append(InboxItem(
+                local_draft=str(res.get("answer", ""))[:MAX_ANSWER_CHARS] if disputes else "",
+                disputes=disputes,
                 job_id=job.id,
                 request=job.objective,
                 reason=(res.get("routing") or {}).get("reason", ""),
@@ -88,6 +98,8 @@ class ClaudeInbox:
         job.finished_at = utcnow()
         self.rt.store.save(job)
         self.rt.store.log_event(job.id, "claude.completed", {"chars": len(answer)})
+        if self.rt.disputes:
+            self.rt.disputes.close_for_job(job.id, "claude", "claude", summary.strip()[:500] or "Claude işi tamamladı")
         return result
 
     def release(self, job_id: str) -> ConductorResult:
