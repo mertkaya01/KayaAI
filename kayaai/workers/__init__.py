@@ -12,6 +12,8 @@ class WorkerRegistry:
         self._internal: set[str] = set()
         # data/agents altından yüklenen (sonradan oluşturulmuş) ajanlar — kayaai/agents/lifecycle.py
         self.user_names: set[str] = set()
+        # Repo ajanlarının dosyadaki özgün tanımları (model geçersiz kılması kaldırılınca geri dönmek için)
+        self.base_definitions: dict = {}
 
     def register(self, worker: Worker, *, internal: bool = False) -> None:
         """internal: ajanın iç yardımcısı (ör. `coder.revise`); planlayıcıya, arayüze ve listelere görünmez."""

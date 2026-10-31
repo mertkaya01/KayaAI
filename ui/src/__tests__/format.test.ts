@@ -32,6 +32,12 @@ describe("biçimlendirme", () => {
       .toBe("Anlaşmazlık kapandı: üretici haklı bulundu");
     expect(describeEvent({ ...base, type: "decision.summary", data: { status: "succeeded", steps: 1, reviewed_steps: 1, revised_steps: 1, disputes: 0 } }))
       .toBe("İş bitti (tamamlandı): 1 adım, 1 gözden geçirme, 1 düzeltme");
+    expect(describeEvent({ ...base, type: "model.pull", data: { name: "qwen3:4b", status: "downloading", percent: 45.5 } }))
+      .toBe("Model indirme · qwen3:4b: downloading (%45.5)");
+    expect(describeEvent({ ...base, type: "model.compare", data: { id: "a", done: 2, total: 6 } })).toBe("Model karşılaştırma: 2/6");
+    expect(describeEvent({ ...base, type: "model.compare", data: { id: "a", status: "done" } })).toBe("Model karşılaştırma bitti");
+    expect(describeEvent({ ...base, type: "agent.model_changed", data: { name: "data", model_key: "coder-7b" } }))
+      .toBe("Ajanın modeli değişti: data → coder-7b");
   });
 
   it("kayan pencere en fazla max değer tutar", () => {

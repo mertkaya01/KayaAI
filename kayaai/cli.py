@@ -4,7 +4,7 @@
     kayaai ask "soru"        Genel worker'a görev ver
     kayaai tasks             Görev geçmişi
     kayaai task <id>         Görev ayrıntısı ve olayları
-    kayaai models            Model kayıt defteri ve kurulu modeller
+    kayaai models [load|unload|assign|pull|compare|activate]  Modeller (ajan ataması/indirme sahip onaylı)
     kayaai audit             Ortam denetimi (data/audit_report.json)
     kayaai do "istek"        Şef: planla → ajanlara dağıt → birleştir → gözden geçir
     kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
@@ -99,7 +99,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         _print(f"[UYARI] Ollama adresi yerel değil: {settings.ollama.base_url}")
 
     try:
-        registry = ModelRegistry.load(settings.models_file)
+        registry = ModelRegistry.load_for(settings)
         _print(f"[OK] Model kayıt defteri: {len(registry.models)} model, {len(registry.worker_assignments)} worker ataması")
     except (OSError, ValueError, KeyError) as exc:
         _print(f"[HATA] Model kayıt defteri okunamadı: {exc}")
@@ -230,27 +230,86 @@ def cmd_task(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_model_submit(res: Any, done_msg: str) -> int:
+    if res.status == "awaiting_approval":
+        _print(f"[ONAY BEKLİYOR] {res.message}")
+        _print(f"Onayla: kayaai approvals approve {res.approval_id}  (ya da Control Center → Onay merkezi)")
+        return 0
+    if res.status == "failed":
+        _print(f"[HATA] {res.error}")
+        return 1
+    _print(f"[OK] {done_msg}")
+    return 0
+
+
 def cmd_models(args: argparse.Namespace) -> int:
-    settings = load_settings()
-    registry = ModelRegistry.load(settings.models_file)
-    installed: set[str] | None = None
-    client = OllamaClient(settings.ollama.model_copy(update={"max_retries": 0}))
-    try:
-        installed = {m.get("name") for m in client.list_models()}
-    except OllamaError:
-        _print("(Ollama'ya ulaşılamadı; kurulu olma durumu gösterilemiyor)")
-    finally:
-        client.close()
-    assignments: dict[str, list[str]] = {}
-    for w, k in registry.worker_assignments.items():
-        assignments.setdefault(k, []).append(w)
-    for key, spec in registry.models.items():
-        state = "?" if installed is None else ("kurulu" if spec.name in installed else "KURULU DEĞİL")
-        _print(
-            f"{key:<14} {spec.name:<18} {state:<13} ~{spec.approx_vram_gb} GB VRAM  "
-            f"lisans: {spec.license}  worker: {', '.join(assignments.get(key, [])) or '-'}"
-        )
-        _print(f"{'':<14} {spec.purpose}")
+    from .llm import manager as mm
+    from .llm.compare import CompareError, start_compare
+    from .runtime import build_runtime
+
+    with build_runtime(load_settings()) as rt:
+        try:
+            if args.action in ("load", "unload", "pull"):
+                if not args.name:
+                    _print(f"Model adı gerekli: kayaai models {args.action} <ollama-adı>  (ör. qwen3:8b)")
+                    return 2
+                if args.action == "pull":
+                    return _print_model_submit(mm.request_pull(rt, args.name, requested_by="cli"), f"İndirildi: {args.name}")
+                res = mm.request_load(rt, args.name, unload=args.action == "unload", requested_by="cli")
+                return _print_model_submit(res, f"{args.name} {'bellekten çıkarıldı' if args.action == 'unload' else 'belleğe yüklendi'}")
+            if args.action == "assign":
+                if not args.name or not args.model:
+                    _print("Kullanım: kayaai models assign <ajan> <model>  (anahtar ya da Ollama adı, ör. data coder-7b)")
+                    return 2
+                return _print_model_submit(mm.request_agent_model(rt, args.name, args.model, requested_by="cli"), "Atandı")
+            if args.action == "activate":
+                if not args.name:
+                    _print("Model anahtarı gerekli: kayaai models activate <anahtar>")
+                    return 2
+                return _print_model_submit(mm.request_activate(rt, args.name, requested_by="cli"), "Aktif")
+            if args.action == "compare":
+                if not args.name or not args.model:
+                    _print("Kullanım: kayaai models compare <ajan> <aday>  (anahtar ya da Ollama adı, ör. data qwen3:4b)")
+                    return 2
+                _print(f"Karşılaştırılıyor: {args.name} ajanı, mevcut model ↔ {args.model} (birkaç dakika sürebilir)...")
+                rec = start_compare(rt, args.name, args.model)
+                if rec["status"] != "done":
+                    _print(f"[HATA] {rec.get('error')}")
+                    return 1
+                for side, title in (("current", "Mevcut"), ("candidate", "Aday")):
+                    sm = rec["summary"][side]
+                    load = (rec.get("load_seconds") or {}).get(side)
+                    _print(f"{title:<7} {sm['model']:<20} {sm['ok']}/{sm['cases']} doğru  ort. {sm['avg_seconds']} sn  "
+                           f"{sm['avg_tokens_per_second'] or '-'} token/sn"
+                           + (f"  (belleğe yükleme {load} sn, ortalamaya dahil değil)" if load is not None else ""))
+                    for r in rec["rows"][side]:
+                        why = [] if r["ok"] else ([f"eksik: {', '.join(r['missing'])}"] if r["missing"] else []) + \
+                            (["dil"] if not r["language_ok"] else []) + (["kod"] if not r["code_ok"] else []) + \
+                            (["yabancı yazı"] if r["foreign_script"] else []) + (["görev başarısız"] if not r["succeeded"] else []) + \
+                            (["soruyu tekrarladı"] if r.get("echo") else [])
+                        _print(f"        {'OK ' if r['ok'] else 'X  '} {r['request'][:60]}  {'; '.join(why)}")
+                _print(f"Sonuç: {rt.settings.data_dir / 'model_compare' / (rec['id'] + '.json')}")
+                return 0
+        except (mm.ModelAdminError, CompareError, OllamaError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        ov = mm.overview(rt)
+        if not ov["ollama_reachable"]:
+            _print("(Ollama'ya ulaşılamadı; kurulu/yüklü durumu gösterilemiyor)")
+        for m in ov["models"]:
+            state = "?" if m["installed"] is None else ("kurulu" if m["installed"] else "KURULU DEĞİL")
+            if m["loaded"]:
+                state = f"YÜKLÜ {m['loaded']['vram_gb']} GB"
+            status = {"active": "aktif", "candidate": "ADAY", "unregistered": "kayıtsız"}.get(m["status"], m["status"])
+            _print(f"{m['key'] or '-':<14} {m['name']:<20} {state:<14} {status:<8} ~{m['approx_vram_gb'] or '?'} GB VRAM  "
+                   f"lisans: {m['license'] or '-'}  kullanan: {', '.join(m['agents']) or '-'}")
+            if m["purpose"]:
+                _print(f"{'':<14} {m['purpose']}")
+            if m["status"] == "unregistered":
+                _print(f"{'':<14} kayaAI kaydında yok (Ollama'da kurulu). Karşılaştırmak için: "
+                       f"kayaai models compare <ajan> {m['name']}")
+        _print("\nKomutlar: kayaai models load|unload <ad> · assign <ajan> <anahtar> · pull <ad> · "
+               "compare <ajan> <aday> · activate <model>  (model: anahtar ya da Ollama adı, ör. qwen3:4b)")
     return 0
 
 
@@ -908,7 +967,12 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("task_id")
     d.set_defaults(func=cmd_task)
 
-    sub.add_parser("models", help="model kayıt defteri").set_defaults(func=cmd_models)
+    mo = sub.add_parser("models", help="modeller: listele / yükle / boşalt / ajana ata / indir / karşılaştır / aktif yap")
+    mo.add_argument("action", nargs="?", choices=["list", "load", "unload", "assign", "pull", "compare", "activate"],
+                    default="list")
+    mo.add_argument("name", nargs="?", help="model adı (load/unload/pull), ajan (assign/compare) ya da anahtar (activate)")
+    mo.add_argument("model", nargs="?", help="assign/compare: model anahtarı")
+    mo.set_defaults(func=cmd_models)
     sub.add_parser("audit", help="ortam denetimi raporu").set_defaults(func=cmd_audit)
     do = sub.add_parser("do", help="şef: isteği planlayıp ajanlara dağıtır")
     do.add_argument("request", nargs="+")

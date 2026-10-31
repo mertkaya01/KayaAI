@@ -7,6 +7,7 @@ Bağlantı hatası, zaman aşımı ve 5xx için üstel geri çekilmeli tekrar de
 from __future__ import annotations
 
 import logging
+import json
 import threading
 import time
 from dataclasses import dataclass, field
@@ -235,6 +236,53 @@ class OllamaClient:
         if not isinstance(vectors, list) or len(vectors) != len(inputs):
             raise OllamaError(f"Beklenmeyen /api/embed yanıtı: {str(data)[:200]}")
         return vectors
+
+
+    # ------------------------------------------------------------------ model yönetimi (Adım 11)
+
+    def load_model(self, model: str, keep_alive: str | int = "30m", embedding: bool = False,
+                   options: dict[str, Any] | None = None) -> None:
+        """Modeli VRAM'e alır (boş istek + keep_alive). Embedding modelleri /api/embed ile yüklenir.
+
+        `options` sohbette kullanılacaklarla aynı olmalı (özellikle num_ctx): farklıysa Ollama ilk sohbette modeli
+        yeniden yükler (Windows ölçümü: ısınmadan sonra ilk cevap yine ~4 sn)."""
+        if embedding:
+            self._request("POST", "/api/embed", json={"model": model, "input": ["."], "keep_alive": keep_alive}, timeout=300)
+        else:
+            payload: dict[str, Any] = {"model": model, "prompt": "", "stream": False, "keep_alive": keep_alive}
+            if options:
+                payload["options"] = options
+            self._request("POST", "/api/generate", json=payload, timeout=300)
+
+    def unload_model(self, model: str, embedding: bool = False) -> None:
+        """Modeli bellekten çıkarır (keep_alive: 0)."""
+        self.load_model(model, keep_alive=0, embedding=embedding)
+
+    def pull_model(self, model: str, on_progress: Any = None, cancel_event: threading.Event | None = None) -> dict[str, Any]:
+        """`ollama pull` (akışlı). on_progress(dict) her durum satırında çağrılır. Son durumu döner."""
+        last: dict[str, Any] = {}
+        try:
+            with self._http.stream("POST", "/api/pull", json={"model": model, "stream": True},
+                                   timeout=httpx.Timeout(None, connect=self.settings.connect_timeout_s)) as resp:
+                if resp.status_code >= 400:
+                    resp.read()
+                    raise OllamaError(f"HTTP {resp.status_code}: {_error_message(resp)}")
+                for line in resp.iter_lines():
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise OllamaCancelled("indirme iptal edildi")
+                    if not line.strip():
+                        continue
+                    try:
+                        last = json.loads(line)
+                    except ValueError:
+                        continue
+                    if "error" in last:
+                        raise OllamaError(str(last["error"]))
+                    if on_progress is not None:
+                        on_progress(last)
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            raise OllamaUnavailable(f"Ollama'ya ulaşılamadı: {exc}") from exc
+        return last
 
 
 def _error_message(resp: httpx.Response) -> str:

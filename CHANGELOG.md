@@ -2,6 +2,68 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.11.3] - 2026-11-01
+
+### Düzeltildi (Windows karşılaştırması, v0.11.2)
+- Puanlama fazla cömertti: qwen3:4b "Artış yüzde kaç?" sorusuna "120 + 80 = 200" dedi ve "20" metin olarak "200"ün içinde
+  geçtiği için doğru sayıldı; başka bir vakada soruyu aynen geri yazdı ve sorudaki sayılar yüzünden doğru sayıldı
+  (gerçek sonuç 2/5, rapor 4/5). Artık beklenen sayılar **sayı olarak** aranır (20 ≠ 200; Türkçe/İngilizce biçimler:
+  1.234,56 · 1,234.56 · %25 · 60.0), istekte geçen sayılar sayılmaz, soruyu tekrarlayan cevap başarısız ("soruyu
+  tekrarladı"); metin beklentileri kelime olarak aranır. Vaka sayıları beklenen sonuçlarla çakışmayacak şekilde seçildi.
+- Isınma modeli varsayılan bağlam uzunluğuyla yüklüyordu; ilk sohbet 8192 bağlamla gelince Ollama yeniden yüklüyordu
+  (ısınmadan sonra ilk cevap yine ~4 sn). Isınma ve Modeller → Yükle artık sohbetle aynı seçeneklerle (num_ctx) yükler.
+
+### Doğrulandı (Windows, v0.11.2)
+- think düzeltmesi: qwen3:4b cevap başına ~6 sn → 0,43 sn (163 token/sn); yükleme süresi ayrı (3,9 / 2,1 sn)
+- Yeni zor vaka ayırt edici: indirim + vergi sorusunu iki model de yanlış yaptı (qwen3:8b "90", qwen3:4b "68"; doğru 66)
+
+## [0.11.2] - 2026-11-01
+
+### Düzeltildi (Windows karşılaştırma ölçümleri)
+- Karşılaştırmada ilk vakanın süresine modelin belleğe yüklenmesi karışıyordu (qwen2:7b ilk cevap 13,5 sn, diğerleri
+  ~0,5 sn). Artık her model vakalardan önce **ısıtılır**; yükleme süresi ayrı gösterilir, ortalamaya girmez. Aday
+  karşılaştırmadan önce bellekte değildiyse sonunda boşaltılır (VRAM geri verilir).
+- Sonradan eklenen düşünen modeller (Ollama yeteneği `thinking`, ör. qwen3:4b) gizli düşünme açık kaydediliyordu: 161
+  token/sn'ye rağmen cevap başına ~6 sn. Artık genel modelle aynı politika (`think: false`) yazılır; eski kayıtlar ilk
+  karşılaştırmada düzeltilir.
+- Vakalar çok kolaydı (her model 3/3): data ve general setlerine ikişer çok adımlı / kesin cevaplı vaka eklendi (5 vaka).
+
+### Doğrulandı (Windows, v0.11.1)
+- `kayaai models compare data llama3.1:8b` 3/3 ↔ 3/3; `general qwen2:7b` (kayıtsız → otomatik aday) 3/3 ↔ 3/3;
+  `pull qwen3:4b` → onay → indirme → `compare data qwen3:4b` 3/3 ↔ 3/3
+
+## [0.11.1] - 2026-10-31
+
+### Düzeltildi (Windows geri bildirimi)
+- `kayaai models compare data qwen3-4b` → "Kayıtlı model değil" hatası. Model `ollama pull` ile kayaAI dışında
+  indirildiyse (Ollama'da kurulu, kayaAI kaydında yok) karşılaştırma artık onu **aday** olarak kaydedip çalışır
+  (indirme yok; aday ajana atanamaz kuralı aynı).
+- Model komutları anahtar **ya da** Ollama adı kabul eder (`qwen3-4b` ≡ `qwen3:4b`): compare, assign, activate.
+- Anlaşılır hatalar: indirme onay bekliyorsa `kayaai approvals approve <id>`; hiç kurulu değilse `kayaai models pull …`;
+  `kayaai models` listesi kayıtsız modeller için karşılaştırma komutunu gösterir.
+- Modeller → Karşılaştır: kurulu kayıtsız modeller de aday olarak seçilebilir.
+
+## [0.11.0] - 2026-10-31
+
+### Eklendi (Adım 11 — görsel iş akışı + model yönetimi)
+- **Akış** sekmesi: şef işlerinin canlı düğüm grafiği (İstek → Planlayıcı → ajanlar → gözden geçirme/düzeltme → son
+  kontrol → Sonuç / Claude kutusu); grafik iş kaydı + alt görevler + olaylardan türetilir; `GET /api/jobs`,
+  `GET /api/jobs/{id}/graph`; Asistan'da "Akışı göster / izle"
+- **Modeller** sekmesi ve `kayaai models load|unload|assign|pull|compare|activate`:
+  model tablosu (boyut, nicemleme, VRAM, bellekte, kullanan ajanlar), yükle/boşalt (R1), ajan modeli değiştirme (R2),
+  Ollama'dan indirme (R2, arka planda, ilerleme), karşılaştırma testi (kodla puanlama, ayrı kayıt), adayı aktif yapma (R2)
+- Yerel model kaydı `data/models.local.yaml` ve ajan model atamaları `data/agent_overrides.yaml` (repo dosyaları
+  değişmez; süreçler arası eşitlenir)
+- API: `GET /api/model-admin`, `POST /api/models/load|unload|pull`, `POST /api/models/{anahtar}/activate`,
+  `POST /api/agents/{ad}/model`, `POST /api/model-compare`, `GET /api/model-compare/{id}`
+
+### Düzeltildi
+- Aylara/çeyreklere göre gruplamada sonuç takvim sırasıyla verilir (önceden tutara göre sıralanabiliyordu)
+- Dar ekranda üst sekmeler yatay kayar (5. sekme eklenince taşma olmasın)
+
+### Ertelendi
+- LM Studio / llama.cpp bağdaştırıcısı (sahip kararı: şimdilik yalnız Ollama)
+
 ## [0.10.2] - 2026-10-31
 
 ### Düzeltildi

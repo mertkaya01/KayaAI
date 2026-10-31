@@ -19,7 +19,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Tamamlandı** (Windows'ta doğrulandı) |
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
-| 11+ | Görsel iş akışı + model yönetimi, ekran/ses, zamanlama | Planlandı |
+| 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
+| 12+ | Ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -256,6 +257,26 @@ Asistan'da bir **Excel/CSV** ya da **PDF** ekle (dosya seçici ya da "Klasörden
 - Belge araması (Hafıza) PDF ve Excel dosyalarını da dizinler (kaynak: `rapor.pdf:s.3`).
 - CLI: `kayaai analyze satis.xlsx "bölgelere göre toplam" --report pdf` · `kayaai summarize rapor.pdf` ·
   `kayaai invoice fatura.pdf --report xlsx`. Ölçüm: `python scripts\business_check.py`.
+
+## Akış ve Modeller (Adım 11)
+
+- **Akış** sekmesi (`/akis`): şefin her işi bir düğüm grafiği olarak görünür — İstek → Planlayıcı → ajan adımları →
+  gözden geçirme / düzeltme → son kontrol → Sonuç (ya da Claude kutusu). İş sürerken çalışan düğüm yanıp söner ve grafik
+  kendiliğinden güncellenir; düğüme tıklayınca ajan, model, süre, token/sn ve gözden geçirme özeti. Asistan'daki
+  cevaplarda **Akışı göster / izle** bağlantısı.
+- **Modeller** sekmesi (`/modeller`), yalnızca Ollama (LM Studio / llama.cpp şimdilik yok — sahip kararı):
+  - Model tablosu: boyut, nicemleme, VRAM, bellekte mi / ne zamana kadar, aktif/aday/kayıtsız, hangi ajanlar kullanıyor.
+  - **Yükle / Boşalt**: hemen olur (kayda geçer).
+  - **Ajan → model**: yalnızca kurulu ve *aktif* modeller; **sahip onayı** ister (Onay merkezi, eski → yeni model
+    önizlemesi). Repo dosyaları değişmez: `data\agent_overrides.yaml` (sonradan oluşturulan ajanlarda kendi dosyası).
+  - **Yeni model indir** (ör. `qwen3:4b`): **sahip onayı** sonrası arka planda iner, ilerleme çubuğu; inen model *aday*
+    olarak `data\models.local.yaml`'a eklenir. İndirmeden önce lisansını kontrol et.
+  - **Karşılaştır**: bir ajanın sabit görev setinde mevcut model ile aday sırayla çalışır (ayrı kayıt, geçmiş
+    kirlenmez); doğruluk **kodla** ölçülür (beklenen değerler, dil, yabancı yazı, kod sözdizimi), süre ve token/sn.
+    Sonuç varsa aday **aktif yapılabilir** (sahip onayı) ve sonra ajanlara atanabilir.
+- CLI: `kayaai models` · `kayaai models load|unload qwen3:8b` · `kayaai models assign data coder-7b` ·
+  `kayaai models pull qwen3:4b` · `kayaai models compare data qwen3-4b` · `kayaai models activate qwen3-4b`
+  (onay gerektirenler: `kayaai approvals approve <id>`).
 
 ## Ajan ekibi (Adım 7)
 

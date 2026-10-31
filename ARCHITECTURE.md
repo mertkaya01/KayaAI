@@ -244,6 +244,25 @@ rapor:   Report → md | xlsx (openpyxl) | docx (python-docx) | pdf (reportlab +
   mesajda (`meta.business`) saklanır → `ChatBook.report` aynı veriden dört biçimde rapor üretir.
 - Belge dizini PDF/Excel'i metne çevirip dizinler (`Chunk.loc` = `s.N`).
 
+## Akış grafiği ve model yönetimi (Adım 11)
+
+```
+şef işi + alt görevler (parent_id) + olaylar (plan.created) ──► conductor/graph.build_graph ──► JobGraph (düğüm/kenar)
+   (grafik saklanmaz, TÜRETİLİR: iş sürerken ve başka süreçte başlatılan işlerde de doğru)   GET /api/jobs/{id}/graph
+arayüz: dag.ts (en uzun yol = sütun, döngüye dayanıklı) → elle yazılmış SVG; iş sürerken 1,5 sn'de bir yenilenir
+
+config/models.yaml + data/models.local.yaml (indirilen / aktif yapılan) ──► ModelRegistry.load_for(settings)
+config/agents/*.yaml + data/agent_overrides.yaml (repo ajanları) | data/agents/<ad>.yaml (kullanıcı ajanları)
+   ──► lifecycle.sync_agents: kayıt dosyası değiştiyse yeniden yükler, geçersiz kılmaları uygular (süreçler arası)
+llm/manager.py: overview (kayıt + /api/tags + /api/ps) · talepler → PermissionEngine
+   model.load / model.unload (R1, /api/generate|/api/embed keep_alive) · agent.model, model.pull, model.activate (R2)
+llm/compare.py: ajan tanımı × {mevcut, aday} → ayrı TaskStore'da Orchestrator.ask → kodla puanlama →
+   data/model_compare/<id>.json; tek kilit (tek GPU); ilerleme `model.compare` olayları
+```
+- API sunucusunda (`rt.background_ok`) indirme ve karşılaştırma arka plan iş parçacığında sürer; CLI'da bitene kadar bekler.
+- Aday model kuralı korunur: aday modeller ajan tanımına ve geçersiz kılmaya atanamaz (yalnız karşılaştırmada, ayrı
+  kayıtta çalışır); aktif yapmak için karşılaştırma sonucu + sahip onayı gerekir.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

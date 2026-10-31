@@ -29,6 +29,8 @@ class Runtime:
     files: "FileTools | None" = None  # noqa: F821 - aşağıda import edilir
     disputes: DisputeBook | None = None
     memory: "Memory | None" = None  # noqa: F821 - Adım 9
+    # API sunucusu: uzun işler (model indirme, karşılaştırma) arka planda sürer; CLI'da süreç bitene kadar beklenir.
+    background_ok: bool = False
 
     def close(self) -> None:
         if self.memory is not None:
@@ -52,7 +54,7 @@ def build_runtime(
     settings = settings or load_settings()
     store = TaskStore(settings.db_path)
     recovered = store.recover_interrupted()
-    registry = ModelRegistry.load(settings.models_file)
+    registry = ModelRegistry.load_for(settings)
     llm = llm or OllamaClient(settings.ollama)
     load_user_agents = workers is None
     workers = workers or default_workers(registry, settings.config_dir / "agents")
@@ -72,6 +74,9 @@ def build_runtime(
     from .agents.lifecycle import exec_promote, sync_user_agents
 
     permissions.executors["agent.promote"] = lambda params: exec_promote(rt, params)
+    from .llm.manager import executors as model_executors
+
+    permissions.executors.update(model_executors(rt))
     if load_user_agents:
         sync_user_agents(rt)  # data/agents: sonradan oluşturulan (geçici / kalıcı yapılmış) ajanlar
     from .memory import Memory

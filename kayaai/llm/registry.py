@@ -32,6 +32,11 @@ class ModelSpec(BaseModel):
         return opts
 
 
+def local_registry_path(settings: Any) -> Path:
+    """Adım 11: sonradan indirilen (aday) ve karşılaştırmayla aktif yapılan modeller — repo dosyası değişmez."""
+    return Path(settings.data_dir) / "models.local.yaml"
+
+
 class RegistryFile(BaseModel):
     models: dict[str, dict[str, Any]]
     workers: dict[str, str] = Field(default_factory=dict)
@@ -59,11 +64,29 @@ class ModelRegistry:
         return cls(models, dict(parsed.workers))
 
     @classmethod
-    def load(cls, path: Path) -> "ModelRegistry":
+    def load(cls, path: Path, local: Path | None = None) -> "ModelRegistry":
+        """`config/models.yaml` (+ isteğe bağlı yerel katman: sonradan indirilen/aktif yapılan modeller, git dışı)."""
         if not path.exists():
             raise FileNotFoundError(f"Model kayıt dosyası yok: {path}")
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if local is not None and local.is_file():
+            extra = yaml.safe_load(local.read_text(encoding="utf-8")) or {}
+            models = dict(data.get("models") or {})
+            for key, spec in (extra.get("models") or {}).items():
+                models[key] = {**models.get(key, {}), **(spec or {})}
+            data = {**data, "models": models}
         return cls.from_dict(data)
+
+    @classmethod
+    def load_for(cls, settings: Any) -> "ModelRegistry":  # settings: kayaai.config.Settings
+        return cls.load(settings.models_file, local_registry_path(settings))
+
+    def key_for_name(self, name: str) -> str | None:
+        """Ollama adından kayıt anahtarı ('qwen3' ≡ 'qwen3:latest')."""
+        for k, s in self._models.items():
+            if s.name == name or f"{s.name}:latest" == name or s.name == f"{name}:latest":
+                return k
+        return None
 
     @property
     def models(self) -> dict[str, ModelSpec]:

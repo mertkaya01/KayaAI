@@ -129,6 +129,19 @@
 - [x] Yeni bağımlılıklar izin verici lisanslı: pypdf (BSD-3), openpyxl (MIT), python-docx (MIT), reportlab (BSD);
       PDF yazı tipi sistemden okunur (repoya font eklenmez)
 
+## Adım 11'de uygulananlar (akış + model yönetimi)
+
+- [x] Ajan modelini değiştirmek, model indirmek ve aday modeli aktif yapmak **R2 sahip onayı** ister (API/CLI talep
+      eder, yalnızca sahip onaylar; MCP'de model yönetimi aracı yok). Yükle/boşalt yalnız VRAM'i etkiler: R1, kayda geçer
+- [x] Model adı doğrulaması (`ad[:etiket]`, küçük harf, güvenli karakterler, uzunluk sınırı); yalnızca Ollama'nın kendi
+      `/api/pull` ucu kullanılır (kabuk komutu çalıştırılmaz)
+- [x] Aday modeller ajanlara atanamaz; aktif yapmak için o modelin karşılaştırma sonucu gerekir (doğrulayıcı kapısı)
+- [x] Repo dosyaları değişmez: değişiklikler git dışı `data/models.local.yaml` ve `data/agent_overrides.yaml`'a yazılır
+      (atomik yazma); geçersiz/aktif olmayan geçersiz kılma uyarıyla yok sayılır
+- [x] Karşılaştırma ayrı geçici veritabanında çalışır (gerçek geçmiş kirlenmez), aynı anda yalnızca bir tane; sonuç
+      kimliği yalnız harf/rakam (yol gezinmesi yok)
+- [x] Akış grafiği yalnızca okuma; tüm yeni uçlar erişim anahtarı ister
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

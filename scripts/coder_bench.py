@@ -111,7 +111,7 @@ def main() -> int:
             return 1
 
     settings = load_settings()
-    registry = ModelRegistry.load(settings.models_file)
+    registry = ModelRegistry.load_for(settings)
     client = OllamaClient(settings.ollama)
     report: dict = {"mode": "execute" if args.execute else "static", "models": {}}
     try:

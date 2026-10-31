@@ -42,6 +42,10 @@ def fake_embedding(text: str, dim: int = 64) -> list[float]:
     return [v / norm for v in vec]
 
 
+class NDJSON(list):
+    """Akışlı (satır satır JSON) cevap: /api/pull."""
+
+
 class FakeOllama:
     def __init__(self) -> None:
         self.requests: list[tuple[str, str, Any]] = []
@@ -77,7 +81,32 @@ class FakeOllama:
         if path == "/api/tags":
             return 200, {"models": self.models}
         if path == "/api/ps":
-            return 200, {"models": []}
+            return 200, {"models": [{"name": n, "model": n, "size": 1_000_000_000, "size_vram": 1_000_000_000,
+                                     "expires_at": "2026-10-31T23:00:00Z"} for n in getattr(self, "loaded", {})]}
+        if path == "/api/generate":  # Adım 11: modeli yükle / boşalt
+            if body.get("model") not in {m["name"] for m in self.models}:
+                return 404, {"error": f"model \"{body.get('model')}\" not found"}
+            self.loaded = getattr(self, "loaded", {})
+            if body.get("keep_alive") in (0, "0"):
+                self.loaded.pop(body["model"], None)
+            else:
+                self.loaded[body["model"]] = body.get("keep_alive")
+            return 200, {"model": body["model"], "response": "", "done": True}
+        if path == "/api/pull":
+            name = body.get("model", "")
+            if name.startswith("yok"):
+                return 200, NDJSON([{"status": "pulling manifest"}, {"error": f"pull model manifest: file does not exist"}])
+            self.models.append({"name": name, "model": name, "size": 2_500_000_000,
+                                "details": {"family": "qwen3", "parameter_size": "4B", "quantization_level": "Q4_K_M"}})
+            return 200, NDJSON([{"status": "pulling manifest"},
+                                {"status": "downloading", "total": 1000, "completed": 500},
+                                {"status": "downloading", "total": 1000, "completed": 1000},
+                                {"status": "success"}])
+        if path == "/api/show":
+            if body.get("model") not in {m["name"] for m in self.models}:
+                return 404, {"error": f"model '{body.get('model')}' not found"}
+            caps = ["completion", "thinking"] if body["model"].startswith("qwen3") else ["completion"]
+            return 200, {"capabilities": caps, "details": {}}
         if path == "/api/embed":
             if body.get("model") not in {m["name"] for m in self.models}:
                 return 404, {"error": f"model \"{body.get('model')}\" not found, try pulling it first"}
@@ -115,6 +144,14 @@ class FakeOllama:
                 pass
 
             def _send(self, status: int, body: Any) -> None:
+                if isinstance(body, NDJSON):
+                    data = "".join(json.dumps(x) + "\n" for x in body).encode()
+                    self.send_response(status)
+                    self.send_header("Content-Type", "application/x-ndjson")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 data = json.dumps(body).encode()
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")

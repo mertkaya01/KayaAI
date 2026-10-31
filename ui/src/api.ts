@@ -225,6 +225,7 @@ export interface ChatMessage {
   status: MessageStatus;
   agent: string;
   job_id: string | null;
+  job_kind?: "conductor" | "task" | null;
   reply_to: string | null;
   handoff: boolean;
   attachments: AttachmentRef[];
@@ -292,4 +293,126 @@ export interface RecallView {
   memories: { id: string; text: string; category: string; sensitivity: string; score: number }[];
   documents: { chunk_id: string; path: string; name: string; line: number; text: string; score: number }[];
   warnings: string[];
+}
+
+// ---------------------------------------------------------------- İş akışı (Adım 11)
+
+export type FlowStatus = "pending" | "running" | "succeeded" | "failed" | "waiting" | "skipped";
+
+export interface FlowNode {
+  id: string;
+  kind: "request" | "planner" | "step" | "check" | "revise" | "review" | "addendum" | "merge" | "result" | "claude";
+  label: string;
+  status: FlowStatus;
+  agent: string | null;
+  model: string | null;
+  task_id: string | null;
+  duration_s: number | null;
+  tokens_per_second: number | null;
+  detail: string;
+  error: string | null;
+  review: { verdict?: string; issues?: number; dropped?: number; revised?: boolean; disputes?: number } | null;
+}
+
+export interface JobGraph {
+  job_id: string;
+  objective: string;
+  status: string;
+  mode: string | null;
+  routing: string | null;
+  duration_s: number | null;
+  warnings: string[];
+  nodes: FlowNode[];
+  edges: { source: string; target: string }[];
+}
+
+export interface JobSummary {
+  id: string;
+  objective: string;
+  status: string;
+  created_at: string;
+  duration_s: number | null;
+  mode: string | null;
+  steps: number;
+}
+
+// ---------------------------------------------------------------- model yönetimi (Adım 11)
+
+export interface ModelRow {
+  key: string | null;
+  name: string;
+  status: "active" | "candidate" | "unregistered";
+  purpose: string;
+  license: string | null;
+  approx_vram_gb: number | null;
+  installed: boolean | null;
+  size_gb: number | null;
+  family: string | null;
+  parameters: string | null;
+  quantization: string | null;
+  loaded: { vram_gb: number | null; expires_at: string | null } | null;
+  agents: string[];
+  embedding: boolean;
+}
+
+export interface AgentModelRow {
+  name: string;
+  model_key: string;
+  model_name: string;
+  overridden: boolean;
+  user_agent: boolean;
+  description: string;
+  output: "answer" | "review" | "plan";
+}
+
+export interface PullState {
+  name: string;
+  status: string;
+  completed: number;
+  total: number;
+  error: string | null;
+}
+
+export interface CompareRow {
+  request: string;
+  ok: boolean;
+  succeeded: boolean;
+  missing: string[];
+  echo?: boolean;
+  language_ok: boolean;
+  code_ok: boolean;
+  foreign_script: boolean;
+  seconds: number;
+  tokens_per_second: number | null;
+  answer_head: string;
+}
+
+export interface CompareSide {
+  model: string;
+  cases: number;
+  ok: number;
+  avg_seconds: number;
+  avg_tokens_per_second: number | null;
+}
+
+export interface CompareRecord {
+  id: string;
+  agent: string;
+  current: string;
+  candidate: string;
+  status: "running" | "done" | "failed";
+  started_at: string;
+  finished_at?: string;
+  error?: string;
+  rows: Partial<Record<"current" | "candidate", CompareRow[]>>;
+  summary: Partial<Record<"current" | "candidate", CompareSide>>;
+  load_seconds?: Partial<Record<"current" | "candidate", number>>;
+}
+
+export interface ModelAdmin {
+  ollama_reachable: boolean;
+  models: ModelRow[];
+  agents: AgentModelRow[];
+  pulls: PullState[];
+  compares: CompareRecord[];
 }
