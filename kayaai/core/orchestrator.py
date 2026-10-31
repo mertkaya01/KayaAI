@@ -204,7 +204,7 @@ class Orchestrator:
         if task.status.is_terminal:
             return False
         self._cancel_event(task_id).set()
-        if task.status == TaskStatus.PENDING:
+        if task.status in (TaskStatus.PENDING, TaskStatus.WAITING_CLAUDE):
             self._finish(task, TaskStatus.CANCELLED, error="kullanıcı iptal etti")
         self.store.log_event(task_id, "cancel_requested")
         return True

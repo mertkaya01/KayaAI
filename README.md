@@ -120,6 +120,7 @@ kayaai task <görev-id>                # görev ayrıntısı + olay günlüğü
 kayaai models                         # model kayıt defteri
 kayaai audit                          # Python ile ortam denetimi
 kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi başlatır)
+kayaai claude [on|off]                # Claude modu: durum / aç / kapat (varsayılan kapalı)
 ```
 
 `Activate.ps1` "running scripts is disabled" hatası verirse, sanal ortamı etkinleştirmeden:

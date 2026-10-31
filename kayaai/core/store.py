@@ -77,6 +77,24 @@ class TaskStore:
         with self._lock:
             self._conn.close()
 
+    # ------------------------------------------------------------------ meta (anahtar/değer)
+
+    def get_meta(self, key: str) -> str | None:
+        with self._lock:
+            row = self._conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
+
+    def count_by_status(self, status: TaskStatus) -> int:
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM tasks WHERE status = ?", (status.value,)).fetchone()[0]
+
     # ------------------------------------------------------------------ görevler
 
     def save(self, task: Task) -> None:

@@ -81,6 +81,15 @@ Worker'lar birbirine serbest metin değil **`Task` nesnesi** ile iş verir. Faz 
 | **Docker yok** | Windows'ta GPU geçişi ve ses/ekran erişimi Docker ile zorlaşır; şu an fayda sağlamıyor. |
 | **Proje içi `data/`** | Taşınabilirlik; `KAYAAI_DATA_DIR` ile değiştirilebilir. |
 
+## Claude modu (Adım 3a)
+
+Claude isteğe bağlıdır (MASTER_PROMPT v2 D2). `kayaai/core/claude_mode.py`:
+- Aç/kapa: `config/settings.yaml` → `claude.enabled` varsayılan; `kayaai claude on|off` ile değiştirilen
+  durum SQLite `meta` tablosunda (`claude.enabled`) saklanır ve varsayılanı ezer.
+- "Son temas": kayaAI Claude'u çağıramaz; Claude Code MCP sunucusunu kullandıkça `claude.last_contact`
+  güncellenir. Durumlar: `off` / `on_no_contact` / `on_recent_contact` / `on_stale_contact`.
+- `waiting_claude` görev durumu Claude kutusu (3d) içindir; terminal değildir, yeniden başlatmada korunur.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

@@ -42,6 +42,16 @@ class PermissionSettings(BaseModel):
     auto_approve: list[str] = Field(default_factory=lambda: ["llm.inference"])
 
 
+class ClaudeSettings(BaseModel):
+    """Claude modu (MASTER_PROMPT v2 D2): isteğe bağlı takviye; kayaAI onsuz tam çalışır."""
+
+    # Varsayılan değer. Çalışma anındaki aç/kapa durumu SQLite'ta saklanır ve bunu ezer
+    # (`kayaai claude on|off`), böylece arayüzden değiştirilebilir.
+    enabled: bool = False
+    # Claude Code'un MCP sunucusunu en son kullanmasından bu kadar dakika geçtiyse "yakın temas" sayılır.
+    contact_window_min: int = Field(15, ge=1, le=24 * 60)
+
+
 class LoggingSettings(BaseModel):
     level: str = "INFO"
     file: str = "logs/kayaai.log"
@@ -56,6 +66,7 @@ class Settings(BaseModel):
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     orchestrator: OrchestratorSettings = Field(default_factory=OrchestratorSettings)
     permissions: PermissionSettings = Field(default_factory=PermissionSettings)
+    claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property

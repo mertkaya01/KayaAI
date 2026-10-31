@@ -101,6 +101,7 @@ class Health(BaseModel):
     gpus: list[dict[str, Any]] = Field(default_factory=list)
     gpu_notes: list[str] = Field(default_factory=list)
     workers: list[str]
+    claude_mode: dict[str, Any] | None = None
     problems: list[str] = Field(default_factory=list)
 
 
@@ -158,7 +159,14 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
         with lock:
             if "rt" not in state:
                 state["rt"] = runtime or build_runtime(settings)  # approver=None -> hassas izinler reddedilir
-            return state["rt"]
+            r = state["rt"]
+        # Her araç çağrısı = Claude Code'dan temas ("son temas" göstergesi için).
+        if r.claude is not None:
+            try:
+                r.claude.record_contact()
+            except Exception:  # noqa: BLE001 - temas kaydı asla aracı düşürmemeli
+                pass
+        return r
 
     server = MCPServer(name="kayaai", title=APP_NAME, version=__version__, instructions=INSTRUCTIONS)
 
@@ -255,7 +263,8 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
     def kayaai_list_tasks(
         limit: int = 20,
         status: Literal[
-            "pending", "awaiting_approval", "running", "succeeded", "failed", "rejected", "cancelled", "timed_out"
+            "pending", "awaiting_approval", "running", "succeeded", "failed", "rejected", "cancelled", "timed_out",
+            "waiting_claude",
         ]
         | None = None,
     ) -> TaskList:
@@ -306,6 +315,7 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
             ollama_reachable=False,
             ollama_url=r.settings.ollama.base_url,
             workers=r.workers.names(),
+            claude_mode=r.claude.status().model_dump(mode="json") if r.claude else None,
         )
         try:
             h.ollama_version = r.llm.version()

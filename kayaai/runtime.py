@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .config import Settings, load_settings
+from .core.claude_mode import ClaudeMode
 from .core.orchestrator import Approver, Orchestrator
 from .core.store import TaskStore
 from .llm.ollama_client import OllamaClient
@@ -20,6 +21,7 @@ class Runtime:
     registry: ModelRegistry
     workers: WorkerRegistry
     orchestrator: Orchestrator
+    claude: ClaudeMode | None = None
     recovered_task_ids: list[str] = field(default_factory=list)
 
     def close(self) -> None:
@@ -48,4 +50,7 @@ def build_runtime(
     orch = Orchestrator(
         store, workers, llm, registry, settings.orchestrator, settings.permissions, approver=approver
     )
-    return Runtime(settings, store, llm, registry, workers, orch, recovered)
+    return Runtime(
+        settings, store, llm, registry, workers, orch,
+        claude=ClaudeMode(store, settings.claude), recovered_task_ids=recovered,
+    )

@@ -6,6 +6,7 @@
     kayaai task <id>         Görev ayrıntısı ve olayları
     kayaai models            Model kayıt defteri ve kurulu modeller
     kayaai audit             Ortam denetimi (data/audit_report.json)
+    kayaai claude [on|off]   Claude modu durumu / aç / kapat
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
 
@@ -121,6 +122,18 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     finally:
         client.close()
 
+    try:
+        from .core.claude_mode import ClaudeMode
+        from .core.store import TaskStore
+
+        store = TaskStore(settings.db_path)
+        try:
+            _print(f"[BİLGİ] {ClaudeMode(store, settings.claude).status().label}")
+        finally:
+            store.close()
+    except Exception as exc:  # noqa: BLE001 - doctor bilgi satırı yüzünden düşmemeli
+        _print(f"[UYARI] Claude modu okunamadı: {exc}")
+
     _print("\nSonuç: " + ("HAZIR" if ok else "EKSİKLER VAR (yukarıdaki HATA satırlarına bakın)"))
     return 0 if ok else 1
 
@@ -225,6 +238,37 @@ def cmd_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_claude(args: argparse.Namespace) -> int:
+    from .core.claude_mode import ClaudeMode
+    from .core.store import TaskStore
+
+    settings = load_settings()
+    store = TaskStore(settings.db_path)
+    try:
+        mode = ClaudeMode(store, settings.claude)
+        if args.action == "on":
+            st = mode.enable()
+            _print(f"[AÇIK] {st.label}")
+            _print("Not: Claude için çalışma klasörü (CLAUDE.md, alt ajanlar) üretimi Adım 3e'de eklenecek.")
+            _print("Şimdilik Claude Code'u proje klasöründe açıp kayaai MCP araçlarını kullanabilirsiniz.")
+        elif args.action == "off":
+            st = mode.disable()
+            _print(f"[KAPALI] {st.label}")
+            if st.waiting_tasks:
+                _print(f"Uyarı: Claude kutusunda {st.waiting_tasks} görev bekliyor. Bunları yerelde yapma "
+                       "özelliği Adım 3d'de eklenecek; görevler silinmedi.")
+        else:
+            st = mode.status()
+            _print(st.label)
+            if st.last_contact:
+                _print(f"Son temas (UTC): {st.last_contact:%Y-%m-%d %H:%M:%S}")
+        if args.json:
+            _print(st.model_dump_json(indent=2))
+    finally:
+        store.close()
+    return 0
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from .mcp_server import main as mcp_main
 
@@ -268,6 +312,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("models", help="model kayıt defteri").set_defaults(func=cmd_models)
     sub.add_parser("audit", help="ortam denetimi raporu").set_defaults(func=cmd_audit)
+    c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
+    c.add_argument("action", nargs="?", choices=["status", "on", "off"], default="status")
+    c.add_argument("--json", action="store_true")
+    c.set_defaults(func=cmd_claude)
+
     sub.add_parser("mcp", help="MCP sunucusunu stdio üzerinden başlat (Claude Code için)").set_defaults(func=cmd_mcp)
     return p
 

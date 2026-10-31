@@ -47,9 +47,13 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [x] Claude Code yerel worker'ları çağırabiliyor (kabul testi #5)
 - [ ] Claude'un yerel modeli ne zaman kendiliğinden kullanacağı (yönlendirme kuralları, `CLAUDE.md`) — mimari raporda
 
+## Adım 3 — İki mod + şef ([plan](docs/STEP3_PLAN.md))
+- [~] 3a Claude modu: `claude.enabled` ayarı, SQLite'ta kalıcı aç/kapa, "son temas" (MCP çağrılarından),
+  `waiting_claude` görev durumu, `kayaai claude status|on|off`, doctor + `kayaai_health` gösterimi — testli, Windows'ta doğrulanacak
+- [ ] 3b Ajan tanımları (`config/agents/*.yaml`): general, reviewer, coder
+- [ ] 3c Yerel şef (`kayaai do`): plan → doğrula → yürüt → birleştir → gözden geçir; yönlendirme kuralları
+- [ ] 3d Claude kutusu (MCP): inbox / complete / release; kapatınca yerelde yapma
+- [ ] 3e Claude çalışma klasörü üreticisi (`CLAUDE.md`, `.claude/agents/`, `.mcp.json`)
+
 ## Sıradaki adımlar
-Yol haritası artık [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13'te (v1: `docs/archive/MASTER_PROMPT_v1.md`).
-1. Adım 3 — İki mod + şef: `claude.enabled` ayarı, kayaAI içinde yerel şef (planla → dağıt → birleştir),
-   kanonik ajan tanımları, Claude kutusu MCP aracı, `CLAUDE.md` / `.claude/agents/` üreticisi.
-   Kural: her iki modda da önce yerel (D15); Claude kapalıyken uyarıyla yerelde yap (D16).
-2. Adımın ayrıntılı planı (hedef, bileşenler, testler, riskler) onaya sunulacak.
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: Adım 3b.

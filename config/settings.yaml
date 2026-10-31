@@ -31,6 +31,14 @@ permissions:
   auto_approve:
     - llm.inference
 
+claude:
+  # Claude modu: Claude Pro aboneliği varken Claude Code (Opus şef) takviye olarak devreye girer.
+  # Kapalıyken kayaAI tamamen yerel çalışır. Her iki modda da önce yerel model kullanılır (D15).
+  # Bu değer sadece varsayılandır; `kayaai claude on|off` ile değiştirilen durum data/ içinde saklanır.
+  enabled: false
+  # Claude Code bu kadar dakika içinde kayaAI'yi kullandıysa "yakın temas" gösterilir.
+  contact_window_min: 15
+
 logging:
   level: INFO
   file: logs/kayaai.log

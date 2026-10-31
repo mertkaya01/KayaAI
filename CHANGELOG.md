@@ -4,6 +4,13 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 
 ## [Yayınlanmadı]
 
+### Eklendi (Adım 3a — Claude modu)
+- `claude` ayarı (`config/settings.yaml`, varsayılan kapalı) ve `kayaai/core/claude_mode.py`:
+  aç/kapa durumu SQLite `meta` tablosunda kalıcı; "son temas" = Claude Code'un MCP sunucusunu en son kullanması
+- `kayaai claude status|on|off [--json]`; `kayaai doctor` ve MCP `kayaai_health.claude_mode` modu gösterir
+- `waiting_claude` görev durumu (Claude kutusu için; yeniden başlatmada korunur, iptal edilebilir)
+- Onaylanan Adım 3 planı: `docs/STEP3_PLAN.md`
+
 ### Değişti
 - `MASTER_PROMPT.md` v2: ilk MASTER_PROMPT + "Architecture & UI Design" prompt'u + sahibinin kararları
   (D1–D16) tek belgede. Claude isteğe bağlı bir "Claude modu" (aç/kapa); kayaAI onsuz tam çalışır;
