@@ -48,8 +48,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [ ] Claude'un yerel modeli ne zaman kendiliğinden kullanacağı (yönlendirme kuralları, `CLAUDE.md`) — mimari raporda
 
 ## Adım 3 — İki mod + şef ([plan](docs/STEP3_PLAN.md))
-- [~] 3a Claude modu: `claude.enabled` ayarı, SQLite'ta kalıcı aç/kapa, "son temas" (MCP çağrılarından),
-  `waiting_claude` görev durumu, `kayaai claude status|on|off`, doctor + `kayaai_health` gösterimi — testli, Windows'ta doğrulanacak
+- [x] 3a Claude modu: `claude.enabled` ayarı, SQLite'ta kalıcı aç/kapa, "son temas" (MCP çağrılarından),
+  `waiting_claude` görev durumu, `kayaai claude status|on|off` — Windows'ta `claude on/off` ve kutu sayacı çalıştı
 - [x] 3b Ajan tanımları (`config/agents/*.yaml`): general, reviewer, coder; `kayaai agents`; MCP `kayaai_list_agents`;
   kod benchmark'ı Windows'ta: qwen2.5-coder:7b 4/5 vs qwen3:8b 3/5 → coder ajanı coder-7b
 - [x] 3c Yerel şef (`kayaai do`, MCP `kayaai_do`) — Windows `conductor_check`: 6/6 başarılı, mod/ajan/dil 6/6
@@ -59,7 +59,9 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   - [ ] Claude Code tarafı (`kayaai_claude_inbox/complete`) — 3e çalışma alanıyla test edilecek
 - [~] 3e Claude çalışma alanı: `kayaai claude on|sync` → `~/kayaAI-workspace` içinde `CLAUDE.md` (şef kuralları),
   `.claude/agents/kayaai-*.md` (alt ajan biçimi resmi dokümandan doğrulandı), `.mcp.json`; yabancı dosyalara dokunmaz,
-  repo içine üretmez — 10 test; Claude Code (Opus) ile uçtan uca deneme bekleniyor
+  repo içine üretmez — 10 test; Windows'ta üretildi, Claude Code v2.1.316 **Opus 5.5 (Pro)** ile açıldı;
+  "kutuyu işle" uçtan uca denemesi bekleniyor. Not: bu sürümde `/agents` komutu kaldırılmış; alt ajanlar
+  doğrudan `.claude/agents/` klasöründen okunur (Claude'a "hangi alt ajanların var?" diye sorarak doğrulanır)
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: 3e'nin Claude Code ile uçtan uca denemesi → Adım 3 kapanışı → Adım 4 (yerel API + olay yolu).

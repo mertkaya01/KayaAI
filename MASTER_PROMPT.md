@@ -166,8 +166,9 @@ Claude Code side: a project `CLAUDE.md` tells the conductor *when* to call `kaya
 Turkish text work, bulk) and when to answer itself. Observed issue to fix: after one "use the tool"
 instruction, Claude forwarded later unrelated messages to the local model — rules must be explicit.
 
-Unverified, must be checked in official docs before relying on it: which models Claude Code sub-agents
-may use on the Pro plan, and the Pro usage limits.
+Verified 2026-10-31 on the owner's PC: Claude Code v2.1.316 runs **Opus 5.5 on the Claude Pro plan**.
+Official docs: sub-agent files accept `model: haiku | sonnet | opus`, and sub-agent usage counts toward the same
+Pro limits as the main conversation. Still unverified: the exact Pro usage limits.
 
 ---
 

@@ -84,6 +84,10 @@ claude                # Opus burada şef: CLAUDE.md kurallarını ve kayaai-* al
 Kurallar: her iki modda da önce yerel model; Claude yalnızca gerektiğinde. Claude gerektiren işler
 `kayaai inbox`'ta bekler; Claude Code oturumunda "kutuyu işle" de. `kayaai claude off` bekleyenleri yerelde yapar.
 
+Doğrulama: Claude Code'da `/mcp` → `kayaai` connected. Alt ajanlar (`kayaai-general`, `kayaai-coder`,
+`kayaai-reviewer`) `.claude/agents/` klasöründen otomatik okunur; güncel Claude Code sürümlerinde `/agents` komutu
+yok — Claude'a "hangi alt ajanların var?" diye sorabilirsin. Pro planında Opus 5.5 kullanılabildiği doğrulandı.
+
 ## Claude Code ile kullanım (MCP, Faz 2)
 
 kayaAI bir MCP sunucusu içerir: Claude Code, yerel modelinizi araç olarak çağırabilir. Sunucu yalnızca
