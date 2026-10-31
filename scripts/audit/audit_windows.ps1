@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     kayaAI - Windows ortam denetimi (Faz 0). SALT OKUNUR: hiçbir şey kurmaz/değiştirmez.
 
