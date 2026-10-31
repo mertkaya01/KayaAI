@@ -18,7 +18,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 7 | Ajan sistemi: uzmanlar (coder, data, document), gözden geçirme, anlaşmazlık yükseltme, geçici ajanlar | **Tamamlandı** (Windows'ta doğrulandı) |
 | 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Tamamlandı** (Windows'ta doğrulandı) |
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
-| 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Yeni** — Windows'ta doğrulama bekleniyor |
+| 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11+ | Görsel iş akışı + model yönetimi, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)

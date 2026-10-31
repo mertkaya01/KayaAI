@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.10.0)
+## 12. Current state (v0.10.2)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -293,7 +293,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 5 | Permission engine v2 (R0–R3, persistent approval queue) + sandboxed file tools | [x] Windows-verified |
 | 6 | Control Center v1 (React + TS): system monitoring, agent cards, approval center, Claude toggle, CSP | [x] Windows-verified |
 | 8 | Assistant Workspace v1: persistent chat, context (last 8 messages + attachments), agent choice, text attachments, hand-off to Claude via the inbox (owner decision), safe Markdown | [x] Windows-verified (real chat, routing, review) |
-| 10 | Business modules: PDF summary, Excel/CSV analysis (model plans, code computes, narrative numbers checked by code), invoice extraction with arithmetic checks, reports in md/xlsx/docx/pdf (owner decision) | [~] code + tests + container e2e; Windows `business_check` pending |
+| 10 | Business modules: PDF summary, Excel/CSV analysis (model plans, code computes, narrative numbers checked by code), invoice extraction with arithmetic checks, reports in md/xlsx/docx/pdf (owner decision) | [x] Windows-verified (`business_check`; v0.10.2 fixes total-vs-max planning) |
 | 9 | Memory: personal memory (category + sensitivity, secrets never stored without permission, proposals need approval) + document search/RAG over allowed folders; SQLite + local bge-m3 + FTS5; private items and documents never sent to Claude | [x] Windows-verified (`memory_check` 10/10 + 10/10; per-kind thresholds 0.60 / 0.50) |
 | 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [x] Windows-verified (`agents_check` 6/6); v0.7.1 fixes CJK leak, contradictory review items |
 

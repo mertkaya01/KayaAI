@@ -477,3 +477,25 @@ def test_mcp_business_tools(env, fake_ollama):
 
     ok, bad = asyncio.run(go())
     assert "| Ankara | 320 |" in ok.structured_content["markdown"] and bad.is_error
+
+
+def test_total_intent_corrects_max_plan(rt, fake_ollama):
+    """Windows ölçümü: 'en çok getiren' sorusunda max planı → doğrulama hatası → sum planı."""
+    max_plan = json.dumps({"operations": [{"title": "En çok getiren ürün", "group_by": ["Ürün"],
+                                           "metrics": [{"agg": "max", "column": "Tutar"}], "limit": 1}]})
+    sum_plan = json.dumps({"operations": [{"title": "En çok getiren ürün", "group_by": ["Ürün"],
+                                           "metrics": [{"agg": "sum", "column": "Tutar"}], "limit": 1}]})
+    fake_ollama.chat_replies = [by_title(AnalysisPlan=[max_plan, sum_plan],
+                                         GeneralAnswer=[good_answer("En çok getiren ürün Defter: 280 TL.")])] * 10
+    res = run_mode(rt, "analyze", make_xlsx(), "s.xlsx", "En çok satış getiren ürün hangisi?")
+    assert res.results[0].rows[0][:2] == ["Defter", 280.0] and res.unverified_numbers == []
+    assert "TOPLAMI" in fake_ollama.chat_replies[0].seen["AnalysisPlan"][1]
+
+
+def test_single_record_question_keeps_max():
+    from kayaai.business.analysis import total_intent_errors
+    p = AnalysisPlan.model_validate({"operations": [{"title": "x", "group_by": ["Ürün"], "metrics": [{"agg": "max", "column": "Tutar"}]}]})
+    assert total_intent_errors("En çok satış getiren ürün hangisi?", p)
+    assert total_intent_errors("Which product has the most revenue?", p)
+    assert total_intent_errors("Her ürünün en pahalı tek satışı ne kadar?", p) == []
+    assert total_intent_errors("Ürünlerin ortalama fiyatı?", p) == []

@@ -299,6 +299,27 @@ def unverified_numbers(text: str, allowed: list[float]) -> list[float]:
 # ---------------------------------------------------------------------------- iç worker'lar
 
 
+# Gerçek ölçüm (Windows, business_check 2026-10-31): "En çok satış getiren ürün hangisi?" → model ürün başına max(Tutar)
+# planladı (tek satışın en büyüğü). "En çok satan/getiren/toplam/ciro" toplam ister; tek kayıt ifadesi yoksa max/min hatadır.
+_TOTAL_HINTS = ("getir", "satan", "satıl", "toplam", "ciro", "gelir", "kazandır", "most sold", "top-selling", "top selling",
+                "best-selling", "best selling", "revenue", "total", "sales by", "in total")
+_SINGLE_HINTS = ("tek ", "tek satış", "tek işlem", "en pahalı", "en ucuz", "en büyük tek", "en küçük tek", "birim fiyat",
+                 "single", "largest single", "most expensive", "cheapest", "highest price", "lowest price")
+
+
+def total_intent_errors(question: str, plan: AnalysisPlan) -> list[str]:
+    """Soru toplam istiyorsa gruplu işlemde max/min kullanılmasını yakalar (kodla, dil bağımsız ek köklerle)."""
+    q = question.casefold()
+    if not any(h in q for h in _TOTAL_HINTS) or any(h in q for h in _SINGLE_HINTS):
+        return []
+    errors = []
+    for i, op in enumerate(plan.operations, 1):
+        if op.group_by and op.metrics and all(m.agg in ("max", "min") for m in op.metrics):
+            errors.append(f"işlem {i}: soru grup başına TOPLAMI soruyor ('en çok satan/getiren', 'toplam'); "
+                          "max/min tek bir kaydın değerini verir — agg 'sum' kullan")
+    return errors
+
+
 class PlanWorker(LLMWorker):
     name: ClassVar[str] = "business.plan"
     description: ClassVar[str] = "Tablo sorusunu sabit işlem kümesiyle bir analiz planına çevirir"
@@ -311,6 +332,9 @@ class PlanWorker(LLMWorker):
         "min, max over NUMERIC columns; count may have column null), sort and limit. Use exact column names from "
         "the profile. You do not compute anything yourself — the program executes the plan. If the question is "
         "general ('analyse this', 'özetle'), give 2-3 useful operations (e.g. totals by the main category, by month). "
+        "IMPORTANT: 'en çok satan / en çok getiren / en fazla gelir / toplam / ciro / most sold / top-selling / revenue' "
+        "means the TOTAL per group: use agg 'sum' with group_by and sort metric_desc. Use 'max'/'min' only when the "
+        "question asks for a single record (e.g. 'en büyük tek satış', 'en pahalı', 'single largest'). "
         "Write titles in the user's language."
     )
 
@@ -321,6 +345,7 @@ class PlanWorker(LLMWorker):
         assert isinstance(output, AnalysisPlan)
         tables = [Table.model_validate(t) for t in task.input.get("_tables", [])]
         errors = validate_plan(output, tables) if tables else []
+        errors += total_intent_errors(task.objective, output)
         return ValidationResult(passed=not errors, validator="business.plan", errors=errors)
 
     def build_messages(self, task: Task) -> list[dict[str, str]]:

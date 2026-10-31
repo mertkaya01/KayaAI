@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.10.2] - 2026-10-31
+
+### Düzeltildi
+- Analiz planı: "En çok satış getiren ürün hangisi?" sorusunu model ürün başına `max` (tek satışın en büyüğü) olarak
+  planlamıştı (Windows, gerçek model). Artık soru "en çok satan/getiren, toplam, ciro, revenue…" içeriyor ve tek kayıt
+  ifadesi ("en pahalı", "tek satış"…) içermiyorsa gruplu işlemde `max`/`min` KODLA reddedilir → model `sum` ile yeniden
+  planlar; planlayıcı talimatına da kural eklendi.
+
+### Doğrulandı (Windows, v0.10.1)
+- `business_check`: analiz 2/3 (yukarıdaki hata), uydurma sayı 0, fatura tüm alanlar + kalemler ✓, PDF özeti 4/4 anahtar
+  bilgi + sayfa kaynakları ✓, dört rapor biçimi ✓, toplam 13,8 sn
+- `memory_check`: hafıza 10/10, belge 10/10; embedding ~51 ms, arama ~1 ms (önceki ~2 sn ilk model yüklemesiydi);
+  eşikler 0.60 / 0.50 ayrışmayı koruyor
+- smoke: tüm kabul testleri ✓ (qwen3:8b + bge-m3 birlikte 9,1 GB VRAM)
+
 ## [0.10.1] - 2026-10-31
 
 ### Düzeltildi
