@@ -2,6 +2,16 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.4.3] - 2026-10-31
+
+### Düzeltildi
+- Kapsam kontrolü kod bloklarını siliyordu (dil tespitinin normalleştirmesini paylaşıyordu): yalnızca koddan oluşan
+  `function debounce(...)` cevabında "debounce" eksik sayıldı (Windows conductor_check). Artık kod korunur,
+  `snake_case` adlar kelimelere bölünür.
+
+### Doğrulandı (Windows, v0.4.2)
+- `conductor_check` 6/6 (mod/ajan/Claude kararı/dil 6/6); SaaS cevabı yerelde çok kiracılılığı kapsadı
+
 ## [0.4.2] - 2026-10-31
 
 ### Düzeltildi

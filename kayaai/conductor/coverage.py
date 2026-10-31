@@ -15,7 +15,12 @@ from __future__ import annotations
 import math
 import re
 
-from ..core.lang import _EN_STOP, _TR_STOP, _WORD_RE, _normalize
+from ..core.lang import _EN_STOP, _TR_STOP, _WORD_RE
+
+def _normalize(text: str) -> str:
+    """Dil tespitindeki normalleştirmeden FARKLI: kod blokları SİLİNMEZ — konu çoğu zaman kodun içindedir
+    (gerçek yanlış alarm, 2026-10-31: yalnızca koddan oluşan `function debounce(...)` cevabında 'debounce' eksik sayıldı)."""
+    return text.replace("İ", "i").lower().replace("\u0307", "").replace("_", " ")
 
 _SPLIT_ALTERNATIVES = re.compile(r"[/()|,;]+")
 # Konu adında anlam taşımayan genel kelimeler

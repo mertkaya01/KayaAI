@@ -94,3 +94,16 @@ def test_translation_requests_skip_coverage(rt, fake_ollama):  # noqa: F811
     fake_ollama.chat_replies = [s] * 10
     res = Conductor(rt).run("Şu cümleyi İngilizceye çevir: 'Yarın sabah toplantıya geç kalacağım.'")
     assert res.review.uncovered_topics == []
+
+
+def test_code_only_answer_covers_topic_in_code():
+    """Gerçek yanlış alarm (Windows conductor_check): cevap yalnızca kod bloğu, konu fonksiyon adında."""
+    code = ("```javascript\nfunction debounce(func, wait) {\n  let timeout;\n  return function(...args) {\n"
+            "    clearTimeout(timeout);\n    timeout = setTimeout(() => func.apply(this, args), wait);\n  };\n}\n"
+            "const handleResize = debounce(() => console.log('Window resized'), 300);\n```")
+    assert missing_topics(["debounce / debounce"], code) == []
+    assert missing_topics(["throttle"], code) == ["throttle"]
+
+
+def test_snake_case_identifiers_split():
+    assert topic_covered("aylık satış / monthly sales", "def monthly_sales_total(rows): ...")

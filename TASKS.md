@@ -72,8 +72,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Şu an: Adım 5 (izin motoru v2: risk sınıfları + onay kuyruğu) planı.
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
-  ilk tur: 5 yerel işte eksik konu çıkmadı; asıl hedef SaaS örneği Claude modu açık olduğu için kutuya gitti → v0.4.2'de
-  `conductor_check` her zaman yerel ölçer, tekrar ölçülecek
+  2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:
+  yalnızca koddan oluşan debounce cevabında 'debounce' eksik sayıldı (kod blokları siliniyordu) → v0.4.3'te düzeltildi
 
 ## Sonraya not (kullanıcı isteği: "her şey bitince")
 Referans repolardan faydalanılacak; içerikleri henüz incelenmedi, her biri alınmadan önce lisansı kontrol edilecek:
