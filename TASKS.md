@@ -64,14 +64,16 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   doğrudan `.claude/agents/` klasöründen okunur (Claude'a "hangi alt ajanların var?" diye sorarak doğrulanır)
 
 ## Adım 4 — Yerel API + olay akışı
-- [~] `kayaai api` (127.0.0.1, erişim anahtarı, CORS localhost), sistem/ajan/model/görev/Claude/kutu uç noktaları,
-  arka plan işleri, SQLite `events` + `WS /api/events` — 14 test; `scripts/api_check.py` Windows'ta bekleniyor
+- [x] `kayaai api` (127.0.0.1, erişim anahtarı, CORS localhost), sistem/ajan/model/görev/Claude/kutu uç noktaları,
+  arka plan işleri, SQLite `events` + `WS /api/events` — Windows `api_check` (2026-10-31): tüm kontroller geçti
+  (401, RTX 5070 Ti metrikleri, arka plan görevi 0.86 sn, WebSocket pending→running→succeeded)
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Şu an: Adım 4 Windows doğrulaması → Adım 5 (izin motoru v2: risk sınıfları + onay kuyruğu).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Şu an: Adım 5 (izin motoru v2: risk sınıfları + onay kuyruğu) planı.
 
-- [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — testli,
-  Windows'ta `conductor_check` ile ölçülecek
+- [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
+  ilk tur: 5 yerel işte eksik konu çıkmadı; asıl hedef SaaS örneği Claude modu açık olduğu için kutuya gitti → v0.4.2'de
+  `conductor_check` her zaman yerel ölçer, tekrar ölçülecek
 
 ## Sonraya not (kullanıcı isteği: "her şey bitince")
 Referans repolardan faydalanılacak; içerikleri henüz incelenmedi, her biri alınmadan önce lisansı kontrol edilecek:

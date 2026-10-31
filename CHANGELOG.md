@@ -2,6 +2,16 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.4.2] - 2026-10-31
+
+### Düzeltildi
+- `scripts/conductor_check.py` Claude modu açıkken ağır isteği Claude kutusuna bırakıp "başarısız" sayıyordu
+  (Windows'ta: 5/6, hata kodu). Ölçüm artık her zaman yerel ekiple (`force="local"`); Claude ihtiyacı yine
+  hesaplanıp raporlanır. Özete `uncovered_topics_total` eklendi. Regresyon testi: Claude modu açıkken 6/6.
+
+### Doğrulandı (Windows, v0.4.1)
+- `api_check`: tüm kontroller geçti; smoke: kabul testleri geçti, dil 6/6, ~136 tok/s
+
 ## [0.4.1] - 2026-10-31
 
 ### Düzeltildi

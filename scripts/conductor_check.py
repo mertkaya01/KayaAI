@@ -47,11 +47,14 @@ def main() -> int:
     settings = load_settings()
     rows = []
     with build_runtime(settings) as rt:
-        print(f"Claude modu: {rt.claude.status().label if rt.claude else '?'}\n")
+        print(f"Claude modu: {rt.claude.status().label if rt.claude else '?'}")
+        # Ölçüm her zaman YEREL ekiple yapılır (Claude modu açık olsa bile kutuya iş bırakılmaz);
+        # Claude ihtiyacı yine hesaplanır ve needs_claude / routing alanlarında görünür.
+        print("Ölçüm yerel ekiple yapılıyor (force=local): Claude kutusuna iş bırakılmaz.\n")
         conductor = Conductor(rt)
         for request, exp_mode, exp_agent, exp_claude in CASES:
             t0 = time.perf_counter()
-            res = conductor.run(request)
+            res = conductor.run(request, force="local")
             agents = [s.agent for s in res.steps]
             row = {
                 "request": request[:90],
@@ -93,6 +96,7 @@ def main() -> int:
         "needs_claude_match": f"{sum(r['matches']['needs_claude'] for r in rows)}/{len(rows)}",
         "language_match": f"{sum(r['answer_language'] in (r['request_language'], 'other') for r in ok)}/{len(ok)}",
         "avg_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 2),
+        "uncovered_topics_total": sum(len(r["uncovered_topics"]) for r in rows),
     }
     out = settings.data_dir / "conductor_check.json"
     out.parent.mkdir(parents=True, exist_ok=True)
