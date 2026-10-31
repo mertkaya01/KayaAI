@@ -141,7 +141,9 @@ yükle/boşalt, yeni model indirme, karşılaştırma testi.
 - [x] 11c — İndirme (R2, arka plan, ilerleme), karşılaştırma (`llm/compare.py`, kodla puanlama), adayı aktif yapma (R2)
 - [x] CLI `kayaai models load|unload|assign|pull|compare|activate`; Modeller sekmesi
 - Testler: Python (model yönetimi 28 + akış grafiği; tüm paket), Vitest 15, Playwright (akış canlı + Modeller 19 kontrol, mobil taşma yok)
-- [ ] Windows: gerçek çok adımlı işi Akış'ta izle; Modeller'de yükle/boşalt; isteğe bağlı `qwen3:4b` indir + karşılaştır
+- [x] Windows CLI (2026-11-01, v0.11.1): llama3.1:8b, qwen2:7b (kayıtsız → aday), qwen3:4b (indir → onay →
+  karşılaştır) hepsi çalıştı; v0.11.2 ısınma + think düzeltmesi + daha zor vakalar
+- [ ] Windows arayüz: Akış'ta gerçek çok adımlı iş; Modeller'de yükle/boşalt
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 kodlandı (Windows doğrulaması bekliyor). Sıradaki: Adım 12 (algı ve eylem).

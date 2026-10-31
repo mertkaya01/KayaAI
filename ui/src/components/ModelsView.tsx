@@ -142,7 +142,7 @@ function CompareResult({ rec, data, act }: { rec: CompareRecord; data: ModelAdmi
       {rec.status === "done" && (
         <>
           <table className="mtable">
-            <thead><tr><th></th><th>Model</th><th>Doğru</th><th>Ort. süre</th><th>Token/sn</th></tr></thead>
+            <thead><tr><th></th><th>Model</th><th>Doğru</th><th>Ort. süre</th><th>Token/sn</th><th title="Isınma: vakalardan önce, ortalamaya dahil değil">Yükleme</th></tr></thead>
             <tbody>
               {(["current", "candidate"] as const).map((side) => {
                 const s = rec.summary[side];
@@ -150,6 +150,7 @@ function CompareResult({ rec, data, act }: { rec: CompareRecord; data: ModelAdmi
                   <tr key={side}>
                     <td>{side === "current" ? "Mevcut" : "Aday"}</td><td>{s.model}</td>
                     <td><strong>{s.ok}/{s.cases}</strong></td><td>{s.avg_seconds} sn</td><td>{s.avg_tokens_per_second ?? "—"}</td>
+                    <td className="muted">{rec.load_seconds?.[side] != null ? `${rec.load_seconds[side]} sn` : "—"}</td>
                   </tr>
                 );
               })}

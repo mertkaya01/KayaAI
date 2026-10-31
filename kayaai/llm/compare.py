@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .ollama_client import OllamaError
+
 if TYPE_CHECKING:
     from ..runtime import Runtime
 
@@ -31,6 +33,10 @@ CASES: dict[str, list[tuple[str, list[str], bool]]] = {
         ("Şu aylık satışların toplamını ve aylık ortalamasını hesapla: Ocak 120, Şubat 80, Mart 100.", ["300", "100"], False),
         ("Compute the total and the average of these expenses: 40, 60, 50, 90.", ["240", "60"], False),
         ("Bir ürünün fiyatı 250 TL'den 300 TL'ye çıktı. Artış yüzde kaç?", ["20"], False),
+        ("Bir mağaza ocakta 200, şubatta 250 adet sattı. Şubattaki artış yüzde kaç? Mart satışları şubata göre %20 "
+         "düşerse mart kaç adet olur?", ["25", "200"], False),
+        ("A product costs 80. It gets a 25% discount, then 10% tax is added to the discounted price. "
+         "What is the final price?", ["66"], False),
     ],
     "document": [
         ("Bir müşteriye, yarınki toplantının gelecek haftaya ertelendiğini bildiren kısa ve resmi bir e-posta yaz.", [], False),
@@ -40,6 +46,8 @@ CASES: dict[str, list[tuple[str, list[str], bool]]] = {
         ("Türkiye'nin başkenti neresi?", ["Ankara"], False),
         ("Explain in two sentences what an API is.", [], False),
         ("Şu cümleyi İngilizceye çevir: 'Yarın sabah toplantıya geç kalacağım.'", ["late"], False),
+        ("Bir haftada toplam kaç saat vardır?", ["168"], False),
+        ("What is 15% of 240? Answer in one sentence.", ["36"], False),
     ],
 }
 
@@ -102,6 +110,13 @@ def _score(task: Any, request: str, expected: list[str], code: bool) -> dict[str
     }
 
 
+def _loaded_names(rt: "Runtime") -> set[str]:
+    try:
+        return {m.get("name", "") for m in rt.llm.running_models()}
+    except OllamaError:
+        return set()
+
+
 def _run(rt: "Runtime", rec: dict[str, Any]) -> dict[str, Any]:
     from ..agents.definitions import make_worker
     from ..core.orchestrator import Orchestrator
@@ -115,8 +130,17 @@ def _run(rt: "Runtime", rec: dict[str, Any]) -> dict[str, Any]:
     store = TaskStore(work)
     total = len(cases) * 2
     done = 0
+    rec.setdefault("load_seconds", {})
     try:
+        was_loaded = _loaded_names(rt)
         for side, key in (("current", rec["current"]), ("candidate", rec["candidate"])):
+            # Isınma: modeli önce belleğe yükle; yükleme süresi vakalara karışmasın (ayrı raporlanır).
+            t0 = time.monotonic()
+            try:
+                rt.llm.load_model(rt.registry.get(key).name)
+            except OllamaError:
+                pass  # kurulu değilse vakalar zaten başarısız olur ve raporlanır
+            rec["load_seconds"][side] = round(time.monotonic() - t0, 2)
             workers = WorkerRegistry()
             workers.register(make_worker(base.model_copy(update={"local_model": key})))
             orch = Orchestrator(store, workers, rt.llm, rt.registry, rt.settings.orchestrator, rt.settings.permissions)
@@ -127,6 +151,12 @@ def _run(rt: "Runtime", rec: dict[str, Any]) -> dict[str, Any]:
                 done += 1
                 rt.store.emit("model.compare", {"id": rec["id"], "done": done, "total": total, "side": side})
             rec["rows"][side] = rows
+        cand_name = rt.registry.get(rec["candidate"]).name
+        if cand_name not in was_loaded:  # karşılaştırmadan önce bellekte değildiyse VRAM'i geri ver
+            try:
+                rt.llm.unload_model(cand_name)
+            except OllamaError:
+                pass
         for side in ("current", "candidate"):
             rows = rec["rows"][side]
             speeds = [r["tokens_per_second"] for r in rows if r["tokens_per_second"]]
@@ -163,12 +193,13 @@ def start_compare(rt: "Runtime", agent: str, candidate_key: str) -> dict[str, An
     d = rt.workers.get(agent).definition  # type: ignore[attr-defined]
     if d.output != "answer":
         raise CompareError("Yalnızca cevap üreten ajanlar karşılaştırılabilir (planlayıcı/gözden geçirici değil)")
-    from .manager import ModelAdminError, resolve_candidate
+    from .manager import ModelAdminError, ensure_think_policy, resolve_candidate
 
     try:
         candidate_key = resolve_candidate(rt, candidate_key)  # anahtar ya da Ollama adı; kurulu+kayıtsız → aday
     except ModelAdminError as exc:
         raise CompareError(str(exc)) from exc
+    ensure_think_policy(rt, candidate_key)
     if candidate_key == d.local_model:
         raise CompareError("Aday, ajanın şu anki modeliyle aynı")
     if candidate_key == rt.settings.memory.embed_model:

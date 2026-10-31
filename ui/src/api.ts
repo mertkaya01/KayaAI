@@ -405,6 +405,7 @@ export interface CompareRecord {
   error?: string;
   rows: Partial<Record<"current" | "candidate", CompareRow[]>>;
   summary: Partial<Record<"current" | "candidate", CompareSide>>;
+  load_seconds?: Partial<Record<"current" | "candidate", number>>;
 }
 
 export interface ModelAdmin {

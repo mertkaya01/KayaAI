@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.11.2] - 2026-11-01
+
+### Düzeltildi (Windows karşılaştırma ölçümleri)
+- Karşılaştırmada ilk vakanın süresine modelin belleğe yüklenmesi karışıyordu (qwen2:7b ilk cevap 13,5 sn, diğerleri
+  ~0,5 sn). Artık her model vakalardan önce **ısıtılır**; yükleme süresi ayrı gösterilir, ortalamaya girmez. Aday
+  karşılaştırmadan önce bellekte değildiyse sonunda boşaltılır (VRAM geri verilir).
+- Sonradan eklenen düşünen modeller (Ollama yeteneği `thinking`, ör. qwen3:4b) gizli düşünme açık kaydediliyordu: 161
+  token/sn'ye rağmen cevap başına ~6 sn. Artık genel modelle aynı politika (`think: false`) yazılır; eski kayıtlar ilk
+  karşılaştırmada düzeltilir.
+- Vakalar çok kolaydı (her model 3/3): data ve general setlerine ikişer çok adımlı / kesin cevaplı vaka eklendi (5 vaka).
+
+### Doğrulandı (Windows, v0.11.1)
+- `kayaai models compare data llama3.1:8b` 3/3 ↔ 3/3; `general qwen2:7b` (kayıtsız → otomatik aday) 3/3 ↔ 3/3;
+  `pull qwen3:4b` → onay → indirme → `compare data qwen3:4b` 3/3 ↔ 3/3
+
 ## [0.11.1] - 2026-10-31
 
 ### Düzeltildi (Windows geri bildirimi)

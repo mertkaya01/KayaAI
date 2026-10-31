@@ -54,6 +54,10 @@ def _reply(body) -> str:
         ans, lang = ("İstanbul." if body["model"] == "qwen3:4b" else "Ankara."), "tr"
     elif "API" in user:
         ans, lang = "An API is a contract that lets two programs talk to each other. It defines requests and replies.", "en"
+    elif "haftada" in user:
+        ans, lang = "Bir haftada 168 saat vardır.", "tr"
+    elif "15%" in user:
+        ans, lang = "15% of 240 is 36.", "en"
     elif "İngilizceye" in user:
         ans, lang = "I will be late to the meeting tomorrow morning.", "en"
     else:
@@ -218,10 +222,10 @@ def test_compare_then_activate_then_assign(rt, fake_ollama):
     _pulled(rt)
     with pytest.raises(mm.ModelAdminError, match="karşılaştır"):
         mm.request_activate(rt, "qwen3-4b")
-    fake_ollama.chat_replies = [_reply] * 20
+    fake_ollama.chat_replies = [_reply] * 40
     rec = start_compare(rt, "general", "qwen3-4b")
     assert rec["status"] == "done", rec.get("error")
-    assert rec["summary"]["current"]["ok"] == 3 and rec["summary"]["candidate"]["ok"] == 2
+    assert rec["summary"]["current"]["ok"] == 5 and rec["summary"]["candidate"]["ok"] == 4
     bad = next(r for r in rec["rows"]["candidate"] if not r["ok"])
     assert bad["missing"] == ["Ankara"]
     assert rec["summary"]["candidate"]["model"] == "qwen3:4b"
@@ -231,7 +235,7 @@ def test_compare_then_activate_then_assign(rt, fake_ollama):
 
     r = mm.request_activate(rt, "qwen3-4b")
     a = rt.permissions.get(r.approval_id)
-    assert r.risk.value == "R2" and "aday 2/3" in a.action.preview["new_head"]
+    assert r.risk.value == "R2" and "aday 4/5" in a.action.preview["new_head"]
     assert rt.permissions.approve(r.approval_id, decided_by="owner").status == "approved"
     assert rt.registry.get("qwen3-4b").status == "active"
     assert mm.request_agent_model(rt, "general", "qwen3-4b").status == "awaiting_approval"
@@ -245,12 +249,12 @@ def test_compare_refusals(rt, agent, cand, err):
 
 
 def test_compare_with_missing_candidate_records_failure(rt, fake_ollama):
-    fake_ollama.chat_replies = [_reply] * 20
+    fake_ollama.chat_replies = [_reply] * 40
     rec = start_compare(rt, "general", "llama31-8b")  # kayıtlı ama kurulu değil
     assert rec["status"] == "done"  # görevler başarısız olur, karşılaştırma yine de raporlanır
-    assert rec["summary"]["candidate"]["ok"] == 0 and rec["summary"]["current"]["ok"] == 3
+    assert rec["summary"]["candidate"]["ok"] == 0 and rec["summary"]["current"]["ok"] == 5
     # kilit bırakıldı: yeni karşılaştırma başlatılabilir
-    fake_ollama.chat_replies = [_reply] * 20
+    fake_ollama.chat_replies = [_reply] * 40
     assert start_compare(rt, "general", "llama31-8b")["status"] == "done"
 
 
@@ -262,10 +266,10 @@ QWEN4 = {"name": "qwen3:4b", "model": "qwen3:4b", "size": 2_500_000_000}
 @pytest.mark.parametrize("ref", ["qwen3:4b", "qwen3-4b"])
 def test_compare_accepts_installed_but_unregistered_model(rt, fake_ollama, ref):
     fake_ollama.models.append(dict(QWEN4))  # `ollama pull qwen3:4b` ile kayaAI dışında indirilmiş
-    fake_ollama.chat_replies = [_reply] * 20
+    fake_ollama.chat_replies = [_reply] * 40
     rec = start_compare(rt, "general", ref)
     assert rec["status"] == "done" and rec["candidate"] == "qwen3-4b"
-    assert rec["summary"]["candidate"]["model"] == "qwen3:4b" and rec["summary"]["candidate"]["ok"] == 2
+    assert rec["summary"]["candidate"]["model"] == "qwen3:4b" and rec["summary"]["candidate"]["ok"] == 4
     local = yaml.safe_load(local_registry_path(rt.settings).read_text(encoding="utf-8"))
     assert local["models"]["qwen3-4b"]["status"] == "candidate"
     assert any(e["type"] == "model.registered" for e in rt.store.events_since(0))
@@ -293,6 +297,43 @@ def test_assign_unregistered_installed_model_points_to_compare(rt, fake_ollama):
         mm.request_agent_model(rt, "data", "qwen3:4b")
     with pytest.raises(mm.ModelAdminError, match="kayaai models compare"):
         mm.request_pull(rt, "qwen3:4b")
+
+
+def test_compare_warms_up_models_and_frees_candidate_vram(rt, fake_ollama):
+    fake_ollama.models.append(dict(QWEN4))
+    fake_ollama.chat_replies = [_reply] * 40
+    rec = start_compare(rt, "general", "qwen3:4b")
+    loads = [b["model"] for (_, p, b) in fake_ollama.requests if p == "/api/generate" and b.get("keep_alive") != 0]
+    assert loads[:2] == ["qwen3:8b", "qwen3:4b"] and set(rec["load_seconds"]) == {"current", "candidate"}
+    unloads = [b["model"] for (_, p, b) in fake_ollama.requests if p == "/api/generate" and b.get("keep_alive") == 0]
+    assert unloads == ["qwen3:4b"]  # önceden yüklü değildi → karşılaştırma sonunda boşaltıldı
+    first_gen = next(i for i, (_, p, _) in enumerate(fake_ollama.requests) if p == "/api/generate")
+    first_chat = next(i for i, (_, p, _) in enumerate(fake_ollama.requests) if p == "/api/chat")
+    assert first_gen < first_chat  # ısınma vakalardan önce
+
+
+def test_thinking_models_registered_with_think_off(rt, fake_ollama):
+    fake_ollama.models.append(dict(QWEN4))
+    fake_ollama.chat_replies = [_reply] * 40
+    start_compare(rt, "general", "qwen3:4b")
+    assert rt.registry.get("qwen3-4b").think is False
+    chats = [b for (_, p, b) in fake_ollama.requests if p == "/api/chat" and b["model"] == "qwen3:4b"]
+    assert chats and all(b.get("think") is False for b in chats)
+    fake_ollama.models.append({"name": "qwen2:7b", "model": "qwen2:7b", "size": 4_400_000_000})
+    start_compare(rt, "general", "qwen2:7b")
+    assert rt.registry.get("qwen2-7b").think is None  # düşünmeyen model: ayar eklenmez
+
+
+def test_old_candidate_entry_gets_think_policy(rt, fake_ollama):
+    """v0.11.1 öncesi indirilen qwen3:4b kaydında think yoktu (Windows: 161 token/sn ama cevap başına ~6 sn)."""
+    fake_ollama.models.append(dict(QWEN4))
+    local_registry_path(rt.settings).write_text(
+        "models:\n  qwen3-4b:\n    name: qwen3:4b\n    status: candidate\n", encoding="utf-8")
+    sync_agents(rt)
+    assert rt.registry.get("qwen3-4b").think is None
+    fake_ollama.chat_replies = [_reply] * 40
+    start_compare(rt, "data", "qwen3-4b")
+    assert rt.registry.get("qwen3-4b").think is False
 
 
 # ---------------------------------------------------------------- API
@@ -323,7 +364,7 @@ def test_api_model_admin_flow(fake_ollama, tmp_path, monkeypatch):
         assert _row(ov, "qwen3-4b")["status"] == "candidate" and _row(ov, "qwen3-4b")["installed"] is True
         assert ov["pulls"][0]["name"] == "qwen3:4b"
 
-        fake_ollama.chat_replies = [_reply] * 20
+        fake_ollama.chat_replies = [_reply] * 40
         rec = c.post("/api/model-compare", json={"agent": "general", "candidate": "qwen3-4b"}, headers=h).json()
         assert rec["status"] == "running"
         for _ in range(200):
@@ -331,7 +372,7 @@ def test_api_model_admin_flow(fake_ollama, tmp_path, monkeypatch):
             if got["status"] != "running":
                 break
             time.sleep(0.05)
-        assert got["status"] == "done" and got["summary"]["candidate"]["ok"] == 2
+        assert got["status"] == "done" and got["summary"]["candidate"]["ok"] == 4
         assert c.get("/api/model-compare/yok", headers=h).status_code == 404
         act = c.post("/api/models/qwen3-4b/activate", headers=h).json()
         assert act["status"] == "awaiting_approval"
@@ -352,7 +393,7 @@ def test_cli_models(fake_ollama, tmp_path, monkeypatch, capsys):
     assert main(["models", "pull", "qwen3:4b"]) == 0 and "kayaai approvals approve" in capsys.readouterr().out
     assert main(["models", "assign"]) == 2
     fake_ollama.models.append(dict(QWEN4))
-    fake_ollama.chat_replies = [_reply] * 20
+    fake_ollama.chat_replies = [_reply] * 40
     assert main(["models", "compare", "general", "qwen3:4b"]) == 0
     out = capsys.readouterr().out
-    assert "Aday" in out and "2/3 doğru" in out
+    assert "Aday" in out and "4/5 doğru" in out

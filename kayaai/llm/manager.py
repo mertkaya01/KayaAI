@@ -176,6 +176,27 @@ def _not_found(rt: "Runtime", ref: str) -> ModelAdminError:
                            f"(sahip onayı gerekir) ya da Modeller → Yeni model indir")
 
 
+def _think_policy(rt: "Runtime", name: str) -> dict[str, Any]:
+    """Düşünen modellerde (Ollama yeteneği 'thinking', ör. qwen3) gizli düşünme kapalı: genel modelle aynı politika
+    (config/models.yaml general-8b `think: false`); yoksa karşılaştırmada süreler adil olmaz."""
+    try:
+        caps = rt.llm.show(name).get("capabilities") or []
+    except OllamaError:
+        return {}
+    return {"think": False} if "thinking" in caps else {}
+
+
+def ensure_think_policy(rt: "Runtime", key: str) -> None:
+    """Yerel kayıttaki (sonradan eklenen) bir modelde düşünme ayarı yoksa ekler (v0.11.1 öncesi kayıtlar için)."""
+    data = _read_yaml(local_registry_path(rt.settings))
+    entry = (data.get("models") or {}).get(key)
+    if not entry or "think" in entry or key not in rt.registry.models:
+        return
+    policy = _think_policy(rt, rt.registry.get(key).name)
+    if policy:
+        _add_local_model(rt, key, policy)
+
+
 def resolve_candidate(rt: "Runtime", ref: str) -> str:
     """Karşılaştırma adayı: kayıtlıysa anahtarı; Ollama'da kurulu ama kayıtsızsa (ör. `ollama pull` ile indirilmiş)
     yerel kayda **aday** olarak ekler (indirme yok, ajana atanamaz); hiçbiri değilse ne yapılacağını söyleyen hata."""
@@ -192,7 +213,7 @@ def resolve_candidate(rt: "Runtime", ref: str) -> str:
         key += "-x"
     _add_local_model(rt, key, {"name": name, "purpose": "Ollama'da kuruluydu; karşılaştırma için aday olarak eklendi",
                                "keep_alive": "10m", "approx_vram_gb": _gb(inst.get("size")), "license": "kontrol et",
-                               "status": "candidate"})
+                               "status": "candidate", **_think_policy(rt, name)})
     rt.store.emit("model.registered", {"key": key, "name": name, "status": "candidate"})
     return key
 
@@ -361,7 +382,7 @@ def _run_pull(rt: "Runtime", name: str) -> dict[str, Any]:
     if key not in rt.registry.models:
         _add_local_model(rt, key, {"name": name, "purpose": "Sonradan indirildi (aday — karşılaştırma bekliyor)",
                                    "keep_alive": "10m", "approx_vram_gb": _gb(inst.get("size")), "license": "kontrol et",
-                                   "status": "candidate"})
+                                   "status": "candidate", **_think_policy(rt, name)})
     state["status"] = "tamamlandı"
     rt.store.emit("model.pull", {"name": name, "status": "tamamlandı", "percent": 100, "key": key})
     return {"name": name, "key": key}

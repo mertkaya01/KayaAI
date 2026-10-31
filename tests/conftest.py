@@ -102,6 +102,11 @@ class FakeOllama:
                                 {"status": "downloading", "total": 1000, "completed": 500},
                                 {"status": "downloading", "total": 1000, "completed": 1000},
                                 {"status": "success"}])
+        if path == "/api/show":
+            if body.get("model") not in {m["name"] for m in self.models}:
+                return 404, {"error": f"model '{body.get('model')}' not found"}
+            caps = ["completion", "thinking"] if body["model"].startswith("qwen3") else ["completion"]
+            return 200, {"capabilities": caps, "details": {}}
         if path == "/api/embed":
             if body.get("model") not in {m["name"] for m in self.models}:
                 return 404, {"error": f"model \"{body.get('model')}\" not found, try pulling it first"}

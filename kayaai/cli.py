@@ -278,8 +278,10 @@ def cmd_models(args: argparse.Namespace) -> int:
                     return 1
                 for side, title in (("current", "Mevcut"), ("candidate", "Aday")):
                     sm = rec["summary"][side]
+                    load = (rec.get("load_seconds") or {}).get(side)
                     _print(f"{title:<7} {sm['model']:<20} {sm['ok']}/{sm['cases']} doğru  ort. {sm['avg_seconds']} sn  "
-                           f"{sm['avg_tokens_per_second'] or '-'} token/sn")
+                           f"{sm['avg_tokens_per_second'] or '-'} token/sn"
+                           + (f"  (belleğe yükleme {load} sn, ortalamaya dahil değil)" if load is not None else ""))
                     for r in rec["rows"][side]:
                         why = [] if r["ok"] else ([f"eksik: {', '.join(r['missing'])}"] if r["missing"] else []) + \
                             (["dil"] if not r["language_ok"] else []) + (["kod"] if not r["code_ok"] else []) + \
