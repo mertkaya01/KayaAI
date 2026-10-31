@@ -202,6 +202,16 @@ export interface AttachmentRef {
   id: string;
   name: string;
   chars: number;
+  kind?: "text" | "pdf" | "table";
+}
+
+export interface SubmitResult {
+  status: "done" | "awaiting_approval" | "failed";
+  risk: string;
+  result: { path?: string; bytes?: number } | null;
+  approval_id: string | null;
+  error: string | null;
+  message: string;
 }
 
 export type MessageStatus = "done" | "pending" | "running" | "waiting_claude" | "failed" | "cancelled";
@@ -221,10 +231,11 @@ export interface ChatMessage {
   warnings: string[];
   recall?: {
     memories?: { id: string; text: string; category: string; sensitivity: string }[];
-    sources?: { path: string; name: string; line: number }[];
+    sources?: { path: string; name: string; line: number; loc?: string }[];
   };
   meta: {
     memory_saved?: string;
+    business?: { kind: "analysis" | "summary" | "invoice" };
     agents?: string[];
     model?: string | null;
     routing?: string | null;

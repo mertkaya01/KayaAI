@@ -128,8 +128,27 @@ class FileTools:
         return {"path": str(path), "bytes": len(content.encode("utf-8")), "overwritten": backup is not None,
                 "backup": str(backup) if backup else None}
 
+    def exec_write_bytes(self, params: dict[str, Any]) -> dict[str, Any]:
+        """İkili dosya yazma (Adım 10: Excel/Word/PDF raporları). Aynı kök, yedek ve risk kuralları."""
+        import base64
+
+        path, _ = self.resolve(params["path"], write=True)
+        data = base64.b64decode(params["content_b64"])
+        backup = None
+        if path.exists():
+            if not path.is_file():
+                raise IsADirectoryError(f"Bu bir klasör: {path}")
+            self.backup_dir.mkdir(parents=True, exist_ok=True)
+            backup = self.backup_dir / f"{datetime.now():%Y%m%d-%H%M%S}_{path.name}"
+            shutil.copy2(path, backup)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return {"path": str(path), "bytes": len(data), "overwritten": backup is not None,
+                "backup": str(backup) if backup else None}
+
     def executors(self) -> dict[str, Any]:
-        return {"file.list": self.exec_list, "file.read": self.exec_read, "file.write": self.exec_write}
+        return {"file.list": self.exec_list, "file.read": self.exec_read, "file.write": self.exec_write,
+                "file.write_bytes": self.exec_write_bytes}
 
     # ------------------------------------------------------------------ talep oluşturma (risk + önizleme)
 
@@ -161,6 +180,30 @@ class FileTools:
             reason="Mevcut içerik değişecek.",
             preview={"old_size": len(old.encode('utf-8')), "new_size": size,
                      "old_head": old[:400], "new_head": content[:400]},
+            undo=f"Üzerine yazmadan önce otomatik yedek alınır: {self.backup_dir}",
+            requested_by=requested_by))
+
+    def write_bytes(self, path: str, data: bytes, *, description: str = "", preview: dict[str, Any] | None = None,
+                    requested_by: str = "user") -> SubmitResult:
+        """Yeni dosya R1 (otomatik, kayda geçer); var olanın üzerine yazmak R2 (sahip onayı + otomatik yedek)."""
+        import base64
+
+        resolved, _ = self.resolve(path, write=True)
+        if len(data) > self.settings.files.max_write_mb * 1024 * 1024:
+            raise ValueError(f"Dosya çok büyük ({len(data) / 1e6:.1f} MB > {self.settings.files.max_write_mb} MB)")
+        params = {"path": str(resolved), "content_b64": base64.b64encode(data).decode("ascii")}
+        what = f" ({description})" if description else ""
+        if not resolved.exists():
+            return self._submit(ToolAction(tool="file.write_bytes", params=params, risk=Risk.R1,
+                                           summary=f"Yeni dosya oluştur: {resolved}{what}", requested_by=requested_by,
+                                           preview={"new_size": len(data), **(preview or {})},
+                                           undo="Dosyayı silmek yeterli."))
+        return self._submit(ToolAction(
+            tool="file.write_bytes", params=params, risk=Risk.R2,
+            summary=f"Var olan dosyanın ÜZERİNE YAZ: {resolved}{what}",
+            reason="Mevcut dosya değişecek.",
+            preview={"old_size": resolved.stat().st_size if resolved.is_file() else 0, "new_size": len(data),
+                     **(preview or {})},
             undo=f"Üzerine yazmadan önce otomatik yedek alınır: {self.backup_dir}",
             requested_by=requested_by))
 

@@ -29,13 +29,13 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 3 | Orkestratör görevi worker'a delege ediyor | [x] |
 | 4 | Worker doğrulanmış yapılandırılmış çıktı döndürüyor | [x] |
 | 5 | Claude Code MCP ile yerel araçlara erişiyor | [x] 2026-10-31 — Claude Code `kayaai_ask` → qwen3:8b, görev geçmişinde doğrulandı |
-| 6 | PDF okunup özetleniyor | [ ] |
-| 7 | Excel analiz ediliyor | [ ] |
+| 6 | PDF okunup özetleniyor | [~] Adım 10 — konteynerde; Windows `business_check` bekleniyor |
+| 7 | Excel analiz ediliyor | [~] Adım 10 — sayıları program hesaplar; Windows `business_check` bekleniyor |
 | 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [ ] Faz 5 |
 | 9 | Seçilen ses kaynağı yazıya dökülüyor | [ ] Faz 6 |
 | 10 | Çeviri altyazı olarak gösteriliyor | [ ] Faz 6 |
 | 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [ ] Faz 7 |
-| 12 | İş raporu üretiliyor | [ ] Faz 9 |
+| 12 | İş raporu üretiliyor | [~] Adım 10 — xlsx / md / docx / pdf; Windows `business_check` bekleniyor |
 | 13 | Yeniden başlatmada görev geçmişi geri yükleniyor | [x] |
 
 ## Faz 2 — Claude Code ve MCP entegrasyonu
@@ -118,8 +118,19 @@ Sahip kararları (2026-10-31): SQLite + bge-m3 (Ollama, MIT); v1 kapsamı kişis
   v0.9.1'de tür başına eşik (hafıza 0.60, belge 0.50); betiğin tek eşik önerisi yanlış etiketliyordu, düzeltildi
 - Riskler: benzerlik eşiği (gerçek bge-m3 ile ölçülecek); büyük klasörlerde ilk dizinleme süresi (artımlı, sınırlı)
 
+## Adım 10 — İş modülleri (kabul #6, #7, #12)
+Sahip kararı (2026-10-31): rapor biçimleri Excel, Markdown, Word, PDF.
+- [x] v0.9.1 — hafıza/belge için ayrı eşikler (0.60 / 0.50, Windows ölçümü); PR mertkaya01/KayaAI#5 ile `main`'e
+- [~] Okuyucular: PDF (pypdf), Excel/CSV (openpyxl/csv; Türkçe sayı biçimi, tür çıkarımı); ikili ekler; belge dizininde PDF/Excel
+- [~] Analiz: profil → model planı (şema + kod doğrulaması) → kodla yürütme → sayı denetimli yorum
+- [~] PDF özeti (bölümlü, sayfa kaynaklı) ve fatura çıkarma (kodla tutar denetimi)
+- [~] Rapor: md / xlsx / docx / pdf, `~/kayaAI-files/raporlar` (R1 / R2); sohbette "Rapor oluştur", CLI `--report`
+- [~] Arayüz: PDF/Excel ekleme, "Analiz et / Özetle / Fatura olarak oku"; API `/api/business/run`, `.../report`;
+  CLI `kayaai analyze|summarize|invoice`; MCP `kayaai_analyze_table`, `kayaai_read_pdf`
+- Testler: Python (iş modülleri 36 + betik), Vitest 12, Playwright (Adım 10 akışı 8 kontrol); Windows: `scripts/business_check.py`
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 8 tamamlandı (2026-10-31). Şu an: Adım 9 Windows doğrulaması → Adım 10 (iş modülleri: PDF/Excel).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 9 tamamlandı (2026-10-31). Şu an: Adım 10 Windows doğrulaması → Adım 11 (görsel iş akışı + model yönetimi).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

@@ -117,6 +117,18 @@
 - [x] Hafıza ve belge içeriği modele güvenilmez VERİ olarak gider; kaynaklar uydurulmaz talimatı
 - [x] Sahip her şeyi görebilir, düzenleyebilir, silebilir, dışa aktarabilir
 
+## Adım 10'da uygulananlar (iş modülleri)
+
+- [x] Dosya içeriği hiçbir zaman çalıştırılmaz: Excel formülleri hesaplanmaz (kayıtlı değerler), makrolar yok sayılır;
+      analiz yalnızca sabit işlem kümesiyle (süz/grupla/topla…) programla yapılır
+- [x] Model sayı üretmez: analiz sayıları kodla hesaplanır; yorumdaki sayılar ve fatura tutarları kodla denetlenir
+- [x] Ekler: yalnızca PDF/.xlsx/.xlsm/CSV (ikili ekler base64, ≤10 MB); parola korumalı ve metinsiz PDF anlaşılır hatayla reddedilir
+- [x] Raporlar yalnızca izinli kayaAI klasörüne; yeni dosya R1 (kayda geçer), üzerine yazma R2 (sahip onayı + yedek)
+- [x] API/MCP iş araçları yalnızca izinli klasörlerdeki dosyalarla çalışır; MCP araç açıklamaları içeriğin Claude'a
+      gideceğini belirtir (özel hafıza kuralları değişmez)
+- [x] Yeni bağımlılıklar izin verici lisanslı: pypdf (BSD-3), openpyxl (MIT), python-docx (MIT), reportlab (BSD);
+      PDF yazı tipi sistemden okunur (repoya font eklenmez)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

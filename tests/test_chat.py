@@ -129,7 +129,7 @@ def test_upload_attachment_reaches_agent(rt, fake_ollama):
     a = book.upload("satislar.csv", "ay,satis\nOcak,120\nŞubat,80\n")
     s = Script(planner=[], answers=[answer("Toplam 200.")])
     fake_ollama.chat_replies = [s] * 10
-    user, reply = _send(book, conv.id, "Bu dosyadaki satışların toplamı nedir?", agent="data", attachment_ids=[a.id])
+    user, reply = _send(book, conv.id, "Bu dosyadaki satışların toplamı nedir?", agent="general", attachment_ids=[a.id])
     assert reply.content == "Toplam 200." and user.attachments[0].name == "satislar.csv"
     sent = s.user_messages["GeneralAnswer"][0]
     assert "Ocak,120" in sent and "<input_data>" in sent  # güvenilmez veri olarak çitlendi

@@ -450,6 +450,42 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
                 "note": "Öneri kaydedildi; sahip Hafıza ekranından onaylayınca kullanılır."}
 
     @server.tool(
+        name="kayaai_analyze_table",
+        description=(
+            "Analyse an Excel/CSV file from the owner's allowed folders with kayaAI's local data pipeline: a local model "
+            "plans the calculation, the program computes every number, and a short commentary is checked against the "
+            "computed values. Returns Markdown with result tables. Note: the file's contents reach you through the result."
+        ),
+    )
+    def kayaai_analyze_table(path: str, question: str = "") -> dict[str, Any]:
+        return _business("analyze", path, question)
+
+    @server.tool(
+        name="kayaai_read_pdf",
+        description=(
+            "Summarise a PDF ('summarize') or extract invoice fields with arithmetic checks ('invoice') from the owner's "
+            "allowed folders, using local models. Text PDFs only (no OCR yet). The document's content reaches you through "
+            "the result."
+        ),
+    )
+    def kayaai_read_pdf(path: str, mode: Literal["summarize", "invoice"] = "summarize", question: str = "") -> dict[str, Any]:
+        return _business(mode, path, question)
+
+    def _business(mode: str, path: str, question: str) -> dict[str, Any]:
+        from .business import run_mode
+        from .business.readers import ReadError
+
+        r = rt()
+        try:
+            resolved, _ = r.files.resolve(_check_text("path", path))
+            if not resolved.is_file():
+                raise ToolError(f"Dosya yok: {resolved}")
+            result = run_mode(r, mode, resolved.read_bytes(), resolved.name, question)
+        except (PathNotAllowed, ReadError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+        return {"markdown": result.markdown(), "warnings": result.warnings}
+
+    @server.tool(
         name="kayaai_disputes",
         description=(
             "List open disagreements between kayaAI agents (a producer disputed a reviewer's issue). Read-only: "

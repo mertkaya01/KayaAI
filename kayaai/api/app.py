@@ -127,11 +127,26 @@ class ChatSendBody(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     agent: str = "auto"
     attachments: list[str] = Field(default_factory=list, max_length=10)
+    # Adım 10: iş modülü (Analiz et / Özetle / Fatura olarak oku); boşsa tablo eki + otomatik/data → analiz
+    mode: Literal["analyze", "summarize", "invoice"] | None = None
 
 
 class AttachmentBody(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    text: str = Field(max_length=5 * 1024 * 1024)
+    text: str | None = Field(None, max_length=5 * 1024 * 1024)
+    # PDF/Excel: base64 (≤10 MB dosya ≈ 13.4 MB metin)
+    data_b64: str | None = Field(None, max_length=14_000_000)
+
+
+class ReportBody(BaseModel):
+    format: Literal["md", "xlsx", "docx", "pdf"]
+
+
+class BusinessRunBody(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+    mode: Literal["analyze", "summarize", "invoice"]
+    question: str = Field("", max_length=MAX_TEXT_CHARS)
+    report: Literal["md", "xlsx", "docx", "pdf"] | None = None
 
 
 class AttachPathBody(BaseModel):
@@ -493,7 +508,7 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
     @app.post("/api/chat/{conv_id}/messages", status_code=202, dependencies=[Depends(auth)])
     def chat_send(conv_id: str, body: ChatSendBody) -> dict[str, Any]:
-        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments)
+        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments, body.mode)
         submit(runner)
         return {"user": user.model_dump(mode="json"), "reply": reply.model_dump(mode="json")}
 
@@ -505,7 +520,38 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
     @app.post("/api/attachments", status_code=201, dependencies=[Depends(auth)])
     def attachment_upload(body: AttachmentBody) -> dict[str, Any]:
+        if body.data_b64 is not None:
+            return chat_call(chat.upload_binary, body.name, body.data_b64).model_dump(mode="json")
+        if body.text is None:
+            raise HTTPException(400, "text ya da data_b64 gerekli")
         return chat_call(chat.upload, body.name, body.text).model_dump(mode="json")
+
+    @app.post("/api/chat/{conv_id}/messages/{message_id}/report", dependencies=[Depends(auth)])
+    def chat_report(conv_id: str, message_id: str, body: ReportBody) -> dict[str, Any]:
+        return chat_call(chat.report, conv_id, message_id, body.format).model_dump(mode="json")
+
+    @app.post("/api/business/run", dependencies=[Depends(auth)])
+    def business_run(body: BusinessRunBody) -> dict[str, Any]:
+        """İzinli klasördeki bir dosyada iş modülü (eşzamanlı; yerel modelle birkaç saniye-dakika)."""
+        from ..business import from_result, run_mode, save
+        from ..business.readers import ReadError
+        from ..tools.files import PathNotAllowed
+
+        assert rt.files is not None
+        try:
+            path, _ = rt.files.resolve(body.path)
+            if not path.is_file():
+                raise HTTPException(404, f"Dosya yok: {path}")
+            result = run_mode(rt, body.mode, path.read_bytes(), path.name, body.question)
+        except PathNotAllowed as exc:
+            raise HTTPException(403, str(exc)) from exc
+        except (ReadError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        out: dict[str, Any] = {"result": result.model_dump(mode="json"), "markdown": result.markdown()}
+        if body.report:
+            out["report"] = save(rt, from_result(result.model_dump(mode="json")), body.report,
+                                 requested_by="api").model_dump(mode="json")
+        return out
 
     @app.post("/api/attachments/from-path", status_code=201, dependencies=[Depends(auth)])
     def attachment_from_path(body: AttachPathBody) -> dict[str, Any]:
