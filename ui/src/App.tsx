@@ -50,7 +50,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
 
   const onEvent = useCallback((e: KEvent) => {
     setEvents((prev) => [e, ...prev].slice(0, 50));
-    if (e.type === "task.status") setAgentsKey((k) => k + 1);
+    if (e.type === "task.status" || e.type.startsWith("agent.")) setAgentsKey((k) => k + 1);
     if (e.type.startsWith("approval.") || e.type === "tool.used") setApprovalsKey((k) => k + 1);
     if (e.type.startsWith("dispute.")) setDisputesKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
@@ -73,7 +73,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
           <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => setDisputesKey((k) => k + 1)} />
         </div>
         <div className="col">
-          <AgentsPanel agents={agents.data} error={agents.error} />
+          <AgentsPanel agents={agents.data} error={agents.error} onChanged={() => { setAgentsKey((k) => k + 1); setApprovalsKey((k) => k + 1); }} />
           <EventsPanel events={events} />
         </div>
       </main>

@@ -74,6 +74,12 @@ export function describeEvent(e: KEvent): string {
       return `Araç başarısız: ${d.tool} — ${d.error}`;
     case "claude.mode":
       return d.enabled ? "Claude modu açıldı" : "Claude modu kapatıldı";
+    case "agent.created":
+      return `Yeni geçici ajan: ${d.name} (temel: ${d.base}, oluşturan: ${d.created_by})`;
+    case "agent.promoted":
+      return `Ajan kalıcı yapıldı: ${d.name}`;
+    case "agent.removed":
+      return `Geçici ajan kaldırıldı: ${d.name}`;
     case "dispute.opened":
       return `Anlaşmazlık: ${d.producer} ↔ ${d.reviewer} — ${d.issue}${d.escalated_to === "claude" ? " (Claude'a)" : " (sana)"}`;
     case "dispute.resolved":

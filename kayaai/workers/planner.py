@@ -6,6 +6,8 @@ modele geri bildirilip tekrar istenir (LLMWorker'ın mevcut retry mekanizması).
 
 from __future__ import annotations
 
+import re
+
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
@@ -23,6 +25,13 @@ class PlanStep(BaseModel):
     depends_on: list[str] = Field(default_factory=list, description="Ids of EARLIER steps whose results this step needs")
 
 
+class NewAgent(BaseModel):
+    name: str = Field(description="Short lowercase id for the new agent, e.g. 'legal' (letters, digits, - or _)")
+    description: str = Field(description="What the new agent does, in the user's language")
+    role: str = Field(description="Role instructions for the new agent (English, 2-5 sentences)")
+    base: str = Field(description="Existing agent it is based on, e.g. 'general' or 'document'")
+
+
 class RoutePlan(BaseModel):
     mode: Literal["direct", "plan"] = Field(
         description="'direct' = one agent can answer the whole request (preferred); 'plan' = needs several steps"
@@ -35,6 +44,11 @@ class RoutePlan(BaseModel):
         "(complex system architecture, large multi-file code, deep multi-source analysis)",
     )
     claude_reason: str = Field("", description="Why Claude is needed (empty if needs_claude is false)")
+    new_agent: NewAgent | None = Field(
+        None,
+        description="Almost always null. Only if NO listed agent has the expertise a part of the request clearly "
+        "needs (and it will likely be needed again): define ONE new agent and use its name in agent/steps.",
+    )
     key_topics: list[str] = Field(
         default_factory=list,
         description="2-5 main SUBJECTS the final answer must substantively cover (nouns, e.g. "
@@ -60,6 +74,8 @@ class PlannerWorker(LLMWorker):
         "- Never use the agent 'planner' or 'reviewer' in steps; reviewing is done automatically afterwards.\n"
         "- Set needs_claude true only when a small local model would very likely fail; otherwise false.\n"
         "- Write step objectives in the user's language.\n"
+        "- new_agent: leave null unless the input data says new agents are allowed AND no listed agent fits a "
+        "clearly specialised part of the request. Prefer existing agents.\n"
         "- key_topics: the main subjects of the request that the answer must really address (not formatting or "
         "instruction words). Give 'Turkish / English' names when the subject has both."
     )
@@ -68,16 +84,34 @@ class PlannerWorker(LLMWorker):
         assert isinstance(output, RoutePlan)
         agents = {a["name"] for a in task.input.get("agents", []) if isinstance(a, dict) and "name" in a}
         max_steps = int(task.input.get("max_steps", DEFAULT_MAX_STEPS))
-        errors = validate_plan(output, agents, max_steps)
+        errors = validate_plan(output, agents, max_steps, allow_new_agent=bool(task.input.get("allow_new_agent")))
         return ValidationResult(passed=not errors, validator="planner.structure", errors=errors)
 
 
 FORBIDDEN_STEP_AGENTS = {"planner", "reviewer"}
 
 
-def validate_plan(plan: RoutePlan, agents: set[str], max_steps: int = DEFAULT_MAX_STEPS) -> list[str]:
+NEW_AGENT_NAME = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
+
+
+def validate_plan(plan: RoutePlan, agents: set[str], max_steps: int = DEFAULT_MAX_STEPS,
+                  allow_new_agent: bool = False) -> list[str]:
     usable = agents - FORBIDDEN_STEP_AGENTS
     errors: list[str] = []
+    if plan.new_agent is not None:
+        na = plan.new_agent
+        if not allow_new_agent:
+            errors.append("new_agent şu an kullanılamaz; mevcut ajanlardan birini seç ve new_agent'ı null bırak")
+        elif not NEW_AGENT_NAME.match(na.name):
+            errors.append(f"new_agent.name geçersiz: {na.name!r} (küçük harf, rakam, - ya da _)")
+        elif na.name in agents:
+            errors.append(f"new_agent.name {na.name!r} zaten var; o ajanı doğrudan kullan")
+        elif na.base not in usable:
+            errors.append(f"new_agent.base bilinmeyen/kullanılamaz: {na.base!r}; kullanılabilir: {sorted(usable)}")
+        elif len(na.role.strip()) < 10 or not na.description.strip():
+            errors.append("new_agent için description ve role (en az bir cümle) gerekli")
+        else:
+            usable = usable | {na.name}
     if len(plan.key_topics) > 6:
         errors.append(f"key_topics en fazla 6 olmalı (gelen: {len(plan.key_topics)})")
     if any(not t.strip() for t in plan.key_topics):

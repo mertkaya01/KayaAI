@@ -56,6 +56,9 @@ conductor:
   disputes: claude_first
   # Bir işin zaman bütçesi (sn); aşılırsa ek gözden geçirme/revizyon turları atlanır
   time_budget_s: 600
+  # Geçici ajanlar (data/agents): yerel planlayıcı uygun ajan yoksa bir tane önerebilir; en fazla bu kadar geçici ajan
+  allow_temp_agents: true
+  max_temp_agents: 5
 
 api:
   # Yerel API sunucusu (`kayaai api`): arayüzler buna bağlanır. Güvenlik: yalnızca 127.0.0.1; ağa açılamaz.

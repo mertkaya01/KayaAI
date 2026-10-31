@@ -256,14 +256,52 @@ class Conductor:
         if "planner" not in self.rt.workers:
             result.warnings.append("planlayıcı ajan tanımlı değil; tek ajanla cevaplandı")
             return RoutePlan(mode="direct", agent="general")
-        task = self._ask(job, "planner", request, {"agents": self._agents_for_planner(), "max_steps": self.settings.max_steps})
+        from ..agents.lifecycle import sync_user_agents
+
+        sync_user_agents(self.rt)  # başka süreçte (MCP/CLI) oluşturulan ajanları da gör
+        task = self._ask(job, "planner", request, {
+            "agents": self._agents_for_planner(), "max_steps": self.settings.max_steps,
+            "allow_new_agent": self._new_agents_allowed()})
         if task.status != TaskStatus.SUCCEEDED or not task.result:
             result.warnings.append("Plan yapılamadı; istek genel ajanla tek adımda cevaplandı.")
             self.rt.store.log_event(job.id, "plan.fallback", {"error": task.error})
             return RoutePlan(mode="direct", agent="general")
         plan = RoutePlan.model_validate(task.result)
         self.rt.store.log_event(job.id, "plan.created", plan.model_dump())
+        if plan.new_agent is not None:
+            plan = self._adopt_new_agent(job, plan, result)
         return plan
+
+    def _new_agents_allowed(self) -> bool:
+        if not self.settings.allow_temp_agents or self.settings.max_temp_agents == 0:
+            return False
+        temp = [w for w in self.rt.workers.all()
+                if (d := getattr(w, "definition", None)) is not None and d.status == "temporary"]
+        return len(temp) < self.settings.max_temp_agents
+
+    def _adopt_new_agent(self, job: Task, plan: RoutePlan, result: ConductorResult) -> RoutePlan:
+        """Planlayıcının önerdiği geçici ajanı oluşturur; olmazsa adımlar temel ajana döner (iş durmaz)."""
+        from ..agents.lifecycle import AgentLifecycleError, AgentProposal, create_temporary
+
+        na = plan.new_agent
+        assert na is not None
+        planner = self.rt.workers.get("planner")
+        ceiling = {p.value for p in planner.required_permissions}
+        try:
+            defn = create_temporary(self.rt, AgentProposal(name=na.name, description=na.description, role=na.role,
+                                                           base=na.base), created_by="planner", ceiling=ceiling)
+            result.warnings.append(_lang_note(
+                job.objective,
+                f"Yeni geçici ajan oluşturuldu: {defn.name} ({defn.description}). Kalıcı yapmak için: "
+                f"kayaai agents promote {defn.name}",
+                f"New temporary agent created: {defn.name}. To make it permanent: kayaai agents promote {defn.name}"))
+            self.rt.store.log_event(job.id, "agent.created", {"name": defn.name, "base": na.base})
+            return plan
+        except (AgentLifecycleError, ValueError) as exc:
+            result.warnings.append(f"Geçici ajan oluşturulamadı ({exc}); '{na.base}' ajanı kullanıldı.")
+            agent = plan.agent if plan.agent != na.name else na.base
+            steps = [s.model_copy(update={"agent": na.base if s.agent == na.name else s.agent}) for s in plan.steps]
+            return plan.model_copy(update={"agent": agent, "steps": steps, "new_agent": None})
 
     @staticmethod
     def _steps_of(plan: RoutePlan, request: str) -> list[StepView]:

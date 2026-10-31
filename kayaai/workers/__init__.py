@@ -10,6 +10,8 @@ class WorkerRegistry:
     def __init__(self) -> None:
         self._workers: dict[str, Worker] = {}
         self._internal: set[str] = set()
+        # data/agents altından yüklenen (sonradan oluşturulmuş) ajanlar — kayaai/agents/lifecycle.py
+        self.user_names: set[str] = set()
 
     def register(self, worker: Worker, *, internal: bool = False) -> None:
         """internal: ajanın iç yardımcısı (ör. `coder.revise`); planlayıcıya, arayüze ve listelere görünmez."""
@@ -34,6 +36,12 @@ class WorkerRegistry:
 
     def internal_names(self) -> list[str]:
         return sorted(self._internal)
+
+    def unregister(self, name: str) -> None:
+        """Ajanı ve iç yardımcılarını (`<ad>.revise`, `<ad>.check`) kaldırır."""
+        for n in [n for n in self._workers if n == name or n.startswith(name + ".")]:
+            del self._workers[n]
+            self._internal.discard(n)
 
     def __contains__(self, name: str) -> bool:
         return name in self._workers

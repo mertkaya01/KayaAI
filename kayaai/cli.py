@@ -295,24 +295,67 @@ def cmd_do(args: argparse.Namespace) -> int:
 
 def cmd_agents(args: argparse.Namespace) -> int:
     from .agents.definitions import AgentDefinitionError
-    from .workers import default_workers
+    from .agents.lifecycle import (
+        AgentLifecycleError,
+        AgentProposal,
+        create_temporary,
+        remove_temporary,
+        request_promotion,
+        usage,
+        user_agents_dir,
+    )
+    from .runtime import build_runtime
 
     settings = load_settings()
-    registry = ModelRegistry.load(settings.models_file)
     try:
-        workers = default_workers(registry, settings.config_dir / "agents")
+        rt = build_runtime(settings)
     except AgentDefinitionError as exc:
         _print(f"[HATA] Ajan tanımı geçersiz: {exc}")
         return 1
-    for w in workers.all():
-        d = getattr(w, "definition", None)
-        spec = w.model_spec(registry)
-        _print(
-            f"{w.name:<10} yerel model: {spec.name:<16} çıktı: {w.output_model.__name__:<14} "
-            f"Claude karşılığı: {d.claude_tier if d else '-':<7} izinler: {', '.join(p.value for p in w.required_permissions)}"
-        )
-        _print(f"{'':<10} {w.description}")
-    _print(f"\nTanımlar: {settings.config_dir / 'agents'}")
+    with rt:
+        try:
+            if args.action == "new":
+                if not args.name or not args.description or not (args.role or args.role_file):
+                    _print("Kullanım: kayaai agents new <ad> --base general --description \"...\" --role \"...\" "
+                           "(ya da --role-file dosya.txt)")
+                    return 2
+                role = Path(args.role_file).read_text(encoding="utf-8") if args.role_file else args.role
+                d = create_temporary(rt, AgentProposal(name=args.name, description=args.description, role=role,
+                                                       base=args.base), created_by="owner")
+                _print(f"[OK] Geçici ajan oluşturuldu: {d.name} (temel: {d.base}, model: {d.local_model})")
+                _print(f"Dene: kayaai do \"...\"  ya da  kayaai ask --worker {d.name} \"...\"")
+                return 0
+            if args.action in ("promote", "remove"):
+                if not args.name:
+                    _print(f"Ajan adı gerekli: kayaai agents {args.action} <ad>")
+                    return 2
+                if args.action == "remove":
+                    remove_temporary(rt, args.name)
+                    _print(f"[OK] Geçici ajan kaldırıldı: {args.name}")
+                    return 0
+                res = request_promotion(rt, args.name, requested_by="cli")
+                _print(f"[ONAY BEKLİYOR] {res.message}")
+                _print(f"Onayla: kayaai approvals approve {res.approval_id}  (ya da Control Center → Onay merkezi)")
+                return 0
+        except (AgentLifecycleError, ValueError, OSError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        for w in rt.workers.all():
+            d = getattr(w, "definition", None)
+            spec = w.model_spec(rt.registry)
+            extra = ""
+            if d is not None and d.created_by:
+                done, ok = usage(rt, w.name)
+                kind = "GEÇİCİ" if d.status == "temporary" else "kalıcı"
+                extra = f"  [{kind}, temel: {d.base}, oluşturan: {d.created_by}, kullanım: {ok}/{done} başarılı]"
+            _print(
+                f"{w.name:<10} yerel model: {spec.name:<16} çıktı: {w.output_model.__name__:<14} "
+                f"Claude karşılığı: {d.claude_tier if d else '-':<7} izinler: {', '.join(p.value for p in w.required_permissions)}"
+                + extra
+            )
+            review = f" · gözden geçiren: {d.review.reviewer}" if d is not None and d.review.required else ""
+            _print(f"{'':<10} {w.description}{review}")
+        _print(f"\nTanımlar: {settings.config_dir / 'agents'}  ·  sonradan oluşturulanlar: {user_agents_dir(rt)}")
     return 0
 
 
@@ -365,12 +408,14 @@ def cmd_claude(args: argparse.Namespace) -> int:
 def _claude_sync(settings, workspace: str | None) -> int:  # noqa: ANN001
     from pathlib import Path
 
-    from .agents.definitions import AgentDefinitionError, load_definitions
+    from .agents.definitions import AgentDefinitionError
+    from .agents.lifecycle import claude_definitions
     from .claude_workspace import WorkspaceError, default_workspace, sync_workspace
+    from .runtime import build_runtime
 
-    registry = ModelRegistry.load(settings.models_file)
     try:
-        agents = load_definitions(settings.config_dir / "agents", registry)
+        with build_runtime(settings) as rt:
+            agents = claude_definitions(rt)  # repo ajanları + kalıcı yapılmış kullanıcı ajanları
         report = sync_workspace(settings, agents, Path(workspace) if workspace else default_workspace(settings))
     except (AgentDefinitionError, WorkspaceError, OSError) as exc:
         _print(f"[HATA] Çalışma alanı üretilemedi: {exc}")
@@ -714,7 +759,14 @@ def build_parser() -> argparse.ArgumentParser:
     do.add_argument("--json", action="store_true")
     do.set_defaults(func=cmd_do)
 
-    sub.add_parser("agents", help="tanımlı ajanlar (config/agents)").set_defaults(func=cmd_agents)
+    ag = sub.add_parser("agents", help="ajanlar: listele / geçici ajan oluştur / kalıcı yap / kaldır")
+    ag.add_argument("action", nargs="?", choices=["list", "new", "promote", "remove"], default="list")
+    ag.add_argument("name", nargs="?")
+    ag.add_argument("--base", default="general", help="new: dayandığı ajan (model ve izinler buradan gelir)")
+    ag.add_argument("--description", default=None)
+    ag.add_argument("--role", default=None, help="new: rol talimatı")
+    ag.add_argument("--role-file", default=None, help="new: rol talimatını dosyadan oku")
+    ag.set_defaults(func=cmd_agents)
 
     c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
     c.add_argument("action", nargs="?", choices=["status", "on", "off", "sync"], default="status")

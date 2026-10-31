@@ -79,6 +79,8 @@ class AgentInfo(BaseModel):
     local_model: str
     claude_tier: str
     permissions: list[str]
+    status: str = "permanent"
+    base: str | None = None
 
 
 class AgentList(BaseModel):
@@ -203,6 +205,11 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
         question = _check_text("question", question)
         task_input = {"context": _check_text("context", context)} if context else None
         r = rt()
+        from .agents.lifecycle import sync_user_agents
+
+        sync_user_agents(r)  # CLI/API'de sonradan oluşturulan ajanlar
+        if worker not in r.workers.names():
+            raise ToolError(f"Bilinmeyen ajan: {worker}. Ajanlar: {', '.join(r.workers.names())}")
         try:
             task = r.orchestrator.ask(question, worker=worker, input=task_input, timeout_s=_check_timeout(timeout_s))
         except KeyError as exc:
@@ -387,6 +394,28 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
                 "note": "Onayı yalnızca sahip verir: kayaai approvals approve <id> (ya da arayüzdeki onay merkezi)."}
 
     @server.tool(
+        name="kayaai_agent_propose",
+        description=(
+            "Create a TEMPORARY local agent when no existing kayaAI agent fits a specialised, recurring kind of work. "
+            "It is based on an existing agent ('base': model and permissions come from it, never more), its answers "
+            "are always reviewed, and only the owner can make it permanent. Then call kayaai_ask with worker=<name>."
+        ),
+    )
+    def kayaai_agent_propose(name: str, description: str, role: str, base: str = "general") -> AgentInfo:
+        from .agents.lifecycle import AgentLifecycleError, AgentProposal, create_temporary
+
+        r = rt()
+        try:
+            proposal = AgentProposal(name=name, description=description, role=role, base=base)
+            d = create_temporary(r, proposal, created_by="claude")
+        except (AgentLifecycleError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+        w = r.workers.get(d.name)
+        return AgentInfo(name=d.name, description=d.description, output=w.output_model.__name__,
+                         local_model=w.model_spec(r.registry).name, claude_tier=d.claude_tier,
+                         permissions=list(d.permissions), status=d.status, base=d.base)
+
+    @server.tool(
         name="kayaai_disputes",
         description=(
             "List open disagreements between kayaAI agents (a producer disputed a reviewer's issue). Read-only: "
@@ -409,6 +438,9 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
     )
     def kayaai_list_agents() -> AgentList:
         r = rt()
+        from .agents.lifecycle import sync_user_agents
+
+        sync_user_agents(r)
         out = []
         for w in r.workers.all():
             d = getattr(w, "definition", None)
@@ -420,6 +452,8 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
                     local_model=w.model_spec(r.registry).name,
                     claude_tier=d.claude_tier if d else "none",
                     permissions=[p.value for p in w.required_permissions],
+                    status=d.status if d else "permanent",
+                    base=d.base if d else None,
                 )
             )
         return AgentList(agents=out)

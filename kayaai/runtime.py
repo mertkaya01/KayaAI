@@ -51,6 +51,7 @@ def build_runtime(
     recovered = store.recover_interrupted()
     registry = ModelRegistry.load(settings.models_file)
     llm = llm or OllamaClient(settings.ollama)
+    load_user_agents = workers is None
     workers = workers or default_workers(registry, settings.config_dir / "agents")
     orch = Orchestrator(
         store, workers, llm, registry, settings.orchestrator, settings.permissions, approver=approver
@@ -60,8 +61,14 @@ def build_runtime(
     files = FileTools(settings)
     permissions = PermissionEngine(store, files.executors(), expire_hours=settings.approvals.expire_hours)
     files.engine = permissions
-    return Runtime(
+    rt = Runtime(
         settings, store, llm, registry, workers, orch,
         claude=ClaudeMode(store, settings.claude), recovered_task_ids=recovered,
         permissions=permissions, files=files, disputes=DisputeBook(store),
     )
+    from .agents.lifecycle import exec_promote, sync_user_agents
+
+    permissions.executors["agent.promote"] = lambda params: exec_promote(rt, params)
+    if load_user_agents:
+        sync_user_agents(rt)  # data/agents: sonradan oluşturulan (geçici / kalıcı yapılmış) ajanlar
+    return rt

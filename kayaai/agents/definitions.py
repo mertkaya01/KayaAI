@@ -65,6 +65,10 @@ class AgentDefinition(BaseModel):
     review: AgentReview = Field(default_factory=AgentReview)
     # permanent: sisteme kayıtlı; temporary: şefin bir iş için oluşturduğu geçici ajan (D9)
     status: Literal["permanent", "temporary"] = "permanent"
+    # Adım 7c — yalnızca data/agents altındaki (sonradan oluşturulan) ajanlarda:
+    base: str | None = None          # dayandığı ajan (model, izin ve Claude karşılığı tavanı)
+    created_by: str | None = None    # owner | planner | claude
+    created_at: str | None = None
 
     @field_validator("permissions")
     @classmethod
@@ -75,28 +79,30 @@ class AgentDefinition(BaseModel):
         return v
 
 
+def load_definition_file(path: Path, registry: ModelRegistry) -> AgentDefinition:
+    try:
+        raw: Any = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        d = AgentDefinition.model_validate(raw)
+    except (yaml.YAMLError, ValidationError, OSError) as exc:
+        raise AgentDefinitionError(f"{path.name}: {exc}") from exc
+    if d.name != path.stem:
+        raise AgentDefinitionError(f"{path.name}: 'name' ({d.name}) dosya adıyla aynı olmalı")
+    try:
+        spec = registry.get(d.local_model)
+    except KeyError as exc:
+        raise AgentDefinitionError(f"{path.name}: {exc}") from exc
+    if spec.status == "candidate":
+        raise AgentDefinitionError(f"{path.name}: '{d.local_model}' aday model; benchmark'tan geçmeden ajana atanamaz")
+    return d
+
+
 def load_definitions(agents_dir: Path, registry: ModelRegistry) -> list[AgentDefinition]:
     """Klasördeki tüm *.yaml tanımlarını yükler ve doğrular. Hata varsa hangi dosyada olduğunu söyler."""
     if not agents_dir.is_dir():
         return []
     defs: list[AgentDefinition] = []
     for path in sorted(agents_dir.glob("*.yaml")):
-        try:
-            raw: Any = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            d = AgentDefinition.model_validate(raw)
-        except (yaml.YAMLError, ValidationError) as exc:
-            raise AgentDefinitionError(f"{path.name}: {exc}") from exc
-        if d.name != path.stem:
-            raise AgentDefinitionError(f"{path.name}: 'name' ({d.name}) dosya adıyla aynı olmalı")
-        try:
-            spec = registry.get(d.local_model)
-        except KeyError as exc:
-            raise AgentDefinitionError(f"{path.name}: {exc}") from exc
-        if spec.status == "candidate":
-            raise AgentDefinitionError(
-                f"{path.name}: '{d.local_model}' aday model; benchmark'tan geçmeden ajana atanamaz"
-            )
-        defs.append(d)
+        defs.append(load_definition_file(path, registry))
     names = [d.name for d in defs]
     if len(names) != len(set(names)):
         raise AgentDefinitionError(f"aynı adla birden fazla ajan: {names}")

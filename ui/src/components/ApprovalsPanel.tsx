@@ -7,7 +7,15 @@ function Preview({ a }: { a: Approval }) {
   return (
     <div className="preview">
       {a.action.reason && <p><strong>Neden riskli:</strong> {a.action.reason}</p>}
-      {(p.old_head !== undefined || p.new_head !== undefined) && (
+      {p.old_head === undefined && p.new_head !== undefined && (
+        <div className="diff single">
+          <div>
+            <h4>İçerik {p.new_size !== undefined && <span className="muted">({p.new_size} bayt)</span>}</h4>
+            <pre>{String(p.new_head)}</pre>
+          </div>
+        </div>
+      )}
+      {p.old_head !== undefined && (
         <div className="diff">
           <div>
             <h4>Şu anki içerik {p.old_size !== undefined && <span className="muted">({p.old_size} bayt)</span>}</h4>

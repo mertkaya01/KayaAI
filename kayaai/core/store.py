@@ -171,6 +171,15 @@ class TaskStore:
             rows = self._conn.execute(sql + " ORDER BY created_at DESC LIMIT ?", (*args, limit)).fetchall()
         return [json.loads(r["data"]) for r in rows]
 
+    def count_worker_results(self, worker: str) -> tuple[int, int]:
+        """(biten, başarılı) görev sayısı — bir ajanın kullanım geçmişi (Adım 7c)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT SUM(status IN ('succeeded', 'failed', 'cancelled', 'timed_out', 'rejected')), "
+                "SUM(status = 'succeeded') FROM tasks WHERE worker = ?", (worker,)
+            ).fetchone()
+        return int(row[0] or 0), int(row[1] or 0)
+
     def count_by_status(self, status: TaskStatus) -> int:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM tasks WHERE status = ?", (status.value,)).fetchone()[0]

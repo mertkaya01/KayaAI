@@ -71,6 +71,9 @@ class ConductorSettings(BaseModel):
     disputes: Literal["claude_first", "owner"] = "claude_first"
     # Bir işin toplam zaman bütçesi (sn). Aşılırsa gözden geçirme/revizyon turları atlanır (yerel GPU zamanı korunur).
     time_budget_s: float = Field(600, ge=30, le=3600)
+    # Adım 7c: yerel planlayıcı uygun ajan yoksa bir geçici ajan önerebilir (Claude şef her zaman MCP ile önerebilir)
+    allow_temp_agents: bool = True
+    max_temp_agents: int = Field(5, ge=0, le=20)
 
 
 class AllowedDir(BaseModel):

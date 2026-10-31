@@ -126,6 +126,11 @@ export interface Agent {
   claude_tier: string;
   reviewed_by: string | null;
   checks: string[];
+  lifecycle: "permanent" | "temporary";
+  base: string | null;
+  created_by: string | null;
+  uses: number | null;
+  successes: number | null;
   status: {
     state: AgentState;
     current_task_id: string | null;
