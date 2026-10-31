@@ -1,0 +1,81 @@
+"""Model kayıt defteri: config/models.yaml -> worker başına model seçimi.
+
+Model değiştirmek kod değişikliği gerektirmez; sadece YAML güncellenir.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic import BaseModel, Field, model_validator
+
+
+class ModelSpec(BaseModel):
+    key: str
+    name: str
+    purpose: str = ""
+    context_length: int | None = Field(None, gt=0)
+    think: bool | None = None
+    keep_alive: str | int | None = None
+    options: dict[str, Any] = Field(default_factory=dict)
+    approx_vram_gb: float | None = None
+    license: str | None = None
+
+    def ollama_options(self) -> dict[str, Any]:
+        opts = dict(self.options)
+        if self.context_length and "num_ctx" not in opts:
+            opts["num_ctx"] = self.context_length
+        return opts
+
+
+class RegistryFile(BaseModel):
+    models: dict[str, dict[str, Any]]
+    workers: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_refs(self) -> "RegistryFile":
+        missing = {w: m for w, m in self.workers.items() if m not in self.models}
+        if missing:
+            raise ValueError(f"workers bölümü tanımsız modellere işaret ediyor: {missing}")
+        return self
+
+
+class ModelRegistry:
+    def __init__(self, models: dict[str, ModelSpec], workers: dict[str, str]):
+        self._models = models
+        self._workers = workers
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ModelRegistry":
+        parsed = RegistryFile.model_validate(data)
+        models = {k: ModelSpec(key=k, **v) for k, v in parsed.models.items()}
+        return cls(models, dict(parsed.workers))
+
+    @classmethod
+    def load(cls, path: Path) -> "ModelRegistry":
+        if not path.exists():
+            raise FileNotFoundError(f"Model kayıt dosyası yok: {path}")
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return cls.from_dict(data)
+
+    @property
+    def models(self) -> dict[str, ModelSpec]:
+        return dict(self._models)
+
+    @property
+    def worker_assignments(self) -> dict[str, str]:
+        return dict(self._workers)
+
+    def get(self, key: str) -> ModelSpec:
+        try:
+            return self._models[key]
+        except KeyError:
+            raise KeyError(f"Model kayıtlı değil: {key}") from None
+
+    def model_for_worker(self, worker: str) -> ModelSpec:
+        key = self._workers.get(worker)
+        if key is None:
+            raise KeyError(f"'{worker}' worker'ı için config/models.yaml içinde model ataması yok")
+        return self._models[key]

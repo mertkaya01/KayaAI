@@ -1,0 +1,38 @@
+# kayaAI model kayıt defteri (MODEL_REGISTRY.md'de gerekçeleriyle anlatılır).
+# Model değiştirmek için sadece bu dosyayı düzenleyin; kod değişmez.
+#
+# models.<anahtar>:
+#   name          : Ollama model etiketi (ollama pull <name>)
+#   purpose       : kısa açıklama
+#   context_length: num_ctx; VRAM kullanımını doğrudan etkiler
+#   think         : qwen3 gibi "düşünen" modellerde düşünme modu (true/false/null=gönderme)
+#   keep_alive    : model VRAM'de ne kadar kalsın ("5m", "0" = hemen boşalt)
+#   options       : Ollama options (temperature, top_p, ...)
+#   approx_vram_gb: yaklaşık VRAM (Q4_K_M, 8K bağlam) - sadece bilgi amaçlı
+#   license       : lisans (ticari kullanım öncesi doğrulayın)
+
+models:
+  general-8b:
+    name: qwen3:8b
+    purpose: Genel akıl yürütme, Türkçe/İngilizce sohbet, özet, planlama, sınıflandırma
+    context_length: 8192
+    think: false
+    keep_alive: 10m
+    options:
+      temperature: 0.4
+    approx_vram_gb: 6.5
+    license: Apache-2.0
+
+  # Benchmark sonrası etkinleştirilecek adaylar (henüz indirmeyin):
+  # general-14b:
+  #   name: qwen3:14b
+  #   purpose: Daha güçlü ana model (benchmark sonrası)
+  #   context_length: 8192
+  #   think: false
+  #   keep_alive: 10m
+  #   approx_vram_gb: 10.5
+  #   license: Apache-2.0
+
+# Hangi worker hangi modeli kullanır. Faz 3'te yeni worker'lar buraya eklenecek.
+workers:
+  general: general-8b
