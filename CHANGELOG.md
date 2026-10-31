@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.7.1] - 2026-10-31
+
+### Düzeltildi (Windows'ta gerçek modelle görülenler)
+- qwen3:8b Türkçe bir e-postanın içine Çince karakter yazdı ("…dolayı造成的 rahatsızlık…"): istekte/girdide olmayan
+  Çince/Japonca/Korece karakter artık doğrulama hatası (tüm cevaplar ve revizyonlar); model geri bildirimle yeniden yazar
+- Gözden geçirici, cevapta zaten olan bir ifadeyi tırnak içinde "eksik" diye bildirdi → böyle çelişkili eksikler kodla
+  elenir (`dropped_issues`), gereksiz revizyon olmaz
+- Kapsam kontrolü "e-posta yazma / email writing" gibi talimat/biçim konularını artık eksik saymaz
+- `agents_check`: yalnızca koddan oluşan cevapta dil ölçülmez (önceden "dil yanlış" sayılıyordu); yabancı yazı sayacı
+
+### Eklendi
+- `kayaai api --open`: sunucu hazır olunca Control Center'ı anahtarlı adresle açar; `kayaai api` çıktısı `kayaai ui`'yi önerir
+
+### Doğrulandı (Windows, v0.7.0)
+- Control Center: canlı CPU/RAM/GPU/VRAM (RTX 5070 Ti), yüklü modeller, ajan kartları
+- `agents_check` 6/6: doğru ajan 6/6, doğru hesap 6/6, gözden geçirme 6/6, uydurma not 0, anlaşmazlık 0, toplam 15.5 sn
+
 ## [0.7.0] - 2026-10-31
 
 ### Eklendi (Adım 7 — ajan sistemi)

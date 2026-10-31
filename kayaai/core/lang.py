@@ -76,3 +76,20 @@ def expected_answer_language(question: str) -> Lang:
 
 
 LANGUAGE_NAMES = {"tr": "Turkish", "en": "English"}
+
+# Çince/Japonca/Korece yazı. Gerçek gözlem (Windows, 2026-10-31): qwen3:8b Türkçe bir e-postanın ortasına
+# "造成的" yazdı. İstekte (ve girdide) bu yazı yoksa cevapta da olamaz.
+_CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]")
+_CJK_LANG_RE = re.compile(r"(çince|japonca|korece|chinese|japanese|korean|mandarin|kanji)", re.IGNORECASE)
+
+
+def foreign_script(answer: str, request: str) -> str:
+    """İstekte olmayan Çince/Japonca/Korece karakterler (cevapta geçtikleri sırayla, tekrarsız). Boşsa sorun yok."""
+    if _CJK_RE.search(request) or _CJK_LANG_RE.search(request):
+        return ""  # kullanıcı bu yazıyı kendisi kullandı ya da o dili istedi
+    return "".join(dict.fromkeys(_CJK_RE.findall(answer)))
+
+
+def strip_code(text: str) -> str:
+    """Kod bloklarını ve satır içi kodu çıkarır (düzyazının dilini ölçmek için)."""
+    return _INLINE_CODE_RE.sub(" ", _CODE_BLOCK_RE.sub(" ", text))

@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT))
 from kayaai.conductor import Conductor  # noqa: E402
 from kayaai.conductor.checks import run_checks  # noqa: E402
 from kayaai.config import load_settings  # noqa: E402
-from kayaai.core.lang import detect_language  # noqa: E402
+from kayaai.core.lang import detect_language, foreign_script, strip_code  # noqa: E402
 from kayaai.runtime import build_runtime  # noqa: E402
 
 for stream in (sys.stdout, sys.stderr):
@@ -68,13 +68,18 @@ def main() -> int:
             rv = reviews[0] if reviews else None
             final_checks = run_checks(res.answer, ["code_syntax"])
             missing = [m for m in must if m not in res.answer]
+            prose = strip_code(res.answer)
+            # Yalnızca koddan oluşan cevapta dil ölçülemez (gerçek ölçüm hatası, Windows 2026-10-31) → None
+            lang_ok = None if detect_language(prose) == "other" and len(prose.split()) < 4 else (
+                detect_language(prose) == detect_language(request))
             row = {
                 "request": request[:90],
                 "status": res.status,
                 "agents": agents,
                 "expected_agent": exp_agent,
                 "agent_ok": exp_agent in agents,
-                "language_ok": detect_language(res.answer) == detect_language(request),
+                "language_ok": lang_ok,
+                "foreign_script": foreign_script(res.answer, request),
                 "reviewed": rv is not None and rv.skipped is None,
                 "review_verdict": rv.verdict if rv else None,
                 "review_issues": rv.issues if rv else [],
@@ -105,7 +110,8 @@ def main() -> int:
         "agent_ok": sum(r["agent_ok"] for r in rows),
         "reviewed": sum(r["reviewed"] for r in rows),
         "values_ok": sum(not r["expected_values_missing"] for r in rows),
-        "language_ok": sum(r["language_ok"] for r in rows),
+        "language_ok": sum(r["language_ok"] is not False for r in rows),
+        "foreign_script": sum(bool(r["foreign_script"]) for r in rows),
         "revised": sum(r["revised"] for r in rows),
         "disputes": sum(r["disputes"] for r in rows),
         "dropped_unproven_issues": sum(r["dropped_unproven_issues"] for r in rows),

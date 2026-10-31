@@ -664,9 +664,37 @@ def cmd_api(args: argparse.Namespace) -> int:
     app = create_app(settings)
     _print(f"{APP_NAME} API: http://{host}:{port}   (deneme sayfası: http://{host}:{port}/docs)")
     _print(f"Erişim anahtarı: {token_path(settings)}  — göstermek için: kayaai api token")
+    if args.open:
+        _open_when_ready(host, port, app.state.token)
+        _print("Control Center sunucu hazır olunca tarayıcıda açılacak.")
+    else:
+        _print("Control Center için ikinci terminalde:  kayaai ui   (anahtarla açar; adresi elle açarsan anahtar sorar)")
     _print("Durdurmak için Ctrl+C.")
     uvicorn.run(app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=3)
     return 0
+
+
+def _open_when_ready(host: str, port: int, token: str, timeout_s: float = 20) -> None:
+    """Sunucu yanıt verince tarayıcıyı anahtarlı adresle açar (arka plan iş parçacığı; anahtar ekrana yazılmaz)."""
+    import threading
+    import time
+    import webbrowser
+
+    import httpx
+
+    def run() -> None:
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            try:
+                if httpx.get(f"http://{host}:{port}/api/health", headers={"Authorization": f"Bearer {token}"},
+                             timeout=2).status_code == 200:
+                    webbrowser.open(f"http://{host}:{port}/#token={token}")
+                    return
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.3)
+
+    threading.Thread(target=run, name="kayaai-open-ui", daemon=True).start()
 
 
 def cmd_ui(args: argparse.Namespace) -> int:
@@ -801,6 +829,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("action", nargs="?", choices=["serve", "token"], default="serve")
     ap.add_argument("--host", default=None)
     ap.add_argument("--port", type=int, default=None)
+    ap.add_argument("--open", action="store_true", help="sunucu hazır olunca Control Center'ı tarayıcıda aç")
     ap.set_defaults(func=cmd_api)
 
     ui = sub.add_parser("ui", help="Control Center'ı tarayıcıda aç (önce: kayaai api)")

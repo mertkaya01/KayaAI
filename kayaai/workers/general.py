@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
-from ..core.lang import LANGUAGE_NAMES, detect_language, expected_answer_language
+from ..core.lang import LANGUAGE_NAMES, detect_language, expected_answer_language, foreign_script
 from ..core.task import Permission, Task, ValidationResult
 from .base import LLMWorker, WorkerContext
 
@@ -64,4 +66,15 @@ class GeneralWorker(LLMWorker):
                 f"answer dili yanlış: kullanıcı {LANGUAGE_NAMES[expected]} yazdı, cevap {LANGUAGE_NAMES[actual]}. "
                 f"Cevabı {LANGUAGE_NAMES[expected]} yaz."
             )
+        errors += foreign_script_errors(task, output.answer)
         return ValidationResult(passed=not errors, validator="general.semantic", errors=errors)
+
+
+def foreign_script_errors(task: Task, answer: str) -> list[str]:
+    """İstekte/girdide olmayan Çince/Japonca/Korece karakter cevapta varsa doğrulama hatası (model yeniden yazar)."""
+    context = task.objective + (json.dumps(task.input, ensure_ascii=False) if task.input else "")
+    chars = foreign_script(answer, context)
+    if not chars:
+        return []
+    return [f"cevapta istenmeyen Çince/Japonca/Korece karakterler var ({chars[:12]}); bunları kaldır, "
+            "yerlerine kullanıcının dilinde doğru kelimeleri yaz"]

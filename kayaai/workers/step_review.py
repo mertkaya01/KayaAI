@@ -44,6 +44,14 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().casefold()
 
 
+_QUOTED = re.compile(r"[\"'“”‘’«»]([^\"'“”‘’«»]{4,})[\"'“”‘’«»]")
+
+
+def contradicts_answer(missing_part: str, answer: str) -> bool:
+    """'X ifadesi eksik' deyip X'i tırnak içinde veren ama X cevapta zaten geçen madde (gerçek gözlem, Windows)."""
+    return any(evidence_in(q, answer) for q in _QUOTED.findall(missing_part))
+
+
 def evidence_in(evidence: str, answer: str) -> bool:
     ev = normalize(evidence).strip("\"'`“”‘’ ")
     return len(ev) >= MIN_EVIDENCE_CHARS and ev in normalize(answer)
@@ -74,7 +82,10 @@ class StepReviewWorker(LLMWorker):
         if dropped:
             # Sessizce değil: kaç sorunun kanıtsız olduğu ölçülür ve rapora girer.
             ctx.metrics["dropped_issues"] = ctx.metrics.get("dropped_issues", 0) + dropped
-        missing = [m for m in output.missing_parts if m.strip()]
+        missing = [m for m in output.missing_parts if m.strip() and not contradicts_answer(m, answer)]
+        contradicted = sum(1 for m in output.missing_parts if m.strip()) - len(missing)
+        if contradicted:
+            ctx.metrics["dropped_issues"] = ctx.metrics.get("dropped_issues", 0) + contradicted
         blocking = missing or any(i.severity in BLOCKING for i in kept)
         verdict = "request_changes" if blocking else "approve"
         return output.model_copy(update={"issues": kept, "missing_parts": missing, "verdict": verdict})
@@ -142,6 +153,10 @@ class RevisionWorker(LLMWorker):
         actual = detect_language(output.answer)
         if expected in LANGUAGE_NAMES and actual in LANGUAGE_NAMES and actual != expected:
             errors.append(f"answer dili yanlış: cevabı {LANGUAGE_NAMES[expected]} yaz")
+        from .general import foreign_script_errors
+
+        # Girdideki eski cevap (current_answer) yabancı yazı içerebilir: yalnızca isteğe göre bak.
+        errors += foreign_script_errors(Task(worker=task.worker, objective=task.objective), output.answer)
         return ValidationResult(passed=not errors, validator="revision.semantic", errors=errors)
 
 
