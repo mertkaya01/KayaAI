@@ -48,6 +48,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [ ] Claude'un yerel modeli ne zaman kendiliğinden kullanacağı (yönlendirme kuralları, `CLAUDE.md`) — mimari raporda
 
 ## Sıradaki adımlar
-1. "Architecture & UI Design" fazı: repo denetimi + mimari + UI önerisi + yol haritası (kod değişikliği yok).
-   Alınan kararlar: Claude (Pro, Claude Code) en üstte — Opus şef, Sonnet/Haiku alt ajanlar; geri kalan her şey yerel ve 0 TL.
-2. Karar soruları tek tek: sıradaki frontend teknolojisi.
+Yol haritası artık [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13'te (v1: `docs/archive/MASTER_PROMPT_v1.md`).
+1. Adım 3 — İki mod + şef: `claude.enabled` ayarı, kayaAI içinde yerel şef (planla → dağıt → birleştir),
+   kanonik ajan tanımları, Claude kutusu MCP aracı, `CLAUDE.md` / `.claude/agents/` üreticisi.
+   Kural: her iki modda da önce yerel (D15); Claude kapalıyken uyarıyla yerelde yap (D16).
+2. Adımın ayrıntılı planı (hedef, bileşenler, testler, riskler) onaya sunulacak.

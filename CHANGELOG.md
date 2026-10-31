@@ -2,6 +2,13 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [Yayınlanmadı]
+
+### Değişti
+- `MASTER_PROMPT.md` v2: ilk MASTER_PROMPT + "Architecture & UI Design" prompt'u + sahibinin kararları
+  (D1–D16) tek belgede. Claude isteğe bağlı bir "Claude modu" (aç/kapa); kayaAI onsuz tam çalışır;
+  her iki modda da önce yerel. v1 `docs/archive/MASTER_PROMPT_v1.md` altında.
+
 ## [0.2.2] - 2026-10-31
 
 ### Doğrulandı (Windows, gerçek model)

@@ -3,7 +3,8 @@
 Yerel çalışan, çok-ajanlı kişisel yapay zeka sistemi. Windows + NVIDIA GPU üzerinde, ücretsiz ve
 açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz.
 
-> Vizyon ve tüm gereksinimler: [`MASTER_PROMPT.md`](MASTER_PROMPT.md)
+> Vizyon, kararlar ve yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (v2).
+> Claude isteğe bağlıdır: kayaAI tamamen yerel ve ücretsiz çalışır; Claude Pro varsa "Claude modu" ile takviye olarak eklenir.
 
 ## Durum
 
