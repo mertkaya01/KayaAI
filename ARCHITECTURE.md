@@ -229,6 +229,20 @@ Memory.recall(query, for_claude) → {memory: [...], documents: [{source: "ad:sa
   `hatırla: …` → `memory.classify` (iç worker) → `MemoryBook.add`.
 - Eşikler `memory.min_score_memory` (0.60) ve `memory.min_score_docs` (0.50) — bge-m3 kosinüs, `scripts/memory_check.py` ile gerçek modelde tür başına ölçülerek ayarlandı.
 
+## Algı: ekranı okuma (Adım 12a)
+
+```
+UI 📷 → getDisplayMedia (tarayıcı seçim penceresi + gösterge) → tek kare → akış kapatılır → [alan kırpma] → PNG ek
+ek yüklenirken: perception/ocr (Windows.Media.Ocr, pywinrt; motor arayüzü, testlerde sahte) → metin ekin .txt'si
+mesaj görüntü ekliyse (ya da son cevap vision ise devam sorusu): ChatBook._vision → perception/vision.see
+   görüntü → normalize (Pillow, uzun kenar 1600) → geçici kopya → vision ajanı (qwen2.5vl:7b, keep_alive 2m)
+   LLMWorker.build_messages: task.input["_images"] = dosya yolları (görev kaydında bayt yok) → Ollama `images`
+   cevap sayıları ↔ OCR metni (business/analysis.unverified_numbers) → verified True/False/None
+taranmış PDF: readers.read_pdf metinsizse → perception/ocr.ocr_pdf (pypdfium2 → sayfa görüntüsü → OCR) → PdfDoc(ocr=True)
+```
+- `vision` ajanı planlayıcıya sunulmaz (`FORBIDDEN_STEP_AGENTS`); yalnız görüntü ekiyle çalışır; Claude karşılığı yok.
+- CLI `kayaai screen` (mss, tek kare), API `POST /api/perception/image`, `GET /api/perception/status`.
+
 ## İş modülleri (Adım 10)
 
 ```

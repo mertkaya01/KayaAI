@@ -12,6 +12,7 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai screen ["soru"]   Ekran görüntüsü (tek kare) + yerel görsel model (OCR ile doğrulama)
     kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
@@ -127,6 +128,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                        "(yoksa hafıza yalnızca kelime aramasıyla çalışır)")
         except KeyError as exc:
             _print(f"[UYARI] Hafıza modeli tanımlı değil: {exc}")
+        vis = registry.models.get("vision-7b")  # Adım 12a: isteğe bağlı
+        if vis is not None:
+            if vis.name in installed or f"{vis.name}:latest" in installed:
+                _print(f"[OK] Görsel model kurulu: {vis.name}")
+            else:
+                _print(f"[UYARI] Görsel model kurulu değil: {vis.name} — ekranı okumak için: ollama pull {vis.name}")
+        from .perception.ocr import available as ocr_available
+
+        _print(("[OK] " if ocr_available()[0] else "[UYARI] ") + "OCR: " + ocr_available()[1])
         for m in client.running_models():
             vram = (m.get("size_vram") or 0) / 1024**3
             total = (m.get("size") or 0) / 1024**3
@@ -610,6 +620,53 @@ def cmd_files(args: argparse.Namespace) -> int:
             return 1
 
 
+def capture_screen(monitor: int = 1) -> bytes:
+    """Tek ekran görüntüsü (mss). Yalnızca açık komutla çağrılır; sürekli kayıt yok."""
+    import mss
+    import mss.tools
+
+    with mss.mss() as sct:
+        if not 0 <= monitor < len(sct.monitors):
+            raise ValueError(f"Ekran {monitor} yok (0: tümü, 1..{len(sct.monitors) - 1})")
+        shot = sct.grab(sct.monitors[monitor])
+        return mss.tools.to_png(shot.rgb, shot.size)
+
+
+def cmd_screen(args: argparse.Namespace) -> int:
+    from .perception.ocr import available
+    from .perception.vision import VisionError, see
+    from .runtime import build_runtime
+
+    question = " ".join(args.question)
+    try:
+        data = Path(args.file).read_bytes() if args.file else capture_screen(args.monitor)
+    except (OSError, ValueError) as exc:
+        _print(f"[HATA] Görüntü alınamadı: {exc}")
+        return 1
+    with build_runtime(load_settings()) as rt:
+        if args.save and not args.file:
+            out = rt.settings.data_dir / "perception" / f"ekran-{__import__('datetime').datetime.now():%Y%m%d-%H%M%S}.png"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(data)
+            _print(f"Kaydedildi: {out}")
+        ok, why = available()
+        _print(f"OCR: {why}")
+        _print("Görsel model düşünüyor…")
+        try:
+            res = see(rt, [data], question)
+        except VisionError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        if args.json:
+            _print(json.dumps(res.model_dump(mode="json"), ensure_ascii=False, indent=2))
+            return 0
+        _print(res.markdown())
+        for w in res.warnings:
+            _print(f"[UYARI] {w}")
+        _print(f"({res.seconds} sn)")
+    return 0
+
+
 def cmd_business(args: argparse.Namespace) -> int:
     """İş modülleri (Adım 10): kayaai analyze | summarize | invoice <dosya> [soru] [--report biçim]."""
     from .business import from_result, run_mode, save
@@ -1011,6 +1068,14 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    sc = sub.add_parser("screen", help="ekran görüntüsü al (tek kare) ve yerel görsel modelle yorumla")
+    sc.add_argument("question", nargs="*", help="soru (boşsa: ekranda ne var?)")
+    sc.add_argument("--file", default=None, help="ekran yerine bu görüntü dosyasını yorumla")
+    sc.add_argument("--monitor", type=int, default=1, help="ekran no (0: tümü, 1: birincil)")
+    sc.add_argument("--save", action="store_true", help="görüntüyü data/perception altına kaydet")
+    sc.add_argument("--json", action="store_true")
+    sc.set_defaults(func=cmd_screen)
 
     for name, help_text in (("analyze", "Excel/CSV analizi (sayıları program hesaplar)"),
                             ("summarize", "PDF özeti"), ("invoice", "PDF faturadan alanlar + tutar denetimi")):

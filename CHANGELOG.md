@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.12.0] - 2026-11-01
+
+### Eklendi (Adım 12a — ekranı okuma; kabul #8)
+- Asistan'da **📷 Ekran**: `getDisplayMedia` ile tek kare (paylaşım hemen kapanır), alan seçmeli önizleme, görüntü eki;
+  görüntü dosyaları (PNG/JPEG/WebP/BMP) da eklenebilir
+- `vision` ajanı (yerel **qwen2.5vl:7b**, kullanılmayınca 2 dk'da boşalır); Windows yerleşik OCR (pywinrt) ile yazı okuma;
+  cevaptaki sayılar OCR metnine karşı kodla denetlenir; devam soruları aynı görüntüyle; "Ekranda okunan yazı" bölümü
+- Taranmış PDF: metinsiz sayfalar pypdfium2 ile görüntüye çevrilip OCR'dan geçirilir (özet / fatura)
+- CLI `kayaai screen [soru] [--file] [--monitor] [--save]`; API `POST /api/perception/image`, `GET /api/perception/status`;
+  `kayaai doctor` görsel model ve OCR durumunu gösterir; setup.ps1 görsel modeli isteğe bağlı indirir
+- `scripts/perception_check.py` (gerçek modelle; örnek görüntüler + taranmış PDF + isteğe bağlı gerçek ekran)
+- Bağımlılıklar: pillow, pypdfium2, mss; Windows'ta pywinrt OCR paketleri
+
+### Güvenlik
+- Ekran görüntüleri Claude'a gitmez (Claude karşılığı yok, MCP aracı yok, devirde çıkarılır); planlayıcı vision ajanını
+  metin işlerine atamaz
+
 ## [0.11.3] - 2026-11-01
 
 ### Düzeltildi (Windows karşılaştırması, v0.11.2)

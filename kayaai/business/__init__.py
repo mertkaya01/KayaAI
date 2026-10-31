@@ -36,10 +36,14 @@ def run_mode(rt: "Runtime", mode: str, data: bytes, name: str, question: str = "
         raise ReadError(f"Bu işlem için PDF gerekli ({name})")
     doc = read_pdf(data, name)
     if mode == "summarize":
-        return summarize_pdf(rt, doc, question)
-    if mode == "invoice":
-        return extract_invoice(rt, doc)
-    raise ValueError(f"Bilinmeyen işlem: {mode}")
+        out: SummaryResult | InvoiceResult = summarize_pdf(rt, doc, question)
+    elif mode == "invoice":
+        out = extract_invoice(rt, doc)
+    else:
+        raise ValueError(f"Bilinmeyen işlem: {mode}")
+    if doc.ocr:
+        out.warnings.insert(0, "Taranmış PDF: sayfalar OCR ile okundu (Windows OCR); yazım hataları olabilir")
+    return out
 
 
 __all__ = [

@@ -20,7 +20,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
-| 12+ | Ekran/ses, zamanlama | Planlandı |
+| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş, canlı altyazı, tarayıcı otomasyonu | 12a kodlandı (Windows doğrulaması bekliyor); 12b–d sırada |
+| 13 | Zamanlama, optimizasyon | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -239,6 +240,20 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   gider; özel notlar ve yerel belgeler gitmez.
 - CLI: `kayaai memory [list|add|rm|approve|search|index|status|export]`. Ölçüm: `python scripts\memory_check.py`
   (ayrı klasörde; gerçek bge-m3 ile benzerlik eşiğini önerir).
+
+## Ekranı oku (Adım 12a)
+
+- Asistan'da **📷 Ekran**: tarayıcı hangi ekranı/pencereyi/sekmeyi paylaşacağını sorar → **tek kare** alınır ve paylaşım
+  hemen kapanır (sürekli kayıt yok). Önizlemede istersen fareyle bir alan seç → "Seçili alanı ekle" → soru sor.
+  Görüntü dosyası (PNG/JPEG) da eklenebilir.
+- Yazılar Windows'un yerleşik **OCR** motoruyla okunur (ek indirme yok; Türkçe dil paketi varsa Türkçe), görüntü yerel
+  **qwen2.5vl:7b** görsel modeliyle yorumlanır. Cevaptaki sayılar ekranda okunan yazıyla **kodla** karşılaştırılır
+  ("doğrulandı" / "dikkat"). "Ekranda okunan yazı (OCR)" bölümü ham metni gösterir. Devam soruları aynı görüntüyle cevaplanır.
+- **Ekran görüntüleri Claude'a gönderilmez** (görsel ajanın Claude karşılığı yok; "Claude'a devret" yalnız metni devreder).
+- **Taranmış PDF**'ler artık okunur: sayfalar görüntüye çevrilip OCR'dan geçer (Özetle / Fatura olarak oku).
+- Görsel model kullanılmayınca 2 dk sonra GPU belleğinden çıkar. Kurulum: `ollama pull qwen2.5vl:7b` (setup.ps1 sorar).
+- CLI: `kayaai screen "ekranda ne var?"` (birincil ekrandan tek kare) · `kayaai screen --file ekran.png "toplam ne?"`.
+  Ölçüm: `python scripts\perception_check.py [--screen]`.
 
 ## İş modülleri (Adım 10)
 

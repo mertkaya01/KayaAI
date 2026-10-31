@@ -31,7 +31,7 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 5 | Claude Code MCP ile yerel araçlara erişiyor | [x] 2026-10-31 — Claude Code `kayaai_ask` → qwen3:8b, görev geçmişinde doğrulandı |
 | 6 | PDF okunup özetleniyor | [x] 2026-10-31 — 3 sayfalık rapor, 4/4 anahtar bilgi, sayfa kaynaklı |
 | 7 | Excel analiz ediliyor | [x] 2026-10-31 — sayıları program hesaplar, uydurma sayı 0 (v0.10.2: toplam/maks yorumu düzeltildi) |
-| 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [ ] Faz 5 |
+| 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [~] 12a kodlandı (v0.12.0), Windows doğrulaması bekliyor |
 | 9 | Seçilen ses kaynağı yazıya dökülüyor | [ ] Faz 6 |
 | 10 | Çeviri altyazı olarak gösteriliyor | [ ] Faz 6 |
 | 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [ ] Faz 7 |
@@ -145,8 +145,16 @@ yükle/boşalt, yeni model indirme, karşılaştırma testi.
   karşılaştır) hepsi çalıştı; v0.11.2 ısınma + think düzeltmesi + daha zor vakalar
 - [ ] Windows arayüz: Akış'ta gerçek çok adımlı iş; Modeller'de yükle/boşalt
 
+## Adım 12 — Algı ve eylem (kabul #8–#11)
+Sahip kararları (2026-11-01): dördü de; görsel model qwen2.5vl:7b; ses tanıma faster-whisper large-v3-turbo (GPU → CPU);
+tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
+- [x] 12a — Ekranı oku: 📷 Ekran (tek kare, alan seçimi), görüntü eki, Windows OCR, vision ajanı (qwen2.5vl:7b),
+  sayı denetimi, devam soruları, Claude'a gitmez; taranmış PDF (pypdfium2 + OCR); CLI `kayaai screen`; API
+- Testler: Python (algı 18), Playwright (ekran akışı 12 kontrol); Windows `perception_check` bekliyor
+- [ ] 12b — Bas-konuş + sesli okuma · [ ] 12c — Canlı çeviri altyazı · [ ] 12d — Tarayıcı otomasyonu
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 kodlandı (Windows doğrulaması bekliyor). Sıradaki: Adım 12 (algı ve eylem).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 sürüyor (12a kodlandı).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

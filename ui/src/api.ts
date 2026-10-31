@@ -202,7 +202,7 @@ export interface AttachmentRef {
   id: string;
   name: string;
   chars: number;
-  kind?: "text" | "pdf" | "table";
+  kind?: "text" | "pdf" | "table" | "image";
 }
 
 export interface SubmitResult {
@@ -237,6 +237,7 @@ export interface ChatMessage {
   meta: {
     memory_saved?: string;
     business?: { kind: "analysis" | "summary" | "invoice" };
+    vision?: { ocr_text: string; verified: boolean | null; seconds: number; model: string | null };
     agents?: string[];
     model?: string | null;
     routing?: string | null;

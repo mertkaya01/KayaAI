@@ -225,6 +225,22 @@ if ($LASTEXITCODE -eq 0 -and $embed) {
     }
 }
 
+# Adım 12a — görsel model (ekranı okuma). Zorunlu değil: yoksa ekran özelliği kurulum talimatı gösterir.
+$vision = (& $VenvPython -c "from kayaai.config import load_settings; from kayaai.llm.registry import ModelRegistry; s=load_settings(); print(ModelRegistry.load(s.models_file).get('vision-7b').name)").Trim()
+if ($LASTEXITCODE -eq 0 -and $vision) {
+    if ($installed -match [regex]::Escape($vision)) {
+        Write-Ok "Görsel model zaten kurulu: $vision"
+    } elseif ($SkipModel) {
+        Write-Warn2 "Görsel model indirme atlandı. Sonra: ollama pull $vision"
+    } elseif (Confirm-Action "Görsel model '$vision' indirilsin mi? (~6 GB, Apache-2.0; ekranı okuma için)") {
+        & $ollama.Source pull $vision
+        if ($LASTEXITCODE -ne 0) { Write-Warn2 "Görsel model indirilemedi. Sonra: ollama pull $vision" }
+        else { Write-Ok "Görsel model indirildi: $vision" }
+    } else {
+        Write-Warn2 "Görsel model indirilmedi (ekranı okuma kapalı). Sonra: ollama pull $vision"
+    }
+}
+
 # ---------------------------------------------------------------- 8. doctor
 Write-Step "8/8 Son kontrol (kayaai doctor)"
 & $VenvPython -m kayaai doctor

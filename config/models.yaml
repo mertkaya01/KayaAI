@@ -49,6 +49,16 @@ models:
 
   # --- Adaylar: kurulu, benchmark bekliyor. status: candidate olan model ajana atanamaz.
 
+  vision-7b:
+    name: qwen2.5vl:7b
+    purpose: Görsel model — ekran görüntüsü ve fotoğrafları anlar (vision ajanı, Adım 12a); kullanılmayınca boşalır
+    context_length: 8192
+    keep_alive: 2m
+    options:
+      temperature: 0.2
+    approx_vram_gb: 6.0
+    license: Apache-2.0
+    status: active
   llama31-8b:
     name: llama3.1:8b
     purpose: Genel model alternatifi (karşılaştırma için)

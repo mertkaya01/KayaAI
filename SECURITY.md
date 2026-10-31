@@ -142,6 +142,18 @@
       kimliği yalnız harf/rakam (yol gezinmesi yok)
 - [x] Akış grafiği yalnızca okuma; tüm yeni uçlar erişim anahtarı ister
 
+## Adım 12a'da uygulananlar (ekranı okuma)
+
+- [x] Ekran yalnızca sahibin açık eylemiyle yakalanır: tarayıcının `getDisplayMedia` seçim penceresi ve paylaşım
+      göstergesi; **tek kare** alınır, akış hemen kapatılır (sürekli kayıt yok). CLI `kayaai screen` yalnız komutla tek kare
+- [x] Ekran görüntüleri ve OCR metinleri Claude'a gitmez: vision ajanının Claude karşılığı yok, MCP aracı yok,
+      Claude'a devirde görüntü ekleri ve metinleri çıkarılır (uyarı gösterilir)
+- [x] Görüntüler doğrulanır (Pillow ile açılır; ≤10 MB, ≤40 MP); görev kaydına bayt değil dosya yolu yazılır; modele
+      giden geçici kopyalar iş bitince silinir
+- [x] Görsel modelin yazdığı sayılar OCR metnine karşı kodla denetlenir; OCR yoksa cevap "doğrulanmadı" olarak işaretlenir
+- [x] Yeni bağımlılıklar izin verici lisanslı: Pillow (MIT-CMU), pypdfium2 (Apache-2.0/BSD), mss (MIT), pywinrt (MIT);
+      görsel model qwen2.5vl:7b (Apache-2.0)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

@@ -183,6 +183,11 @@ class Accepted(BaseModel):
     message: str
 
 
+class ImageBody(BaseModel):
+    data_b64: str = Field(min_length=10, max_length=14_000_000)
+    question: str = Field("", max_length=4000)
+
+
 class ModelName(BaseModel):
     name: str = Field(min_length=1, max_length=140)
 
@@ -542,6 +547,29 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     @app.post("/api/chat/{conv_id}/messages/{message_id}/report", dependencies=[Depends(auth)])
     def chat_report(conv_id: str, message_id: str, body: ReportBody) -> dict[str, Any]:
         return chat_call(chat.report, conv_id, message_id, body.format).model_dump(mode="json")
+
+    @app.post("/api/perception/image", dependencies=[Depends(auth)])
+    def perception_image(body: ImageBody) -> dict[str, Any]:
+        """Görüntü hakkında soru (OCR + yerel görsel model). Eşzamanlı; sonuç kaydedilmez."""
+        import base64
+        import binascii
+
+        from ..perception.vision import VisionError, see
+
+        try:
+            data = base64.b64decode(body.data_b64, validate=True)
+            res = see(rt, [data], body.question)
+        except (binascii.Error, VisionError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"result": res.model_dump(mode="json"), "markdown": res.markdown()}
+
+    @app.get("/api/perception/status", dependencies=[Depends(auth)])
+    def perception_status() -> dict[str, Any]:
+        from ..perception.ocr import available
+
+        ok, why = available()
+        spec = rt.registry.models.get("vision-7b")
+        return {"ocr": {"available": ok, "detail": why}, "vision_model": spec.name if spec else None}
 
     @app.post("/api/business/run", dependencies=[Depends(auth)])
     def business_run(body: BusinessRunBody) -> dict[str, Any]:

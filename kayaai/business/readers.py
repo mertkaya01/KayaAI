@@ -30,6 +30,7 @@ class ReadError(ValueError):
 class PdfDoc(BaseModel):
     name: str
     pages: list[str]
+    ocr: bool = False  # Adım 12a: taranmış PDF, sayfalar OCR ile okundu
 
     @property
     def text(self) -> str:
@@ -76,8 +77,28 @@ def read_pdf(data: bytes, name: str = "belge.pdf") -> PdfDoc:
     except (PdfReadError, ValueError, KeyError, OSError) as exc:
         raise ReadError(f"{name} okunamadı (bozuk ya da desteklenmeyen PDF): {exc}") from exc
     if not any(len(p) > 20 for p in pages):
-        raise ReadError(f"{name} metin içermiyor (taranmış/görüntü PDF olabilir). Görüntüden okuma (OCR) Adım 12'de gelecek.")
+        return _read_scanned_pdf(data, name)
     return PdfDoc(name=name, pages=pages)
+
+
+def _read_scanned_pdf(data: bytes, name: str) -> PdfDoc:
+    """Metinsiz (taranmış) PDF: sayfalar görüntüye çevrilip OCR'dan geçirilir (Adım 12a; Windows OCR)."""
+    from ..perception.ocr import OcrUnavailable, available, ocr_pdf
+
+    ok, why = available()
+    if not ok:
+        raise ReadError(f"{name} metin içermiyor (taranmış/görüntü PDF). Görüntüden okuma için OCR gerekli: {why}")
+    try:
+        pages = ocr_pdf(data)
+    except OcrUnavailable as exc:
+        raise ReadError(f"{name} taranmış PDF; OCR çalışmadı: {exc}") from exc
+    except ValueError as exc:
+        raise ReadError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - pypdfium2 hataları çeşitli
+        raise ReadError(f"{name} sayfaları görüntüye çevrilemedi: {exc}") from exc
+    if not any(len(p) > 20 for p in pages):
+        raise ReadError(f"{name} taranmış PDF; OCR okunabilir yazı bulamadı (çözünürlük düşük olabilir)")
+    return PdfDoc(name=name, pages=pages, ocr=True)
 
 
 # ---------------------------------------------------------------------------- tablolar
