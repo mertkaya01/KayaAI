@@ -2,6 +2,12 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.4.1] - 2026-10-31
+
+### Düzeltildi
+- Claude çalışma alanı raporu Windows'ta dosya yollarını `\` ile yazıyordu (`.claude\agents\...`); artık her
+  platformda `/`. Dosyalar zaten doğru yere yazılıyordu; Windows'ta 3 test bu yüzden düşüyor, `setup.ps1` duruyordu.
+
 ## [0.4.0] - 2026-10-31
 
 ### Eklendi (Adım 4 — yerel API + olay akışı)

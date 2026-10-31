@@ -228,7 +228,7 @@ def _mcp_is_ours(path: Path) -> bool:
 
 
 def _write(path: Path, content: str, report: SyncReport, ours: bool | None = None) -> None:
-    rel = str(path.relative_to(report.workspace))
+    rel = path.relative_to(report.workspace).as_posix()  # raporda her platformda '/' (Windows'ta '\\' çıkıyordu)
     if path.exists():
         owned = _is_generated(path) if ours is None else ours
         if not owned:
@@ -265,5 +265,5 @@ def sync_workspace(settings: Settings, agents: list, workspace: Path | None = No
         for path in agents_dir.glob("kayaai-*.md"):
             if path.name not in wanted and _is_generated(path):
                 path.unlink()
-                report.removed.append(str(path.relative_to(workspace)))
+                report.removed.append(path.relative_to(workspace).as_posix())
     return report
