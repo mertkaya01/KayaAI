@@ -307,6 +307,10 @@ _SINGLE_HINTS = ("tek ", "tek satış", "tek işlem", "en pahalı", "en ucuz", "
                  "single", "largest single", "most expensive", "cheapest", "highest price", "lowest price")
 
 
+_RANK_HINTS = ("en çok", "en fazla", "en yüksek", "en düşük", "en az", "en iyi", "en kötü", "sırala", "top ", "highest",
+               "lowest", "best", "worst", "most", "least", "rank")
+
+
 def total_intent_errors(question: str, plan: AnalysisPlan) -> list[str]:
     """Soru toplam istiyorsa gruplu işlemde max/min kullanılmasını yakalar (kodla, dil bağımsız ek köklerle)."""
     q = question.casefold()
@@ -332,6 +336,7 @@ class PlanWorker(LLMWorker):
         "min, max over NUMERIC columns; count may have column null), sort and limit. Use exact column names from "
         "the profile. You do not compute anything yourself — the program executes the plan. If the question is "
         "general ('analyse this', 'özetle'), give 2-3 useful operations (e.g. totals by the main category, by month). "
+        "When grouping by a date period to show change over time, use sort 'group_asc' (calendar order). "
         "IMPORTANT: 'en çok satan / en çok getiren / en fazla gelir / toplam / ciro / most sold / top-selling / revenue' "
         "means the TOTAL per group: use agg 'sum' with group_by and sort metric_desc. Use 'max'/'min' only when the "
         "question asks for a single record (e.g. 'en büyük tek satış', 'en pahalı', 'single largest'). "
@@ -340,6 +345,16 @@ class PlanWorker(LLMWorker):
 
     def model_spec(self, registry: ModelRegistry):  # -> ModelSpec
         return registry.model_for_worker("general")
+
+    def postprocess(self, task: Task, output: BaseModel, ctx: Any) -> BaseModel:
+        """Zaman serisi takvim sırasıyla gösterilir (Windows gözlemi: aylar tutara göre sıralanmıştı), soru açıkça
+        en çok/en yüksek/en düşük sormuyorsa."""
+        assert isinstance(output, AnalysisPlan)
+        q = task.objective.casefold()
+        ranking = any(h in q for h in _RANK_HINTS)
+        ops = [op.model_copy(update={"sort": "group_asc"}) if op.period and not ranking and op.sort != "group_asc" else op
+               for op in output.operations]
+        return output.model_copy(update={"operations": ops})
 
     def validate(self, task: Task, output: BaseModel) -> ValidationResult:
         assert isinstance(output, AnalysisPlan)

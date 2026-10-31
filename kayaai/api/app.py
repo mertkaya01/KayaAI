@@ -562,6 +562,23 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         except PathNotAllowed as exc:
             raise HTTPException(403, str(exc)) from exc
 
+    # ---------------------------------------------------------------- iş akışı (Adım 11)
+
+    @app.get("/api/jobs", dependencies=[Depends(auth)])
+    def jobs_list(limit: int = Query(30, ge=1, le=200)) -> list[dict[str, Any]]:
+        from ..conductor.graph import list_jobs
+
+        return list_jobs(rt.store, limit)
+
+    @app.get("/api/jobs/{job_id}/graph", dependencies=[Depends(auth)])
+    def job_graph(job_id: str) -> dict[str, Any]:
+        from ..conductor.graph import build_graph
+
+        try:
+            return build_graph(rt.store, job_id).model_dump(mode="json")
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
     # ---------------------------------------------------------------- hafıza (Adım 9)
 
     from ..memory import MemoryError as MemError

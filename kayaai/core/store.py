@@ -315,6 +315,20 @@ class TaskStore:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
 
+    def list_children(self, parent_id: str, limit: int = 500) -> list[Task]:
+        """Bir işin alt görevleri, oluşturulma sırasıyla (Adım 11: iş akışı grafiği)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT data FROM tasks WHERE json_extract(data, '$.parent_id') = ? ORDER BY created_at, rowid LIMIT ?",
+                (parent_id, limit)).fetchall()
+        return [Task.model_validate_json(r["data"]) for r in rows]
+
+    def list_by_worker(self, worker: str, limit: int = 50) -> list[Task]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT data FROM tasks WHERE worker = ? ORDER BY created_at DESC LIMIT ?", (worker, limit)).fetchall()
+        return [Task.model_validate_json(r["data"]) for r in rows]
+
     # ------------------------------------------------------------------ olaylar
 
     def log_event(self, task_id: str, event: str, detail: dict[str, Any] | str | None = None) -> None:

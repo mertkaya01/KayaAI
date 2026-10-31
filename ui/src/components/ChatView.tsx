@@ -29,12 +29,13 @@ function readBase64(f: File): Promise<string> {
   });
 }
 
-function MessageView({ m, claude, onHandoff, onRemember, onReport, busy }: {
+function MessageView({ m, claude, onHandoff, onRemember, onReport, onOpenFlow, busy }: {
   m: ChatMessage;
   claude: ClaudeStatus | null;
   onHandoff: (m: ChatMessage) => void;
   onRemember: (m: ChatMessage) => void;
   onReport: (m: ChatMessage, format: string) => void;
+  onOpenFlow: (jobId: string) => void;
   busy: boolean;
 }) {
   const [copied, setCopied] = useState(false);
@@ -54,7 +55,10 @@ function MessageView({ m, claude, onHandoff, onRemember, onReport, busy }: {
         <div className="chips">{m.attachments.map((a) => <span key={a.id} className="chip">{KIND_ICON[a.kind ?? "text"]} {a.name}</span>)}</div>
       )}
       {waiting ? (
-        <p className="thinking"><span className="dot" />{STATUS_TEXT[m.status]}</p>
+        <p className="thinking">
+          <span className="dot" />{STATUS_TEXT[m.status]}
+          {m.job_kind === "conductor" && m.job_id && <button className="ghost small" onClick={() => onOpenFlow(m.job_id!)}>Akışı izle</button>}
+        </p>
       ) : m.role === "assistant" ? (
         <Markdown text={m.content} />
       ) : (
@@ -90,6 +94,9 @@ function MessageView({ m, claude, onHandoff, onRemember, onReport, busy }: {
           {!!m.meta.disputes && <span className="badge state-failed">{m.meta.disputes} anlaşmazlık</span>}
           {m.meta.duration_s != null && <span className="muted">{m.meta.duration_s} sn</span>}
           <span className="spacer" />
+          {m.job_kind === "conductor" && m.job_id && (
+            <button className="ghost small" onClick={() => onOpenFlow(m.job_id!)} title="Bu cevabın ajanlar arasında nasıl üretildiğini göster">Akışı göster</button>
+          )}
           <select
             className="small-select"
             aria-label="Rapor oluştur"
@@ -126,12 +133,14 @@ export function ChatView({
   convId,
   onSelect,
   onOpenMemory,
+  onOpenFlow,
   refreshKey,
   claude,
 }: {
   convId: string | null;
   onSelect: (id: string | null) => void;
   onOpenMemory: () => void;
+  onOpenFlow: (jobId: string) => void;
   refreshKey: number;
   claude: ClaudeStatus | null;
 }) {
@@ -330,7 +339,7 @@ export function ChatView({
           {view?.messages.length === 0 && <p className="muted">Bu sohbette henüz mesaj yok.</p>}
           {view?.messages.map((m) => (
             <MessageView key={m.id} m={m} claude={claude} onHandoff={(x) => void handoff(x)} onRemember={(x) => void rememberMsg(x)}
-              onReport={(x, f) => void report(x, f)} busy={busy} />
+              onReport={(x, f) => void report(x, f)} onOpenFlow={onOpenFlow} busy={busy} />
           ))}
           <div ref={bottom} />
         </div>

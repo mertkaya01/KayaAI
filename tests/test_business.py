@@ -499,3 +499,14 @@ def test_single_record_question_keeps_max():
     assert total_intent_errors("Which product has the most revenue?", p)
     assert total_intent_errors("Her ürünün en pahalı tek satışı ne kadar?", p) == []
     assert total_intent_errors("Ürünlerin ortalama fiyatı?", p) == []
+
+
+def test_time_series_sorted_by_calendar(rt, fake_ollama):
+    """Windows gözlemi: 'Aylara göre … nasıl değişti?' aylar tutara göre sıralanmıştı → takvim sırası."""
+    p = json.dumps({"operations": [{"title": "Aylara göre", "group_by": ["Tarih"], "period": "month",
+                                    "metrics": [{"agg": "sum", "column": "Tutar"}], "sort": "metric_desc"}]})
+    fake_ollama.chat_replies = [by_title(AnalysisPlan=[p, p], GeneralAnswer=[good_answer("Şubat 250,50 ile en yüksek.")] * 2)] * 10
+    res = run_mode(rt, "analyze", make_xlsx(), "s.xlsx", "Aylara göre toplam satış nasıl değişti?")
+    assert [r[0] for r in res.results[0].rows] == ["2026-01", "2026-02", "2026-03"]
+    ranked = run_mode(rt, "analyze", make_xlsx(), "s.xlsx", "En çok satış hangi ayda oldu?")
+    assert ranked.results[0].rows[0][0] == "2026-02"  # açık sıralama sorusunda tutara göre kalır

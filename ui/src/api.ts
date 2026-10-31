@@ -225,6 +225,7 @@ export interface ChatMessage {
   status: MessageStatus;
   agent: string;
   job_id: string | null;
+  job_kind?: "conductor" | "task" | null;
   reply_to: string | null;
   handoff: boolean;
   attachments: AttachmentRef[];
@@ -292,4 +293,45 @@ export interface RecallView {
   memories: { id: string; text: string; category: string; sensitivity: string; score: number }[];
   documents: { chunk_id: string; path: string; name: string; line: number; text: string; score: number }[];
   warnings: string[];
+}
+
+// ---------------------------------------------------------------- İş akışı (Adım 11)
+
+export type FlowStatus = "pending" | "running" | "succeeded" | "failed" | "waiting" | "skipped";
+
+export interface FlowNode {
+  id: string;
+  kind: "request" | "planner" | "step" | "check" | "revise" | "review" | "addendum" | "merge" | "result" | "claude";
+  label: string;
+  status: FlowStatus;
+  agent: string | null;
+  model: string | null;
+  task_id: string | null;
+  duration_s: number | null;
+  tokens_per_second: number | null;
+  detail: string;
+  error: string | null;
+  review: { verdict?: string; issues?: number; dropped?: number; revised?: boolean; disputes?: number } | null;
+}
+
+export interface JobGraph {
+  job_id: string;
+  objective: string;
+  status: string;
+  mode: string | null;
+  routing: string | null;
+  duration_s: number | null;
+  warnings: string[];
+  nodes: FlowNode[];
+  edges: { source: string; target: string }[];
+}
+
+export interface JobSummary {
+  id: string;
+  objective: string;
+  status: string;
+  created_at: string;
+  duration_s: number | null;
+  mode: string | null;
+  steps: number;
 }
