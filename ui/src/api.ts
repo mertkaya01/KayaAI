@@ -378,6 +378,7 @@ export interface CompareRow {
   ok: boolean;
   succeeded: boolean;
   missing: string[];
+  echo?: boolean;
   language_ok: boolean;
   code_ok: boolean;
   foreign_script: boolean;

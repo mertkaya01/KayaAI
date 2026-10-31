@@ -315,7 +315,9 @@ def _exec_load(rt: "Runtime", params: dict[str, Any], unload: bool) -> dict[str,
     if unload:
         rt.llm.unload_model(params["name"], embedding=params.get("embedding", False))
     else:
-        rt.llm.load_model(params["name"], embedding=params.get("embedding", False))
+        key = rt.registry.key_for_name(params["name"])
+        opts = rt.registry.get(key).ollama_options() if key and not params.get("embedding") else None
+        rt.llm.load_model(params["name"], embedding=params.get("embedding", False), options=opts)
     rt.store.emit("model.unloaded" if unload else "model.loaded", {"name": params["name"]})
     return {"name": params["name"], "loaded": not unload}
 

@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.11.3] - 2026-11-01
+
+### Düzeltildi (Windows karşılaştırması, v0.11.2)
+- Puanlama fazla cömertti: qwen3:4b "Artış yüzde kaç?" sorusuna "120 + 80 = 200" dedi ve "20" metin olarak "200"ün içinde
+  geçtiği için doğru sayıldı; başka bir vakada soruyu aynen geri yazdı ve sorudaki sayılar yüzünden doğru sayıldı
+  (gerçek sonuç 2/5, rapor 4/5). Artık beklenen sayılar **sayı olarak** aranır (20 ≠ 200; Türkçe/İngilizce biçimler:
+  1.234,56 · 1,234.56 · %25 · 60.0), istekte geçen sayılar sayılmaz, soruyu tekrarlayan cevap başarısız ("soruyu
+  tekrarladı"); metin beklentileri kelime olarak aranır. Vaka sayıları beklenen sonuçlarla çakışmayacak şekilde seçildi.
+- Isınma modeli varsayılan bağlam uzunluğuyla yüklüyordu; ilk sohbet 8192 bağlamla gelince Ollama yeniden yüklüyordu
+  (ısınmadan sonra ilk cevap yine ~4 sn). Isınma ve Modeller → Yükle artık sohbetle aynı seçeneklerle (num_ctx) yükler.
+
+### Doğrulandı (Windows, v0.11.2)
+- think düzeltmesi: qwen3:4b cevap başına ~6 sn → 0,43 sn (163 token/sn); yükleme süresi ayrı (3,9 / 2,1 sn)
+- Yeni zor vaka ayırt edici: indirim + vergi sorusunu iki model de yanlış yaptı (qwen3:8b "90", qwen3:4b "68"; doğru 66)
+
 ## [0.11.2] - 2026-11-01
 
 ### Düzeltildi (Windows karşılaştırma ölçümleri)

@@ -285,7 +285,8 @@ def cmd_models(args: argparse.Namespace) -> int:
                     for r in rec["rows"][side]:
                         why = [] if r["ok"] else ([f"eksik: {', '.join(r['missing'])}"] if r["missing"] else []) + \
                             (["dil"] if not r["language_ok"] else []) + (["kod"] if not r["code_ok"] else []) + \
-                            (["yabancı yazı"] if r["foreign_script"] else []) + (["görev başarısız"] if not r["succeeded"] else [])
+                            (["yabancı yazı"] if r["foreign_script"] else []) + (["görev başarısız"] if not r["succeeded"] else []) + \
+                            (["soruyu tekrarladı"] if r.get("echo") else [])
                         _print(f"        {'OK ' if r['ok'] else 'X  '} {r['request'][:60]}  {'; '.join(why)}")
                 _print(f"Sonuç: {rt.settings.data_dir / 'model_compare' / (rec['id'] + '.json')}")
                 return 0

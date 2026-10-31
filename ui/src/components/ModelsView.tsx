@@ -167,7 +167,7 @@ function CompareResult({ rec, data, act }: { rec: CompareRecord; data: ModelAdmi
                       {r.ok ? "✓" : "✗"} {r.request}
                       {!r.ok && <span className="muted small"> — {[
                         !r.succeeded && "görev başarısız", r.missing.length && `eksik: ${r.missing.join(", ")}`,
-                        !r.language_ok && "yanlış dil", !r.code_ok && "kod hatalı", r.foreign_script && "yabancı yazı",
+                        r.echo && "soruyu tekrarladı", !r.language_ok && "yanlış dil", !r.code_ok && "kod hatalı", r.foreign_script && "yabancı yazı",
                       ].filter(Boolean).join("; ")}</span>}
                     </li>
                   ))}

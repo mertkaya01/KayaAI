@@ -336,6 +336,38 @@ def test_old_candidate_entry_gets_think_policy(rt, fake_ollama):
     assert rt.registry.get("qwen3-4b").think is False
 
 
+# Windows ölçümü (2026-11-01, v0.11.2): qwen3:4b iki yanlış cevapla 4/5 sayılmıştı.
+@pytest.mark.parametrize("answer,request_,expected,missing,echo", [
+    ("120 + 80 = 200", "Bir ürünün fiyatı 250 TL'den 300 TL'ye çıktı. Artış yüzde kaç?", [20], ["20"], False),
+    ("Fiyatın %20 arttığı hesaplanmıştır.", "Bir ürünün fiyatı 250 TL'den 300 TL'ye çıktı. Artış yüzde kaç?", [20], [], False),
+    ("Bir mağaza ocakta 200, şubatta 260 adet sattı. Şubattaki artış yüzde kaç? Mart satışları şubata göre %25 düşerse "
+     "mart kaç adet olur?", "Bir mağaza ocakta 200, şubatta 260 adet sattı. Şubattaki artış yüzde kaç? Mart satışları "
+     "şubata göre %25 düşerse mart kaç adet olur?", [30, 195], ["30", "195"], True),
+    ("Şubattaki artış %30'dur; mart satışları 195 adet olur.", "ocakta 200, şubatta 260 … %25 düşerse", [30, 195], [], False),
+    ("Total: 240\nAverage: 60.0", "Compute the total and the average of these expenses: 40, 70, 50, 80.", [240, 60], [], False),
+    ("Toplam 1.234,50 TL", "x", [1234.5], [], False),
+    ("The final price is 68.00.", "A product costs 80 … 25% discount, then 10% tax", [66], ["66"], False),
+    ("Türkiye'nin başkenti Ankara'dır.", "Türkiye'nin başkenti neresi?", ["Ankara"], [], False),
+    ("I will translate it.", "çevir", ["late"], ["late"], False),
+])
+def test_compare_scoring_is_strict(answer, request_, expected, missing, echo):
+    from kayaai.llm.compare import is_echo, missing_expected
+
+    assert missing_expected(answer, request_, expected) == missing
+    assert is_echo(answer, request_) is echo
+
+
+def test_warm_up_uses_chat_options_so_model_is_not_reloaded(rt, fake_ollama):
+    fake_ollama.models.append(dict(QWEN4))
+    fake_ollama.chat_replies = [_reply] * 40
+    start_compare(rt, "general", "qwen3:4b")
+    warm = next(b for (_, p, b) in fake_ollama.requests if p == "/api/generate" and b["model"] == "qwen3:8b")
+    assert warm["options"]["num_ctx"] == rt.registry.get("general-8b").context_length
+    mm.request_load(rt, "qwen3:8b")
+    last = [b for (_, p, b) in fake_ollama.requests if p == "/api/generate"][-1]
+    assert last["options"]["num_ctx"] == rt.registry.get("general-8b").context_length
+
+
 # ---------------------------------------------------------------- API
 
 def test_api_model_admin_flow(fake_ollama, tmp_path, monkeypatch):

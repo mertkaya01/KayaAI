@@ -240,13 +240,19 @@ class OllamaClient:
 
     # ------------------------------------------------------------------ model yönetimi (Adım 11)
 
-    def load_model(self, model: str, keep_alive: str | int = "30m", embedding: bool = False) -> None:
-        """Modeli VRAM'e alır (boş istek + keep_alive). Embedding modelleri /api/embed ile yüklenir."""
+    def load_model(self, model: str, keep_alive: str | int = "30m", embedding: bool = False,
+                   options: dict[str, Any] | None = None) -> None:
+        """Modeli VRAM'e alır (boş istek + keep_alive). Embedding modelleri /api/embed ile yüklenir.
+
+        `options` sohbette kullanılacaklarla aynı olmalı (özellikle num_ctx): farklıysa Ollama ilk sohbette modeli
+        yeniden yükler (Windows ölçümü: ısınmadan sonra ilk cevap yine ~4 sn)."""
         if embedding:
             self._request("POST", "/api/embed", json={"model": model, "input": ["."], "keep_alive": keep_alive}, timeout=300)
         else:
-            self._request("POST", "/api/generate", json={"model": model, "prompt": "", "stream": False,
-                                                         "keep_alive": keep_alive}, timeout=300)
+            payload: dict[str, Any] = {"model": model, "prompt": "", "stream": False, "keep_alive": keep_alive}
+            if options:
+                payload["options"] = options
+            self._request("POST", "/api/generate", json=payload, timeout=300)
 
     def unload_model(self, model: str, embedding: bool = False) -> None:
         """Modeli bellekten çıkarır (keep_alive: 0)."""

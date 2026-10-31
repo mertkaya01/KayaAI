@@ -8,10 +8,12 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 import uuid
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -22,21 +24,23 @@ if TYPE_CHECKING:
 
 _LOCK = threading.Lock()
 
-# (istek, beklenen ifadeler, kod bekleniyor mu)
-CASES: dict[str, list[tuple[str, list[str], bool]]] = {
+# (istek, beklenen, kod bekleniyor mu). Beklenen: sayı → cevapta o SAYI (20 ≠ 200; istekte geçen sayılar sayılmaz);
+# metin → kelime olarak (büyük/küçük harf duyarsız). Beklenen sayılar istekteki sayılarla çakışmayacak şekilde seçildi.
+Expected = list[str | int | float]
+CASES: dict[str, list[tuple[str, Expected, bool]]] = {
     "coder": [
         ("Python'da bir listedeki çift sayıları döndüren bir fonksiyon yaz ve kısaca açıkla.", [], True),
         ("Write a Python function that checks whether a string is a palindrome, with one usage example.", [], True),
         ("Python'da bir sözlüğü değerlerine göre büyükten küçüğe sıralayan kısa bir fonksiyon yaz.", [], True),
     ],
     "data": [
-        ("Şu aylık satışların toplamını ve aylık ortalamasını hesapla: Ocak 120, Şubat 80, Mart 100.", ["300", "100"], False),
-        ("Compute the total and the average of these expenses: 40, 60, 50, 90.", ["240", "60"], False),
-        ("Bir ürünün fiyatı 250 TL'den 300 TL'ye çıktı. Artış yüzde kaç?", ["20"], False),
-        ("Bir mağaza ocakta 200, şubatta 250 adet sattı. Şubattaki artış yüzde kaç? Mart satışları şubata göre %20 "
-         "düşerse mart kaç adet olur?", ["25", "200"], False),
+        ("Şu aylık satışların toplamını ve aylık ortalamasını hesapla: Ocak 140, Şubat 90, Mart 100.", [330, 110], False),
+        ("Compute the total and the average of these expenses: 40, 70, 50, 80.", [240, 60], False),
+        ("Bir ürünün fiyatı 250 TL'den 300 TL'ye çıktı. Artış yüzde kaç?", [20], False),
+        ("Bir mağaza ocakta 200, şubatta 260 adet sattı. Şubattaki artış yüzde kaç? Mart satışları şubata göre %25 "
+         "düşerse mart kaç adet olur?", [30, 195], False),
         ("A product costs 80. It gets a 25% discount, then 10% tax is added to the discounted price. "
-         "What is the final price?", ["66"], False),
+         "What is the final price?", [66], False),
     ],
     "document": [
         ("Bir müşteriye, yarınki toplantının gelecek haftaya ertelendiğini bildiren kısa ve resmi bir e-posta yaz.", [], False),
@@ -46,10 +50,51 @@ CASES: dict[str, list[tuple[str, list[str], bool]]] = {
         ("Türkiye'nin başkenti neresi?", ["Ankara"], False),
         ("Explain in two sentences what an API is.", [], False),
         ("Şu cümleyi İngilizceye çevir: 'Yarın sabah toplantıya geç kalacağım.'", ["late"], False),
-        ("Bir haftada toplam kaç saat vardır?", ["168"], False),
-        ("What is 15% of 240? Answer in one sentence.", ["36"], False),
+        ("Bir haftada toplam kaç saat vardır?", [168], False),
+        ("What is 15% of 240? Answer in one sentence.", [36], False),
     ],
 }
+
+_NUM = re.compile(r"(?<![\w.,])-?\d+(?:[.,]\d+)*")
+
+
+def numbers(text: str) -> list[float]:
+    """Metindeki sayılar; Türkçe ve İngilizce biçimler: 1.234,56 · 1,234.56 · 0,20 · 60.0 · %25 · 25%'dır."""
+    out = []
+    for raw in _NUM.findall(text):
+        t = raw
+        if "." in t and "," in t:  # sonuncu ayraç ondalık
+            t = t.replace(".", "").replace(",", ".") if t.rfind(",") > t.rfind(".") else t.replace(",", "")
+        elif "," in t:  # 1,234 / 1,234,567 → binlik (İngilizce); 0,20 / 2,5 → ondalık (Türkçe)
+            parts = t.split(",")
+            t = t.replace(",", "") if all(len(x) == 3 for x in parts[1:]) and parts[0].lstrip("-") != "0" else t.replace(",", ".")
+        elif t.count(".") > 1 or (t.count(".") == 1 and len(t.split(".")[1]) == 3 and t.lstrip("-")[0] != "0"):
+            t = t.replace(".", "")  # 3.000 / 1.234.567 → binlik (Türkçe); 60.0 / 68.00 → ondalık
+        try:
+            out.append(float(t))
+        except ValueError:
+            continue
+    return out
+
+
+def missing_expected(answer: str, request: str, expected: Expected) -> list[str]:
+    """Cevapta bulunmayan beklentiler. Sayı: cevapta, istekte geçtiğinden FAZLA kez geçmeli (soruyu tekrarlamak sayılmaz)."""
+    ans_nums, req_nums = numbers(answer), numbers(request)
+    out: list[str] = []
+    for e in expected:
+        if isinstance(e, (int, float)):
+            hits = sum(abs(n - e) < 1e-6 for n in ans_nums) - sum(abs(n - e) < 1e-6 for n in req_nums)
+            if hits <= 0:
+                out.append(f"{e:g}")
+        elif not re.search(rf"(?<!\w){re.escape(e)}(?!\w)", answer, re.IGNORECASE):
+            out.append(e)
+    return out
+
+
+def is_echo(answer: str, request: str) -> bool:
+    """Cevap isteğin kendisi mi (model soruyu geri yazdı)?"""
+    a, r = " ".join(answer.lower().split()), " ".join(request.lower().split())
+    return len(a) > 20 and SequenceMatcher(None, a, r).ratio() > 0.8
 
 
 class CompareError(ValueError):
@@ -88,13 +133,14 @@ def _save(rt: "Runtime", rec: dict[str, Any]) -> None:
     tmp.replace(d / f"{rec['id']}.json")
 
 
-def _score(task: Any, request: str, expected: list[str], code: bool) -> dict[str, Any]:
+def _score(task: Any, request: str, expected: Expected, code: bool) -> dict[str, Any]:
     from ..conductor.checks import run_checks
     from ..core.lang import detect_language, foreign_script, strip_code
 
     ans = str((task.result or {}).get("answer", "")) if task.result else ""
     ok_task = task.status.value == "succeeded"
-    missing = [e for e in expected if e.lower() not in ans.lower()]
+    missing = missing_expected(ans, request, expected)
+    echo = is_echo(ans, request)
     prose = strip_code(ans)
     lang_ok = True
     if len(prose.split()) >= 4 and "çevir" not in request.lower():
@@ -103,8 +149,8 @@ def _score(task: Any, request: str, expected: list[str], code: bool) -> dict[str
     code_ok = (not code) or (checks.checked_blocks > 0 and not checks.failures)
     clean = not foreign_script(ans, request)
     return {
-        "request": request[:90], "ok": ok_task and not missing and lang_ok and code_ok and clean,
-        "succeeded": ok_task, "missing": missing, "language_ok": lang_ok, "code_ok": code_ok, "foreign_script": not clean,
+        "request": request[:90], "ok": ok_task and not missing and not echo and lang_ok and code_ok and clean,
+        "succeeded": ok_task, "missing": missing, "echo": echo, "language_ok": lang_ok, "code_ok": code_ok, "foreign_script": not clean,
         "seconds": round(task.duration_s or 0, 2), "tokens_per_second": (task.metrics or {}).get("tokens_per_second"),
         "attempts": (task.metrics or {}).get("output_attempts"), "answer_head": ans[:300],
     }
@@ -137,7 +183,8 @@ def _run(rt: "Runtime", rec: dict[str, Any]) -> dict[str, Any]:
             # Isınma: modeli önce belleğe yükle; yükleme süresi vakalara karışmasın (ayrı raporlanır).
             t0 = time.monotonic()
             try:
-                rt.llm.load_model(rt.registry.get(key).name)
+                spec = rt.registry.get(key)
+                rt.llm.load_model(spec.name, options=spec.ollama_options())  # sohbetle aynı num_ctx → yeniden yükleme yok
             except OllamaError:
                 pass  # kurulu değilse vakalar zaten başarısız olur ve raporlanır
             rec["load_seconds"][side] = round(time.monotonic() - t0, 2)
