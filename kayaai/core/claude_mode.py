@@ -63,6 +63,7 @@ class ClaudeMode:
         self.store.set_meta(KEY_CHANGED_AT, utcnow().isoformat())
         if previous != enabled:
             log.info("Claude modu %s", "AÇILDI" if enabled else "KAPATILDI")
+            self.store.emit("claude.mode", {"enabled": enabled})
         return self.status()
 
     # ------------------------------------------------------------------ temas

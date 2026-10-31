@@ -68,6 +68,13 @@ class ConductorSettings(BaseModel):
     claude_threshold: int = Field(3, ge=1, le=10)
 
 
+class ApiSettings(BaseModel):
+    """Yerel API sunucusu (Adım 4). Yalnızca bu bilgisayardan erişilir."""
+
+    host: str = "127.0.0.1"
+    port: int = Field(8765, ge=1024, le=65535)
+
+
 class LoggingSettings(BaseModel):
     level: str = "INFO"
     file: str = "logs/kayaai.log"
@@ -84,6 +91,7 @@ class Settings(BaseModel):
     permissions: PermissionSettings = Field(default_factory=PermissionSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     conductor: ConductorSettings = Field(default_factory=ConductorSettings)
+    api: ApiSettings = Field(default_factory=ApiSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property

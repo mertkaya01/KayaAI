@@ -84,14 +84,23 @@ class Conductor:
     # ------------------------------------------------------------------ giriş noktası
 
     def run(self, request: str, *, force: Force = None, origin: Origin = "user") -> ConductorResult:
+        return self.run_job(self.create_job(request, force=force, origin=origin))
+
+    def create_job(self, request: str, *, force: Force = None, origin: Origin = "user") -> Task:
+        """İş kaydını oluşturur (API arka planda çalıştırmadan önce iş numarasını hemen döndürebilsin diye)."""
         request = request.strip()
         if not request:
             raise ValueError("istek boş olamaz")
-        job = Task(worker="conductor", objective=request, status=TaskStatus.RUNNING, started_at=utcnow(),
+        job = Task(worker="conductor", objective=request, status=TaskStatus.PENDING,
                    expected_output="ConductorResult", input={"force": force, "origin": origin})
         self.rt.store.save(job)
         self.rt.store.log_event(job.id, "submitted", {"origin": origin, "force": force})
-        return self._execute_job(job, request, force, origin)
+        return job
+
+    def run_job(self, job: Task) -> ConductorResult:
+        job.status, job.started_at = TaskStatus.RUNNING, utcnow()
+        self.rt.store.save(job)
+        return self._execute_job(job, job.objective, job.input.get("force"), job.input.get("origin", "user"))
 
     def resume_local(self, job_id: str) -> ConductorResult:
         """Claude kutusunda bekleyen işi AYNI iş kaydında yerel ekiple tamamlar (D16 uyarısıyla)."""

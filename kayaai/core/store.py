@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS task_events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_task ON task_events(task_id);
 
+CREATE TABLE IF NOT EXISTS events (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts       TEXT NOT NULL,
+    type     TEXT NOT NULL,
+    task_id  TEXT,
+    data     TEXT
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -100,6 +108,14 @@ class TaskStore:
     def save(self, task: Task) -> None:
         now = utcnow().isoformat()
         with self._tx() as c:
+            prev = c.execute("SELECT status FROM tasks WHERE id = ?", (task.id,)).fetchone()
+            if prev is None or prev["status"] != task.status.value:
+                # Süreçler arası olay akışı (Adım 4): API sunucusu bu tabloyu izleyip arayüze aktarır.
+                self._insert_event(c, "task.status", task.id, {
+                    "worker": task.worker, "status": task.status.value,
+                    "previous": prev["status"] if prev else None, "parent_id": task.parent_id,
+                    "objective": task.objective[:160], "model": task.model,
+                })
             c.execute(
                 """INSERT INTO tasks(id, worker, status, created_at, updated_at, data)
                    VALUES (?, ?, ?, ?, ?, ?)
@@ -149,6 +165,31 @@ class TaskStore:
         return [dict(r) for r in rows]
 
     # ------------------------------------------------------------------ kurtarma
+
+    # ------------------------------------------------------------------ olay akışı (süreçler arası)
+
+    @staticmethod
+    def _insert_event(c: sqlite3.Connection, type_: str, task_id: str | None, data: dict[str, Any] | None) -> None:
+        c.execute(
+            "INSERT INTO events(ts, type, task_id, data) VALUES (?, ?, ?, ?)",
+            (utcnow().isoformat(), type_, task_id, json.dumps(data or {}, ensure_ascii=False, default=str)),
+        )
+
+    def emit(self, type_: str, data: dict[str, Any] | None = None, task_id: str | None = None) -> None:
+        with self._tx() as c:
+            self._insert_event(c, type_, task_id, data)
+
+    def events_since(self, after_id: int = 0, limit: int = 200) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, ts, type, task_id, data FROM events WHERE id > ? ORDER BY id LIMIT ?", (after_id, limit)
+            ).fetchall()
+        return [{**dict(r), "data": json.loads(r["data"] or "{}")} for r in rows]
+
+    def last_event_id(self) -> int:
+        with self._lock:
+            row = self._conn.execute("SELECT MAX(id) FROM events").fetchone()
+        return int(row[0] or 0)
 
     def recover_interrupted(self) -> list[str]:
         """Önceki süreçte yarım kalmış görevleri 'failed' olarak işaretler. ID listesini döner."""

@@ -52,6 +52,11 @@ conductor:
   # Karmaşıklık skoru (adım sayısı, mimari/tasarım/ödünleşim gibi kelimeler, uzunluk) >= bu değer -> Claude önerilir
   claude_threshold: 3
 
+api:
+  # Yerel API sunucusu (`kayaai api`): arayüzler buna bağlanır. Güvenlik: yalnızca 127.0.0.1; ağa açılamaz.
+  host: 127.0.0.1
+  port: 8765
+
 logging:
   level: INFO
   file: logs/kayaai.log

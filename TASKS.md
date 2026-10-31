@@ -63,8 +63,12 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   "kutuyu işle" uçtan uca geçti. Gözlem: Opus oturum başında `CLAUDE.md` kuralına uyup kutuyu kontrol etti, onaysız işe girişmedi. Not: bu sürümde `/agents` komutu kaldırılmış; alt ajanlar
   doğrudan `.claude/agents/` klasöründen okunur (Claude'a "hangi alt ajanların var?" diye sorarak doğrulanır)
 
+## Adım 4 — Yerel API + olay akışı
+- [~] `kayaai api` (127.0.0.1, erişim anahtarı, CORS localhost), sistem/ajan/model/görev/Claude/kutu uç noktaları,
+  arka plan işleri, SQLite `events` + `WS /api/events` — 14 test; `scripts/api_check.py` Windows'ta bekleniyor
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Şu an: Adım 4 planı (yerel API + olay yolu) onay bekliyor.
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Şu an: Adım 4 Windows doğrulaması → Adım 5 (izin motoru v2: risk sınıfları + onay kuyruğu).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — testli,
   Windows'ta `conductor_check` ile ölçülecek

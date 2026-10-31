@@ -88,6 +88,16 @@ Doğrulama: Claude Code'da `/mcp` → `kayaai` connected. Alt ajanlar (`kayaai-g
 `kayaai-reviewer`) `.claude/agents/` klasöründen otomatik okunur; güncel Claude Code sürümlerinde `/agents` komutu
 yok — Claude'a "hangi alt ajanların var?" diye sorabilirsin. Pro planında Opus 5.5 kullanılabildiği doğrulandı.
 
+## Yerel API (arayüzler için)
+
+```powershell
+kayaai api            # http://127.0.0.1:8765  — yalnızca bu bilgisayar; Ctrl+C ile durur
+kayaai api token      # erişim anahtarı (data\api_token)
+```
+
+Tarayıcıda `http://127.0.0.1:8765/docs` → **Authorize** → anahtarı yapıştır → uç noktaları dene.
+Kontrol: ikinci terminalde `python scripts\api_check.py`.
+
 ## Claude Code ile kullanım (MCP, Faz 2)
 
 kayaAI bir MCP sunucusu içerir: Claude Code, yerel modelinizi araç olarak çağırabilir. Sunucu yalnızca

@@ -135,6 +135,20 @@ kayaAI Claude'a iş gönderemez; Claude Code kutuyu okur. Kutu SQLite'ta, yenide
 `.mcp.json` (bu bilgisayardaki `.venv` Python'u ile `kayaai.mcp_server`) · `README.md`.
 Hepsi `config/agents` ve ayarlardan türetilir (D14); yalnızca `kayaai-generated` işaretli dosyalar güncellenir.
 
+## Yerel API ve olay akışı (Adım 4)
+
+`kayaai/api/app.py` (FastAPI) — `kayaai api` ile 127.0.0.1:8765. Anahtar: `data/api_token` (Bearer).
+
+```
+CLI ─┐                      ┌─ GET /api/health|system|agents|models|tasks|claude|inbox
+MCP ─┼─► SQLite (tasks, events) ◄─┤  POST /api/ask|do|claude|inbox/{id}/run|tasks/{id}/cancel  → 202 + id
+API ─┘        ▲                   └─ WS  /api/events  (events tablosunu izler, 0.5 sn)
+              └── TaskStore.save(): durum değişince events'e "task.status"; ClaudeMode: "claude.mode"
+```
+- Neden SQLite olay tablosu: kayaAI aynı anda birden çok süreçte çalışır (CLI, Claude Code'un başlattığı MCP sunucusu,
+  API); bellek içi olay yolu diğer süreçleri göremez.
+- Uzun işler tek iş parçacıklı kuyrukta (tek GPU); ajan durumu görev geçmişinden türetilir (`core/agent_status.py`).
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

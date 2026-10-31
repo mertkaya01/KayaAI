@@ -55,9 +55,16 @@
 - [x] Şef adımları arasında aktarılan sonuçlar `<input_data>` içinde güvenilmez veri olarak verilir
 - [x] Model tarafından üretilen kod varsayılan olarak çalıştırılmaz (`coder_bench --execute` onay ister)
 
+## Adım 4'te uygulananlar (yerel API)
+
+- [x] Yalnızca 127.0.0.1; başka adres CLI'da reddedilir (ağa açmak ayrı bir sahip kararı)
+- [x] Her HTTP isteği ve WebSocket bağlantısı erişim anahtarı ister (sabit zamanlı karşılaştırma)
+- [x] CORS yalnızca localhost kökenleri; girdi boyutu sınırları (20.000 karakter)
+- [x] Anahtar `data/api_token` (git'e girmez); not: düz dosya — çoklu cihaz aşamasında yeniden ele alınacak
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
-Kimlik doğrulama (Faz 4), dosya yükleme doğrulaması (Faz 4/9), hız sınırlama (Faz 4), sandbox'lı kod
+Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod
 çalıştırma (Faz 3/7), eylem önizleme (Faz 7), hafıza hassasiyet kontrolleri (Faz 8).
 
 ## Güvenlik sorunu bildirimi

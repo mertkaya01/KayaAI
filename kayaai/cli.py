@@ -10,6 +10,7 @@
     kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
     kayaai claude [on|off|sync]  Claude modu durumu / aç (+çalışma alanı) / kapat / alanı yeniden üret
     kayaai inbox [run|cancel] [id]  Claude kutusu
+    kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
 
@@ -427,6 +428,36 @@ def cmd_inbox(args: argparse.Namespace) -> int:
     return 0 if res.status == "succeeded" else 1
 
 
+def cmd_api(args: argparse.Namespace) -> int:
+    from .api.app import load_or_create_token, token_path
+    from .config import LOCAL_HOSTS
+
+    settings = load_settings()
+    if args.action == "token":
+        token = load_or_create_token(settings)
+        _print(token)
+        _print(f"(dosya: {token_path(settings)})", )
+        return 0
+    host = args.host or settings.api.host
+    port = args.port or settings.api.port
+    if host not in LOCAL_HOSTS:
+        _print(f"[HATA] API yalnızca bu bilgisayarda çalışabilir (127.0.0.1). '{host}' reddedildi.")
+        _print("Ağa açmak güvenlik kararıdır (MASTER_PROMPT §10) ve bu sürümde desteklenmez.")
+        return 2
+    import uvicorn
+
+    from .api import create_app
+    from .logging_setup import setup_logging
+
+    setup_logging(settings, console=True)
+    app = create_app(settings)
+    _print(f"{APP_NAME} API: http://{host}:{port}   (deneme sayfası: http://{host}:{port}/docs)")
+    _print(f"Erişim anahtarı: {token_path(settings)}  — göstermek için: kayaai api token")
+    _print("Durdurmak için Ctrl+C.")
+    uvicorn.run(app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=3)
+    return 0
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from .mcp_server import main as mcp_main
 
@@ -486,6 +517,12 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--json", action="store_true")
     c.add_argument("--keep", action="store_true", help="kapatırken kutudaki işleri beklet")
     c.add_argument("--yes", action="store_true", help="kapatırken kutudaki işleri sormadan yerelde yap")
+
+    ap = sub.add_parser("api", help="yerel API sunucusu (yalnızca 127.0.0.1)")
+    ap.add_argument("action", nargs="?", choices=["serve", "token"], default="serve")
+    ap.add_argument("--host", default=None)
+    ap.add_argument("--port", type=int, default=None)
+    ap.set_defaults(func=cmd_api)
 
     ib = sub.add_parser("inbox", help="Claude kutusu: listele / yerelde yap / iptal")
     ib.add_argument("action", nargs="?", choices=["list", "run", "cancel"], default="list")

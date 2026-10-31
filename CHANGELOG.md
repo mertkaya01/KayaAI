@@ -2,7 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
-## [Yayınlanmadı]
+## [0.4.0] - 2026-10-31
+
+### Eklendi (Adım 4 — yerel API + olay akışı)
+- `kayaai api` (FastAPI + Uvicorn): yalnızca 127.0.0.1 (başka adres reddedilir), her istek `data/api_token`
+  erişim anahtarı ister (`kayaai api token`), CORS yalnızca localhost; `/docs` deneme sayfası
+- Uç noktalar: `/api/health`, `/api/system` (CPU/RAM/GPU/VRAM, psutil + nvidia-smi), `/api/agents` (ajan + durum:
+  idle/running/waiting/completed/failed), `/api/models`, `/api/tasks` (+ ayrıntı/olaylar/alt görevler, iptal),
+  `POST /api/ask` ve `/api/do` (arka planda, hemen iş numarası döner), `/api/claude` (aç/kapat + kutuyu geri verme),
+  `/api/inbox` (+ run/cancel)
+- Süreçler arası olay akışı: SQLite `events` tablosu (görev durum değişiklikleri, Claude modu); CLI, MCP sunucusu ve
+  API aynı akışı yazar; `WS /api/events` canlı aktarır (`after=` ile geçmiş)
+- `scripts/api_check.py`: çalışan sunucuya karşı gerçek modelle uçtan uca kontrol
+- Bağımlılıklar: `fastapi`, `websockets`, `psutil`
+
+### Düzeltildi
+- Kopan WebSocket bağlantısı açık kalıyor, `kayaai api` kapatılamıyordu (geliştirme sırasında yakalandı;
+  gerçek sunucuyla regresyon testi)
 
 ### Eklendi
 - **Kapsam kontrolü** (Opus'un gerçek gözlemi: "çok kiracılı SaaS" isteğine yerel cevap çok kiracılılığa hiç
