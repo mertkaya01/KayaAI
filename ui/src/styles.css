@@ -1,0 +1,127 @@
+/* kayaAI Control Center — koyu, sade, profesyonel. Renkler tek yerde (CSS değişkenleri). */
+:root {
+  --bg: #0b0f14;
+  --panel: #121821;
+  --panel-2: #18202b;
+  --line: #243041;
+  --text: #e6edf3;
+  --muted: #8b98a8;
+  --accent: #4ea1ff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --r2: #d29922;
+  --r3: #f85149;
+  --radius: 10px;
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+code, pre { font-family: "Cascadia Code", Consolas, ui-monospace, monospace; }
+code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); padding: 6px 12px; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+input { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+.muted { color: var(--muted); }
+.error { color: var(--bad); }
+.ok-text { color: var(--ok); margin: 6px 0 0; }
+
+/* üst çubuk */
+.topbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+.brand { display: flex; gap: 8px; align-items: baseline; }
+.brand .logo { color: var(--accent); }
+.brand strong { font-size: 16px; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pill { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+.pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+.pill.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.toggle { border-color: var(--accent); }
+.ghost { background: transparent; }
+
+/* yerleşim */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1500px; margin: 0 auto; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (max-width: 1000px) { .grid { grid-template-columns: 1fr; padding: 12px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.panel h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.panel-head h2 { margin: 0; }
+.count { display: inline-block; min-width: 20px; text-align: center; background: var(--r2); color: #000; border-radius: 999px; font-size: 12px; padding: 0 6px; margin-left: 6px; }
+
+/* sistem */
+.meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .meters { grid-template-columns: 1fr; } }
+.meter { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.meter-head { display: flex; justify-content: space-between; }
+.meter-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.meter-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin: 6px 0; }
+.bar span { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+.meter.warn .bar span { background: var(--warn); }
+.meter.crit .bar span { background: var(--bad); }
+.meter-foot { display: flex; justify-content: space-between; align-items: end; gap: 8px; font-size: 12px; }
+.meter-foot .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spark { color: var(--accent); flex: none; }
+.sys-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 13px; }
+.chip { display: inline-block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 12px; }
+
+/* ajanlar */
+.agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.agent { background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.agent.state-running { border-left-color: var(--accent); }
+.agent.state-waiting { border-left-color: var(--warn); }
+.agent.state-completed { border-left-color: var(--ok); }
+.agent.state-failed { border-left-color: var(--bad); }
+.agent header { display: flex; justify-content: space-between; align-items: center; }
+.agent h3 { margin: 0; font-size: 14px; }
+.agent .desc { color: var(--muted); font-size: 12px; margin: 6px 0; }
+.agent dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 12px; }
+.agent dt { color: var(--muted); }
+.agent dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { font-size: 11px; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted); }
+.badge.state-running { color: var(--accent); border-color: var(--accent); }
+.badge.state-waiting { color: var(--warn); border-color: var(--warn); }
+.badge.state-completed { color: var(--ok); border-color: var(--ok); }
+.badge.state-failed { color: var(--bad); border-color: var(--bad); }
+
+/* onaylar */
+.tabs { display: flex; gap: 4px; }
+.tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+.notice { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+.approvals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.row { width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; background: var(--panel-2); }
+.row.active { border-color: var(--accent); }
+.row .summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .when { flex: none; font-size: 12px; }
+.risk { flex: none; font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 6px; border: 1px solid var(--line); }
+.risk-R2 { color: var(--r2); border-color: var(--r2); }
+.risk-R3 { color: var(--r3); border-color: var(--r3); }
+.detail { border: 1px solid var(--line); border-top: none; border-radius: 0 0 6px 6px; padding: 10px 12px; background: var(--bg); }
+.preview p { margin: 4px 0; }
+.diff { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+@media (max-width: 560px) { .diff { grid-template-columns: 1fr; } }
+.diff h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; }
+.diff pre { margin: 0; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 12px; }
+.decide { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.decide input { flex: 1; min-width: 160px; }
+.approve { border-color: var(--ok); color: var(--ok); }
+.reject { border-color: var(--bad); color: var(--bad); }
+
+/* olaylar */
+.events { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; font-size: 13px; }
+.ev { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.ev time { flex: none; font-variant-numeric: tabular-nums; }
+.ev-approval span { color: var(--warn); }
+.ev-claude span { color: var(--accent); }
+.ev-tool span { color: var(--ok); }
+
+/* giriş */
+.login { max-width: 460px; margin: 12vh auto; padding: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.login h1 { font-size: 20px; margin-top: 0; }
+.login form { display: flex; gap: 8px; margin-top: 12px; }
+.login input { flex: 1; }

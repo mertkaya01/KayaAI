@@ -559,6 +559,45 @@ def cmd_api(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ui(args: argparse.Namespace) -> int:
+    """Control Center'ı tarayıcıda açar: http://127.0.0.1:8765/#token=... (URL parçası sunucuya gitmez)."""
+    import webbrowser
+
+    import httpx
+
+    from .api.app import UI_DIST, load_or_create_token
+    from .config import LOCAL_HOSTS
+
+    settings = load_settings()
+    host = args.host or settings.api.host
+    port = args.port or settings.api.port
+    if host not in LOCAL_HOSTS:
+        _print(f"[HATA] Control Center yalnızca bu bilgisayarda açılır (127.0.0.1). '{host}' reddedildi.")
+        return 2
+    token = load_or_create_token(settings)
+    base = f"http://{host}:{port}/"
+    url = f"{base}#token={token}"
+    if args.print:
+        _print(url)
+        return 0
+    if not (UI_DIST / "index.html").is_file():
+        _print("[UYARI] Arayüz derlenmemiş (ui/dist yok). Derlemek için: cd ui; npm ci; npm run build")
+        _print("        (ya da scripts\\windows\\setup.ps1). Tarayıcıda şimdilik bilgilendirme sayfası görünecek.")
+    try:
+        r = httpx.get(f"{base}api/health", headers={"Authorization": f"Bearer {token}"}, timeout=3)
+        ok = r.status_code == 200
+    except httpx.HTTPError:
+        ok = False
+    if not ok:
+        _print(f"[HATA] {base} adresinde kayaAI API'ye ulaşılamadı.")
+        _print("Önce başka bir terminalde çalıştırın:  kayaai api   — sonra yeniden:  kayaai ui")
+        return 1
+    _print(f"Control Center açılıyor: {base}")
+    _print("(Tarayıcı açılmazsa adresi görmek için: kayaai ui --print — adres erişim anahtarını içerir, paylaşmayın.)")
+    webbrowser.open(url)
+    return 0
+
+
 def cmd_mcp(args: argparse.Namespace) -> int:
     from .mcp_server import main as mcp_main
 
@@ -638,6 +677,12 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--host", default=None)
     ap.add_argument("--port", type=int, default=None)
     ap.set_defaults(func=cmd_api)
+
+    ui = sub.add_parser("ui", help="Control Center'ı tarayıcıda aç (önce: kayaai api)")
+    ui.add_argument("--print", action="store_true", help="tarayıcı açma; yalnızca anahtarlı adresi yaz")
+    ui.add_argument("--host", default=None)
+    ui.add_argument("--port", type=int, default=None)
+    ui.set_defaults(func=cmd_ui)
 
     ib = sub.add_parser("inbox", help="Claude kutusu: listele / yerelde yap / iptal")
     ib.add_argument("action", nargs="?", choices=["list", "run", "cancel"], default="list")

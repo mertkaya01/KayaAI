@@ -21,14 +21,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from .. import APP_NAME, __version__
 from ..conductor import ClaudeInbox, Conductor
-from ..config import Settings, load_settings
+from ..config import PROJECT_ROOT, Settings, load_settings
 from ..core.agent_status import agent_statuses
 from ..core.task import TaskStatus
 from ..llm.ollama_client import OllamaError
@@ -39,6 +40,27 @@ log = logging.getLogger(__name__)
 MAX_TEXT_CHARS = 20_000
 EVENT_POLL_S = 0.5
 LOCAL_ORIGIN_REGEX = r"^https?://(127\.0\.0\.1|localhost)(:\d+)?$"
+UI_DIST = PROJECT_ROOT / "ui" / "dist"
+
+# Control Center sayfaları için içerik güvenlik politikası: yalnızca kendi kökeni; dış betik/stil/çerçeve yok.
+UI_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+    "connect-src 'self' ws://127.0.0.1:* ws://localhost:*; "
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+)
+# /docs (Swagger) betiklerini CDN'den yükler; ona CSP uygulanmaz (yalnızca bu bilgisayarda açılır).
+_NO_CSP_PREFIXES = ("/docs", "/redoc", "/openapi.json")
+
+UI_MISSING_HTML = """<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>kayaAI</title>
+<style>body{font-family:system-ui,sans-serif;background:#0b0f14;color:#e6edf3;max-width:640px;margin:10vh auto;padding:0 16px}
+code{background:#18202b;padding:2px 6px;border-radius:4px}</style></head><body>
+<h1>kayaAI API çalışıyor</h1>
+<p>Control Center arayüzü henüz derlenmemiş (<code>ui/dist</code> yok).</p>
+<p>Derlemek için (Node.js gerekir) proje klasöründe:</p>
+<p><code>cd ui</code> → <code>npm ci</code> → <code>npm run build</code></p>
+<p>ya da <code>scripts\\windows\\setup.ps1</code> komutunu yeniden çalıştırın. Sonra <code>kayaai ui</code>.</p>
+<p>API deneme sayfası: <a href="/docs" style="color:#4ea1ff">/docs</a></p>
+</body></html>"""
 
 
 # ----------------------------------------------------------------------------- erişim anahtarı
@@ -102,8 +124,10 @@ class Accepted(BaseModel):
 # ----------------------------------------------------------------------------- uygulama
 
 
-def create_app(settings: Settings | None = None, runtime: Runtime | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
+               ui_dir: Path | None = None) -> FastAPI:
     settings = settings or load_settings()
+    ui_root = (ui_dir or UI_DIST).resolve()
     rt = runtime or build_runtime(settings)  # approver yok: hassas izinli görevler reddedilir
     token = load_or_create_token(settings)
     jobs = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kayaai-api-job")
@@ -125,6 +149,17 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None)
     app.add_middleware(
         CORSMiddleware, allow_origin_regex=LOCAL_ORIGIN_REGEX, allow_methods=["*"], allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next: Any) -> Response:
+        response: Response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        if not request.url.path.startswith(_NO_CSP_PREFIXES):
+            response.headers.setdefault("Content-Security-Policy", UI_CSP)
+            response.headers.setdefault("X-Frame-Options", "DENY")
+        return response
+
     bearer = HTTPBearer(auto_error=False)
 
     def auth(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
@@ -350,12 +385,14 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None)
     # ---------------------------------------------------------------- canlı olaylar
 
     @app.websocket("/api/events")
-    async def events(ws: WebSocket, token_: str = Query("", alias="token"), after: int | None = None) -> None:
+    async def events(ws: WebSocket, token_: str = Query("", alias="token"), after: int | None = None,
+                     backlog: int = Query(0, ge=0, le=200)) -> None:
         if not secrets.compare_digest(token_, token):
             await ws.close(code=4401, reason="Geçersiz erişim anahtarı")
             return
         await ws.accept()
-        last = rt.store.last_event_id() if after is None else after
+        # after: kaldığı yerden devam; yoksa şimdiden itibaren (+ isteğe bağlı son `backlog` olay)
+        last = max(0, rt.store.last_event_id() - backlog) if after is None else after
         try:
             while True:
                 batch = await asyncio.to_thread(rt.store.events_since, last, 200)
@@ -371,5 +408,25 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None)
                         pass
         except (WebSocketDisconnect, RuntimeError):
             return
+
+    # ---------------------------------------------------------------- Control Center (ui/dist)
+    # En sona kaydedilir: /api/* ve /docs önce eşleşir. Arayüz dosyaları anahtarsızdır (gizli bilgi içermez);
+    # veriye erişim yine /api/* üzerinden anahtarla olur.
+
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    def ui(path: str) -> Response:
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(404, "Bilinmeyen API yolu")
+        index = ui_root / "index.html"
+        if not index.is_file():
+            return HTMLResponse(UI_MISSING_HTML)
+        if path:
+            target = (ui_root / path).resolve()
+            if target.is_relative_to(ui_root) and target.is_file():
+                # Dosya adları içerik özetli (index-abc123.js): uzun süre önbelleğe alınabilir
+                cache = "public, max-age=31536000, immutable" if target.parent.name == "assets" else "no-cache"
+                return FileResponse(target, headers={"Cache-Control": cache})
+        # SPA: bilinmeyen yollar ana sayfaya düşer
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
     return app

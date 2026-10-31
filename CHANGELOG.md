@@ -2,6 +2,20 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.6.0] - 2026-10-31
+
+### Eklendi (Adım 6 — Control Center v1)
+- `ui/`: React 18 + TypeScript + Vite arayüzü (ek UI kütüphanesi yok, koyu tema, dar ekranda tek sütun):
+  üst çubuk (sürüm, canlı bağlantı, Ollama, Claude modu rozeti + aç/kapat), sistem izleme (CPU/RAM/GPU/VRAM, son 2 dk
+  çizgi grafik, bellekteki modeller, aktif görev), ajan kartları (durum renkleri, şu anki/son görev), onay merkezi
+  (bekleyen/geçmiş, eski/yeni içerik yan yana, geri alma bilgisi, Onayla/Reddet + not), canlı olaylar (son 50)
+- API `/` altında `ui/dist`'i sunar (SPA yolları → index.html; derlenmemişse yardım sayfası); güvenlik başlıkları
+  (CSP `default-src 'self'`, `frame-ancestors 'none'`, nosniff, no-referrer)
+- `WS /api/events?backlog=N` (en fazla 200): ilk bağlantıda son N olay
+- CLI: `kayaai ui` (sunucuyu yoklar, tarayıcıyı `#token=` ile açar; `--print`)
+- `setup.ps1`: Node.js 18+ varsa arayüzü derler ve testlerini çalıştırır (yoksa uyarır, kurulum durmaz)
+- Testler: Python (sunum, CSP, yol kaçışı, `kayaai ui`, backlog), Vitest (biçimlendirme, anahtar alma)
+
 ## [0.5.0] - 2026-10-31
 
 ### Eklendi (Adım 5 — izin motoru v2 + ilk gerçek araçlar)

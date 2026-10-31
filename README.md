@@ -13,7 +13,9 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 0 | Ortam denetimi + mimari + teknik rapor | **Tamamlandı** (Windows 11, RTX 5070 Ti) |
 | 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | **Tamamlandı** — qwen3:8b ~138 token/sn, %100 GPU |
 | 2 | MCP sunucusu: Claude Code yerel modeli araç olarak çağırır | **Tamamlandı** — Claude Code → `kayaai_ask` → qwen3:8b doğrulandı |
-| 3+ | Çoklu worker, arayüz, ekran, ses, otomasyon, hafıza, iş ajanları | Planlandı |
+| 3–5 | Ajan ekibi + yerel şef, Claude modu, yerel API, izin motoru + dosya araçları | **Tamamlandı** (Windows'ta doğrulandı) |
+| 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Yeni** — Windows'ta doğrulama bekleniyor |
+| 7+ | Ajan sistemi, asistan çalışma alanı, hafıza, iş modülleri, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -114,6 +116,23 @@ kayaai api token      # erişim anahtarı (data\api_token)
 Tarayıcıda `http://127.0.0.1:8765/docs` → **Authorize** → anahtarı yapıştır → uç noktaları dene.
 Kontrol: ikinci terminalde `python scripts\api_check.py`.
 
+## Control Center (arayüz)
+
+Koyu temalı yerel web arayüzü: CPU/RAM/GPU/VRAM canlı grafikleri, ajan kartları (boşta/çalışıyor/bekliyor/tamamlandı/
+başarısız), **onay merkezi** (eski/yeni içerik yan yana → Onayla/Reddet), Claude modu aç/kapat düğmesi, canlı olaylar.
+
+```powershell
+# 1. terminal
+.venv\Scripts\kayaai api
+# 2. terminal
+.venv\Scripts\kayaai ui          # tarayıcıyı anahtarlı adresle açar
+```
+
+- Arayüz `setup.ps1` tarafından derlenir (Node.js 18+ gerekir; yoksa API/CLI yine çalışır). Elle: `cd ui; npm ci; npm run build`.
+- Adres yalnızca `http://127.0.0.1:8765`. `kayaai ui` anahtarı adresin `#token=` kısmında verir (sunucuya gitmez);
+  arayüz onu sekmeye alıp adres çubuğundan siler. `kayaai ui --print` adresi yazar — **paylaşmayın**.
+- Geliştirme: `cd ui; npm run dev` (Vite, http://127.0.0.1:5173, `/api` → 8765'e yönlendirilir) · `npm test`.
+
 ## Claude Code ile kullanım (MCP, Faz 2)
 
 kayaAI bir MCP sunucusu içerir: Claude Code, yerel modelinizi araç olarak çağırabilir. Sunucu yalnızca
@@ -190,7 +209,9 @@ kayaai/            Python paketi (çekirdek)
   llm/             Ollama istemcisi, model kayıt defteri
   workers/         worker arayüzü + genel worker
   system/          ortam denetimi
+  api/             yerel API (FastAPI) + Control Center sunumu
   mcp_server.py    MCP sunucusu (Faz 2)
+ui/                Control Center (React + TypeScript + Vite); derleme çıktısı ui/dist (git'e girmez)
 config/            settings.yaml, models.yaml
 scripts/audit/     ortam denetim scriptleri
 scripts/windows/   setup / smoke / run / mcp_setup

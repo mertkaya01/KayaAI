@@ -161,6 +161,23 @@ araç (FileTools.write …) → ToolAction{tool, params, risk, summary, preview,
   (Windows'ta `normcase`); salt-okunur köke yazma onaysız reddedilir.
 - Onay yalnızca sahipten: CLI ve anahtarlı API. MCP yalnızca bekleyenleri okuyabilir.
 
+## Control Center v1 (Adım 6)
+
+```
+tarayıcı (http://127.0.0.1:8765/#token=…)          kayaai api (FastAPI)
+  ui/dist  ◄──── GET /, /assets/*  (anahtarsız, CSP) ──┤
+  fetch    ───── GET/POST /api/*   (Bearer anahtar) ───┤──► Runtime (store, conductor, permissions, files)
+  WebSocket ──── /api/events?token=…&backlog=50 ───────┘    SQLite events tablosu
+```
+- `ui/` — Vite + React 18 + TypeScript, ek UI kütüphanesi yok (CSS değişkenleri + elle yazılmış SVG çizgi grafikler).
+  Bileşenler: `TopBar` (sürüm, canlı/Ollama/Claude rozetleri, Claude aç/kapat), `SystemPanel` (2 sn'de bir `/api/system`,
+  son 2 dk grafik), `AgentsPanel` (`task.status` olayında yenilenir), `ApprovalsPanel` (bekleyen/geçmiş, önizleme,
+  onay/ret + not), `EventsPanel` (son 50 olay).
+- Veri akışı: periyodik çekme + olay geldiğinde ilgili paneli hemen yenileme (`usePolling(path, ms, refreshKey)`);
+  WS koparsa 2 sn sonra kaldığı olaydan (`after`) devam eder; ilk bağlantıda `backlog=50` ile son olaylar gelir.
+- Sunum: `ui/dist` varsa FastAPI `/` altında sunar (bilinmeyen yollar → `index.html`; `/api/*` hiçbir zaman arayüze
+  düşmez); yoksa "arayüz derlenmemiş" yardım sayfası. `kayaai ui` sunucuyu yoklar ve tarayıcıyı anahtarlı adresle açar.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

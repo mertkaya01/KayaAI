@@ -8,9 +8,10 @@
       2. Proje içinde .venv sanal ortamı oluşturur
       3. kayaAI'yi ve test bağımlılıklarını kurar
       4. Çevrimdışı birim testlerini çalıştırır
-      5. Ollama'yı bulur (yoksa winget ile kurmayı SORAR) ve servisin çalıştığını doğrular
-      6. config\models.yaml'daki modeli indirmeyi SORAR
-      7. kayaai doctor ile son kontrolü yapar
+      5. Node.js varsa Control Center arayüzünü derler (yoksa uyarır, kurulum durmaz)
+      6. Ollama'yı bulur (yoksa winget ile kurmayı SORAR) ve servisin çalıştığını doğrular
+      7. config\models.yaml'daki modeli indirmeyi SORAR
+      8. kayaai doctor ile son kontrolü yapar
     Yönetici (admin) yetkisi gerektirmez. Sistem ayarlarını değiştirmez.
 
 .PARAMETER Yes
@@ -90,7 +91,7 @@ function Test-OllamaService {
 Write-Host "kayaAI kurulumu - proje: $ProjectRoot" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- 1. Python
-Write-Step "1/7 Python 3.11+ aranıyor"
+Write-Step "1/8 Python 3.11+ aranıyor"
 $py = Find-Python
 if (-not $py) {
     Write-Warn2 "Python 3.11+ bulunamadı."
@@ -104,7 +105,7 @@ if (-not $py) {
 Write-Ok "Python $($py.version): $($py.exe) $($py.args -join ' ')"
 
 # ---------------------------------------------------------------- 2. venv
-Write-Step "2/7 Sanal ortam (.venv)"
+Write-Step "2/8 Sanal ortam (.venv)"
 if (Test-Path $VenvPython) {
     Write-Ok ".venv zaten var, yeniden kullanılıyor"
 } else {
@@ -114,7 +115,7 @@ if (Test-Path $VenvPython) {
 }
 
 # ---------------------------------------------------------------- 3. paketler
-Write-Step "3/7 kayaAI ve bağımlılıklar kuruluyor"
+Write-Step "3/8 kayaAI ve bağımlılıklar kuruluyor"
 & $VenvPython -m pip install --upgrade pip --quiet
 if ($LASTEXITCODE -ne 0) { Fail "pip güncellenemedi" }
 & $VenvPython -m pip install -e ".[dev]" --quiet
@@ -124,13 +125,42 @@ if ($LASTEXITCODE -ne 0) { Fail "kayaai içe aktarılamadı" }
 Write-Ok "Paketler kuruldu ve doğrulandı"
 
 # ---------------------------------------------------------------- 4. testler
-Write-Step "4/7 Çevrimdışı birim testleri (sahte Ollama ile)"
+Write-Step "4/8 Çevrimdışı birim testleri (sahte Ollama ile)"
 & $VenvPython -m pytest -q
 if ($LASTEXITCODE -ne 0) { Fail "Birim testleri başarısız" }
 Write-Ok "Birim testleri geçti"
 
-# ---------------------------------------------------------------- 5. Ollama
-Write-Step "5/7 Ollama"
+# ---------------------------------------------------------------- 5. Control Center arayüzü
+Write-Step "5/8 Control Center arayüzü (React)"
+$UiDir = Join-Path $ProjectRoot "ui"
+$node = Get-Command node -ErrorAction SilentlyContinue
+$npm = Get-Command npm -ErrorAction SilentlyContinue
+if (-not $node -or -not $npm) {
+    Write-Warn2 "Node.js bulunamadı; arayüz derlenmedi (API ve komut satırı yine çalışır)."
+    Write-Warn2 "Kurmak için: https://nodejs.org (LTS) - sonra bu scripti tekrar çalıştırın."
+} else {
+    $nodeVer = (& $node.Source --version 2>$null) -replace '^v', ''
+    $nodeMajor = 0
+    [void][int]::TryParse(($nodeVer -split '\.')[0], [ref]$nodeMajor)
+    if ($nodeMajor -lt 18) {
+        Write-Warn2 "Node.js $nodeVer çok eski (18+ gerekli); arayüz derlenmedi."
+    } else {
+        Push-Location $UiDir
+        & $npm.Source ci --no-audit --no-fund --loglevel=error
+        $npmOk = ($LASTEXITCODE -eq 0)
+        if ($npmOk) { & $npm.Source run build --silent; $npmOk = ($LASTEXITCODE -eq 0) }
+        if ($npmOk) { & $npm.Source test --silent; $npmOk = ($LASTEXITCODE -eq 0) }
+        Pop-Location
+        if ($npmOk -and (Test-Path (Join-Path $UiDir "dist\index.html"))) {
+            Write-Ok "Arayüz derlendi ve testleri geçti (Node $nodeVer) -> ui\dist"
+        } else {
+            Write-Warn2 "Arayüz derlenemedi (yukarıdaki npm çıktısına bakın). API ve komut satırı yine çalışır."
+        }
+    }
+}
+
+# ---------------------------------------------------------------- 6. Ollama
+Write-Step "6/8 Ollama"
 $ollama = Get-Command ollama -ErrorAction SilentlyContinue
 if (-not $ollama) {
     $default = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"
@@ -160,8 +190,8 @@ Write-Ok "Ollama servisi çalışıyor: v$ver (http://127.0.0.1:11434)"
 $ollamaHost = [Environment]::GetEnvironmentVariable("OLLAMA_HOST", "User")
 if ($ollamaHost -match "0\.0\.0\.0") { Write-Warn2 "OLLAMA_HOST=$ollamaHost -> Ollama ağa açık! Güvenlik için bu değişkeni kaldırın." }
 
-# ---------------------------------------------------------------- 6. model
-Write-Step "6/7 Model"
+# ---------------------------------------------------------------- 7. model
+Write-Step "7/8 Model"
 $model = (& $VenvPython -c "from kayaai.config import load_settings; from kayaai.llm.registry import ModelRegistry; print(ModelRegistry.load(load_settings().models_file).model_for_worker('general').name)").Trim()
 if ($LASTEXITCODE -ne 0 -or -not $model) { Fail "config\models.yaml okunamadı" }
 $installed = (& $ollama.Source list 2>&1) -join "`n"
@@ -179,8 +209,8 @@ if ($installed -match [regex]::Escape($model)) {
     }
 }
 
-# ---------------------------------------------------------------- 7. doctor
-Write-Step "7/7 Son kontrol (kayaai doctor)"
+# ---------------------------------------------------------------- 8. doctor
+Write-Step "8/8 Son kontrol (kayaai doctor)"
 & $VenvPython -m kayaai doctor
 $doctorExit = $LASTEXITCODE
 
@@ -190,6 +220,7 @@ if ($doctorExit -eq 0) {
     Write-Host "Gerçek kabul testleri için:  powershell -ExecutionPolicy Bypass -File scripts\windows\smoke.ps1"
     Write-Host "Soru sormak için:            powershell -ExecutionPolicy Bypass -File scripts\windows\run.ps1 ask `"Merhaba`""
     Write-Host "Claude Code (MCP) için:      powershell -ExecutionPolicy Bypass -File scripts\windows\mcp_setup.ps1"
+    Write-Host "Control Center için:         1. terminal: .venv\Scripts\kayaai api   2. terminal: .venv\Scripts\kayaai ui"
 } else {
     Write-Host "Kurulum bitti ama doctor eksik buldu (yukarıdaki HATA satırları)." -ForegroundColor Yellow
 }

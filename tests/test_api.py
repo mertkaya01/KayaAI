@@ -169,6 +169,18 @@ def test_events_backlog_with_after(api, fake_ollama):
     assert types == ["test.one", "test.two"]
 
 
+def test_events_recent_backlog(api):
+    """Arayüz ilk bağlantıda son N olayı ister (backlog); fazlası gelmez, sonra canlı devam eder."""
+    client, rt, app = api
+    for i in range(5):
+        rt.store.emit("test.n", {"n": i})
+    with client.websocket_connect(f"/api/events?token={app.state.token}&backlog=2") as ws:
+        got = [ws.receive_json()["data"]["n"], ws.receive_json()["data"]["n"]]
+        rt.store.emit("test.live", {})
+        assert ws.receive_json()["type"] == "test.live"
+    assert got == [3, 4]
+
+
 def test_cli_refuses_non_local_host(tmp_path):
     env = dict(os.environ, KAYAAI_DATA_DIR=str(tmp_path), PYTHONUTF8="1")
     r = subprocess.run([sys.executable, "-m", "kayaai", "api", "--host", "0.0.0.0"], env=env, cwd=str(PROJECT_ROOT),

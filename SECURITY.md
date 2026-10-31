@@ -71,6 +71,17 @@
 - [x] Salt-okunur klasöre yazma onay istemeden reddedilir; üzerine yazmadan önce otomatik yedek; silme aracı yok
 - [x] Her araç kullanımı ve onay kararı olay akışında (`tool.used`, `approval.*`)
 
+## Adım 6'da uygulananlar (Control Center)
+
+- [x] Arayüz yalnızca API ile aynı yerel kökenden sunulur (127.0.0.1); veriye her erişim yine anahtarlı `/api/*`
+- [x] Anahtar adresin `#token=` parçasında verilir (sunucuya/kayıtlara gitmez), `sessionStorage`'a alınır ve adres
+      çubuğundan/geçmişten silinir; sekme kapanınca unutulur; "Çıkış" siler
+- [x] İçerik güvenlik politikası (CSP): `default-src 'self'`, dış betik/stil yok, `unsafe-inline`/`unsafe-eval` yok,
+      `frame-ancestors 'none'` (+ `X-Frame-Options: DENY`), `connect-src` yalnızca kendi kökeni ve yerel WS;
+      `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. (`/docs` Swagger CDN kullandığından CSP dışında.)
+- [x] Statik dosya sunumu `ui/dist` dışına çıkamaz (yol çözümlendikten sonra denetlenir)
+- [x] Onay kararları arayüzden de yalnızca anahtarlı istekle; kararlar `decided_by=api` ile kaydedilir
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

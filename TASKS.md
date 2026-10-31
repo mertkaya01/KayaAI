@@ -69,12 +69,18 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   (401, RTX 5070 Ti metrikleri, arka plan görevi 0.86 sn, WebSocket pending→running→succeeded)
 
 ## Adım 5 — İzin motoru v2 + dosya araçları
-- [~] Risk sınıfları R0–R3, kalıcı onay kuyruğu (CLI/API ile sahip onayı; MCP'de onay yok), izinli klasörlerle sınırlı
+- [x] Risk sınıfları R0–R3, kalıcı onay kuyruğu (CLI/API ile sahip onayı; MCP'de onay yok), izinli klasörlerle sınırlı
   dosya araçları (sahip kararı: `~/kayaAI-files` + `files.allowed_dirs`), üzerine yazma R2 + yedek — 17 test;
+  Windows'ta doğrulandı (2026-10-31)
+
+## Adım 6 — Control Center v1
+- [~] `ui/` React + TypeScript (Vite, ek UI kütüphanesi yok): üst çubuk (Claude aç/kapat), sistem izleme (CPU/RAM/GPU/VRAM
+  grafikleri), ajan kartları, onay merkezi (önizleme + onay/ret), canlı olaylar; FastAPI `/` sunumu + CSP; `kayaai ui`;
+  `setup.ps1` derleme adımı — Python 199 test, Vitest 7 test, Playwright uçtan uca 23 kontrol (konteyner);
   Windows'ta doğrulama bekleniyor
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Şu an: Adım 5 Windows doğrulaması → Adım 6 (Control Center v1: sistem izleme, ajan kartları, onay merkezi).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 5 tamamlandı (2026-10-31). Şu an: Adım 6 Windows doğrulaması → Adım 7 (ajan sistemi).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:
