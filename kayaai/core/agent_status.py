@@ -32,7 +32,8 @@ def agent_statuses(store: TaskStore, names: list[str], scan: int = 500) -> list[
     now = utcnow()
     out: list[AgentStatus] = []
     for name in names:
-        mine = [t for t in tasks if t.worker == name]
+        # İç yardımcıların görevleri (coder.revise, reviewer.check) ana ajana sayılır
+        mine = [t for t in tasks if t.worker == name or t.worker.split(".", 1)[0] == name]
         active = next((t for t in mine if t.status == TaskStatus.RUNNING), None)
         waiting = next((t for t in mine if t.status in (TaskStatus.AWAITING_APPROVAL, TaskStatus.PENDING,
                                                         TaskStatus.WAITING_CLAUDE)), None)

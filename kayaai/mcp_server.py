@@ -387,6 +387,20 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
                 "note": "Onayı yalnızca sahip verir: kayaai approvals approve <id> (ya da arayüzdeki onay merkezi)."}
 
     @server.tool(
+        name="kayaai_disputes",
+        description=(
+            "List open disagreements between kayaAI agents (a producer disputed a reviewer's issue). Read-only: "
+            "the owner decides them; for jobs in your Claude inbox, your kayaai_claude_complete answer settles them."
+        ),
+    )
+    def kayaai_disputes() -> dict[str, Any]:
+        items = rt().disputes.list("open")
+        return {"open": [{"id": d.id, "job_id": d.job_id, "producer": d.producer, "reviewer": d.reviewer,
+                          "issue": d.issue, "evidence": d.evidence, "producer_position": d.producer_position,
+                          "escalated_to": d.escalated_to} for d in items],
+                "note": "Karar yalnızca sahipte: kayaai disputes resolve <id> --side producer|reviewer."}
+
+    @server.tool(
         name="kayaai_list_agents",
         description=(
             "List kayaAI's local agents (name, what they do, local model). Use an agent name as the 'worker' "

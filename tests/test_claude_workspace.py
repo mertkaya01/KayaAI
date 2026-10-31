@@ -39,7 +39,8 @@ def test_generates_expected_files(tmp_path, settings, agents):
     ws = tmp_path / "ws"
     rep = sync_workspace(settings, agents, ws)
     assert set(rep.written) == {"CLAUDE.md", "README.md", ".mcp.json", ".claude/agents/kayaai-coder.md",
-                                ".claude/agents/kayaai-general.md", ".claude/agents/kayaai-reviewer.md"}
+                                ".claude/agents/kayaai-general.md", ".claude/agents/kayaai-reviewer.md",
+                                ".claude/agents/kayaai-data.md", ".claude/agents/kayaai-document.md"}
     assert not (ws / ".claude/agents/kayaai-planner.md").exists()  # claude_tier: none
     # Regresyon (Windows'ta yakalandı): rapor yolları platformdan bağımsız '/' kullanmalı
     assert not any("\\" in p for p in rep.written)
@@ -79,7 +80,7 @@ def test_second_sync_is_idempotent(tmp_path, settings, agents):
     ws = tmp_path / "ws"
     sync_workspace(settings, agents, ws)
     rep = sync_workspace(settings, agents, ws)
-    assert rep.written == [] and len(rep.unchanged) == 6
+    assert rep.written == [] and len(rep.unchanged) == 8
 
 
 def test_foreign_files_are_never_overwritten(tmp_path, settings, agents):

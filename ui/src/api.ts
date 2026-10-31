@@ -124,6 +124,8 @@ export interface Agent {
   output: string;
   local_model: string;
   claude_tier: string;
+  reviewed_by: string | null;
+  checks: string[];
   status: {
     state: AgentState;
     current_task_id: string | null;
@@ -150,6 +152,27 @@ export interface Approval {
   decided_by: string | null;
   decision_note: string | null;
   error: string | null;
+}
+
+export interface Dispute {
+  id: string;
+  created_at: string;
+  status: "open" | "resolved";
+  job_id: string | null;
+  step_id: string;
+  request: string;
+  producer: string;
+  reviewer: string;
+  issue_id: string;
+  severity: string;
+  issue: string;
+  evidence: string;
+  producer_position: string;
+  escalated_to: "owner" | "claude";
+  resolution: "producer" | "reviewer" | "claude" | "superseded" | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  note: string;
 }
 
 export interface KEvent {

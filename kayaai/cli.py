@@ -272,6 +272,21 @@ def cmd_do(args: argparse.Namespace) -> int:
         _print(f"\nİş başarısız: {res.error}")
     for w in res.warnings:
         _print(f"[UYARI] {w}")
+    for s in res.steps:
+        if s.review:
+            rv = s.review
+            parts = [f"karar: {rv.verdict or '-'}"]
+            if rv.checks and (rv.checks.checked_blocks or rv.checks.failures):
+                parts.append(f"kontrol: {rv.checks.checked_blocks} blok, {len(rv.checks.failures)} hata")
+            if rv.dropped_issues:
+                parts.append(f"{rv.dropped_issues} kanıtsız not elendi")
+            if rv.revised:
+                parts.append("düzeltildi")
+            if rv.disputes:
+                parts.append(f"{len(rv.disputes)} anlaşmazlık")
+            if rv.skipped:
+                parts.append(rv.skipped)
+            _print(f"[gözden geçirme] {s.agent} → {rv.reviewer}: " + ", ".join(parts))
     steps = " → ".join(f"{s.agent}({s.status})" for s in res.steps)
     review = f" | gözden geçirme: {res.review.verdict}{' (düzeltildi)' if res.review.revised else ''}" if res.review.performed else ""
     _print(f"\n— iş {res.job_id} | {res.mode} | {steps}{review} | {res.duration_s} sn | yönlendirme: {res.routing.decision}")
@@ -482,6 +497,56 @@ def cmd_files(args: argparse.Namespace) -> int:
             return 1
 
 
+def cmd_disputes(args: argparse.Namespace) -> int:
+    """Ajan anlaşmazlıkları (Adım 7): listele / göster / karar ver. Kararı yalnızca sahip verir."""
+    from .core.disputes import DisputeError
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    with build_runtime(settings) as rt:
+        book = rt.disputes
+        assert book is not None
+        try:
+            if args.action == "list":
+                items = book.list(None if args.all else "open")
+                if not items:
+                    _print("Açık anlaşmazlık yok." if not args.all else "Anlaşmazlık kaydı yok.")
+                for d in items:
+                    state = d.status if d.status == "open" else f"{d.resolution}"
+                    _print(f"  {d.id}  {d.created_at:%Y-%m-%d %H:%M}  {state:<10} {d.producer} ↔ {d.reviewer}: {d.issue[:70]}")
+                return 0
+            if not args.dispute_id:
+                _print("Anlaşmazlık numarası gerekli: kayaai disputes show <id>")
+                return 2
+            if args.action == "show":
+                d = book.get(args.dispute_id)
+                if d is None:
+                    raise DisputeError(f"Anlaşmazlık bulunamadı: {args.dispute_id}")
+                _print(f"Anlaşmazlık {d.id} — {d.status}" + (f" ({d.resolution}, {d.decided_by})" if d.resolution else ""))
+                _print(f"İş           : {d.job_id} / adım {d.step_id}")
+                _print(f"İstek       : {d.request[:300]}")
+                _print(f"Gözden geçirici ({d.reviewer}), {d.severity}: {d.issue}")
+                if d.evidence:
+                    _print(f"  Kanıt (cevaptan alıntı): {d.evidence}")
+                _print(f"Üretici ({d.producer}) itirazı: {d.producer_position}")
+                _print(f"Yükseltildi : {'Claude şef' if d.escalated_to == 'claude' else 'sahip (sen)'}")
+                if d.note:
+                    _print(f"Not         : {d.note}")
+                if d.status == "open":
+                    _print(f"\nKarar: kayaai disputes resolve {d.id} --side producer|reviewer [--note \"...\"]")
+                return 0
+            if not args.side:
+                _print("Taraf gerekli: --side producer (üretici haklı) | reviewer (gözden geçirici haklı)")
+                return 2
+            d = book.resolve(args.dispute_id, args.side, decided_by="cli", note=args.note or "")
+            who = d.producer if args.side == "producer" else d.reviewer
+            _print(f"[KARAR] {d.id}: {who} haklı bulundu.")
+            return 0
+        except DisputeError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+
+
 def cmd_approvals(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -671,6 +736,14 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    dp = sub.add_parser("disputes", help="ajan anlaşmazlıkları: listele / göster / karar ver")
+    dp.add_argument("action", nargs="?", choices=["list", "show", "resolve"], default="list")
+    dp.add_argument("dispute_id", nargs="?")
+    dp.add_argument("--all", action="store_true", help="list: kapananlar dahil")
+    dp.add_argument("--side", choices=["producer", "reviewer"], default=None, help="resolve: kim haklı")
+    dp.add_argument("--note", default=None)
+    dp.set_defaults(func=cmd_disputes)
 
     ap = sub.add_parser("api", help="yerel API sunucusu (yalnızca 127.0.0.1)")
     ap.add_argument("action", nargs="?", choices=["serve", "token"], default="serve")

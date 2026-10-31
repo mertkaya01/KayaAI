@@ -9,11 +9,15 @@ from .general import GeneralAnswer, GeneralWorker
 class WorkerRegistry:
     def __init__(self) -> None:
         self._workers: dict[str, Worker] = {}
+        self._internal: set[str] = set()
 
-    def register(self, worker: Worker) -> None:
+    def register(self, worker: Worker, *, internal: bool = False) -> None:
+        """internal: ajanın iç yardımcısı (ör. `coder.revise`); planlayıcıya, arayüze ve listelere görünmez."""
         if worker.name in self._workers:
             raise ValueError(f"Worker zaten kayıtlı: {worker.name}")
         self._workers[worker.name] = worker
+        if internal:
+            self._internal.add(worker.name)
 
     def get(self, name: str) -> Worker:
         try:
@@ -22,10 +26,14 @@ class WorkerRegistry:
             raise KeyError(f"Bilinmeyen worker: {name}. Kayıtlı: {', '.join(self._workers)}") from None
 
     def names(self) -> list[str]:
-        return list(self._workers)
+        """Görünür ajan adları (iç yardımcılar hariç)."""
+        return [n for n in self._workers if n not in self._internal]
 
     def all(self) -> list[Worker]:
-        return list(self._workers.values())
+        return [w for n, w in self._workers.items() if n not in self._internal]
+
+    def internal_names(self) -> list[str]:
+        return sorted(self._internal)
 
     def __contains__(self, name: str) -> bool:
         return name in self._workers

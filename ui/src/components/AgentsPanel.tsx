@@ -22,6 +22,8 @@ export function AgentsPanel({ agents, error }: { agents: Agent[] | null; error: 
                 <dd>{a.local_model}</dd>
                 <dt>Claude karşılığı</dt>
                 <dd>{a.claude_tier === "none" ? "—" : a.claude_tier}</dd>
+                <dt>Gözden geçiren</dt>
+                <dd>{a.reviewed_by ? `${a.reviewed_by}${a.checks.length ? " + kod kontrolü" : ""}` : "—"}</dd>
                 <dt>{a.status.state === "running" || a.status.state === "waiting" ? "Şu anki görev" : "Son görev"}</dt>
                 <dd className="task">{a.status.current_task ?? "—"}</dd>
                 <dt>Son bitiş</dt>

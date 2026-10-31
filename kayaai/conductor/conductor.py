@@ -11,14 +11,18 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from ..core.disputes import DisputeRecord
 from ..core.lang import detect_language
 from ..core.task import Task, TaskStatus, ValidationResult, utcnow
 from ..runtime import Runtime
 from ..workers.planner import FORBIDDEN_STEP_AGENTS, RoutePlan
+from ..workers.step_review import issue_payload
+from .checks import CheckReport, run_checks
 from ..core.lang import mentions_target_language
 from .complexity import complexity_signals
 from .coverage import missing_topics
@@ -32,6 +36,22 @@ CLAUDE_WARNING_TR = "Bu iş Claude ile muhtemelen daha iyi olurdu (Claude modu k
 CLAUDE_WARNING_EN = "This task would likely be done better by Claude (Claude mode is off; done with the local model)."
 
 
+class StepReviewView(BaseModel):
+    """Üretici → gözden geçirici akışının özeti (Adım 7)."""
+
+    reviewer: str
+    verdict: str | None = None
+    issues: list[str] = Field(default_factory=list)          # "major: iddia"
+    missing_parts: list[str] = Field(default_factory=list)
+    dropped_issues: int = 0                                   # kanıtı cevapta olmadığı için elenen
+    checks: CheckReport | None = None
+    revised: bool = False
+    accepted: list[str] = Field(default_factory=list)
+    disputes: list[str] = Field(default_factory=list)        # anlaşmazlık kayıt id'leri
+    unresolved_checks: list[str] = Field(default_factory=list)
+    skipped: str | None = None
+
+
 class StepView(BaseModel):
     id: str
     agent: str
@@ -40,6 +60,7 @@ class StepView(BaseModel):
     task_id: str | None = None
     status: str = "pending"
     error: str | None = None
+    review: StepReviewView | None = None
 
 
 class Routing(BaseModel):
@@ -74,6 +95,22 @@ class ConductorResult(BaseModel):
 
 def _lang_note(request: str, tr: str, en: str) -> str:
     return en if detect_language(request) == "en" else tr
+
+
+@dataclass
+class _Run:
+    """Tek bir şef işinin yürütme bağlamı."""
+
+    job: Task
+    request: str
+    force: Force
+    origin: Origin
+    result: ConductorResult
+    deadline: float
+    disputes: list[DisputeRecord] = field(default_factory=list)
+
+    def over_budget(self) -> bool:
+        return time.monotonic() > self.deadline
 
 
 class Conductor:
@@ -124,6 +161,8 @@ class Conductor:
             result.warnings.append(_lang_note(
                 request, "Claude kutusundan yerel ekibe geri verildi.", "Handed back from the Claude inbox to the local team."))
         try:
+            if released and self.rt.disputes:
+                self.rt.disputes.close_for_job(job.id, "superseded", "kayaai", "iş yerel ekiple yeniden yapıldı")
             self._run(job, request, force, origin, result)
         except Exception as exc:  # noqa: BLE001 - iş kaydı her durumda kapanmalı
             log.exception("şef işi %s beklenmeyen hata", job.id)
@@ -139,6 +178,7 @@ class Conductor:
     # ------------------------------------------------------------------ akış
 
     def _run(self, job: Task, request: str, force: Force, origin: Origin, result: ConductorResult) -> None:
+        run = _Run(job, request, force, origin, result, time.monotonic() + self.settings.time_budget_s)
         plan = self._plan(job, request, result)
         result.mode = plan.mode
         result.steps = self._steps_of(plan, request)
@@ -159,7 +199,7 @@ class Conductor:
             result.warnings.append(_lang_note(request, CLAUDE_WARNING_TR, CLAUDE_WARNING_EN))
 
         # Yürütme
-        outputs = self._execute(job, result.steps)
+        outputs = self._execute(run)
         succeeded = [s for s in result.steps if s.status == TaskStatus.SUCCEEDED.value]
         if not succeeded:
             self._fail_or_escalate(result, request, "hiçbir adım başarılı olmadı")
@@ -195,7 +235,14 @@ class Conductor:
         result.status = TaskStatus.SUCCEEDED.value if result.answer.strip() else TaskStatus.FAILED.value
         if not result.answer.strip():
             result.error = "boş cevap"
-
+        elif run.disputes:
+            self._escalate_disputes(run)
+        self.rt.store.emit("decision.summary", {
+            "job_id": job.id, "status": result.status, "mode": result.mode, "decision": result.routing.decision,
+            "steps": len(result.steps), "reviewed_steps": sum(1 for s in result.steps if s.review),
+            "revised_steps": sum(1 for s in result.steps if s.review and s.review.revised),
+            "disputes": len(run.disputes), "warnings": len(result.warnings),
+        }, task_id=job.id)
     # ------------------------------------------------------------------ plan
 
     def _agents_for_planner(self) -> list[dict[str, str]]:
@@ -253,11 +300,13 @@ class Conductor:
 
     # ------------------------------------------------------------------ yürütme
 
-    def _execute(self, job: Task, steps: list[StepView]) -> dict[str, dict[str, Any]]:
+    def _execute(self, run: _Run) -> dict[str, dict[str, Any]]:
         """Adımları plan sırasıyla çalıştırır (planlayıcı doğrulaması bağımlılıkların hep önce gelmesini garanti eder).
 
         Önceki adımların sonuçları, sonraki adıma `previous_results` olarak (güvenilmez veri) verilir.
+        Ajan tanımında `review.required` varsa her adım gözden geçirilir (`_review_step`).
         """
+        job, steps = run.job, run.result.steps
         outputs: dict[str, dict[str, Any]] = {}
         by_id = {s.id: s for s in steps}
         for s in steps:
@@ -276,8 +325,123 @@ class Conductor:
             task = self._ask(job, s.agent, objective, {"previous_results": prev} if prev else {})
             s.task_id, s.status, s.error = task.id, task.status.value, task.error
             if task.status == TaskStatus.SUCCEEDED and task.result:
-                outputs[s.id] = task.result
+                outputs[s.id] = self._review_step(run, s, task.result)
         return outputs
+
+    # ------------------------------------------------------------------ üretici → gözden geçirici (Adım 7)
+
+    def _review_step(self, run: _Run, s: StepView, output: dict[str, Any]) -> dict[str, Any]:
+        """Kontroller → gözden geçirme → (gerekirse) bir tur revizyon → itirazlar anlaşmazlık olur."""
+        defn = getattr(self.rt.workers.get(s.agent), "definition", None)
+        if defn is None or not defn.review.required or self.settings.review == "never":
+            return output
+        req, job, result = run.request, run.job, run.result
+        view = StepReviewView(reviewer=defn.review.reviewer)
+        s.review = view
+        if run.over_budget():
+            view.skipped = "zaman bütçesi doldu"
+            result.warnings.append(_lang_note(req, f"{s.agent} cevabı zaman bütçesi dolduğu için gözden geçirilmedi.",
+                                              f"The {s.agent} answer was not reviewed: time budget exhausted."))
+            return output
+        answer = self._answer_of(output)
+        view.checks = run_checks(answer, list(defn.review.checks))
+        check_worker = f"{defn.review.reviewer}.check"
+        review: dict[str, Any] = {}
+        if check_worker in self.rt.workers:
+            rv = self._ask(job, check_worker, _lang_note(
+                s.objective, "Bu cevabı isteğe göre incele: eksik kısımlar ve kanıtlı hatalar.",
+                "Review this answer against the request: missing parts and errors with evidence."),
+                {"request": s.objective, "answer": answer,
+                 "automatic_checks": [f.message for f in view.checks.failures]})
+            if rv.status == TaskStatus.SUCCEEDED and rv.result:
+                review = rv.result
+                view.verdict = review.get("verdict")
+                view.missing_parts = list(review.get("missing_parts", []))
+                view.issues = [f"{i.get('severity')}: {i.get('claim')}" for i in review.get("issues", [])]
+                view.dropped_issues = int(rv.metrics.get("dropped_issues", 0))
+            else:
+                view.skipped = "gözden geçirme yapılamadı"
+                result.warnings.append(_lang_note(req, f"{s.agent} cevabı gözden geçirilemedi.",
+                                                  f"The {s.agent} answer could not be reviewed."))
+        issues = issue_payload(review, [f.model_dump() for f in view.checks.failures])
+        self.rt.store.log_event(job.id, "step.review", {"step": s.id, "agent": s.agent, "issues": issues,
+                                                        "dropped": view.dropped_issues})
+        if not issues:
+            return output
+        if self.settings.max_revisions == 0 or run.over_budget():
+            result.warnings.append(_lang_note(
+                req, f"{s.agent} cevabında düzeltilmemiş sorunlar var: ", f"Unfixed issues in the {s.agent} answer: ")
+                + "; ".join(i["claim"] for i in issues[:3]))
+            return output
+        reviser = f"{s.agent}.revise"
+        rev = self._ask(job, reviser, s.objective + "\n\n" + _lang_note(
+            s.objective,
+            "(Not: Gözden geçirme sorunları girdi verisinde. Her birini düzelt ya da gerekçeyle itiraz et.)",
+            "(Note: the review issues are in the input data. Fix each one or dispute it with a reason.)"),
+            {"current_answer": answer, "issues": issues})
+        if rev.status != TaskStatus.SUCCEEDED or not rev.result:
+            result.warnings.append(_lang_note(
+                req, f"{s.agent} cevabı düzeltilemedi; sorunlar: ", f"The {s.agent} answer could not be revised; issues: ")
+                + "; ".join(i["claim"] for i in issues[:3]))
+            return output
+        r = rev.result
+        new_answer = str(r.get("answer", "")).strip() or answer
+        view.revised = new_answer != answer
+        view.accepted = list(r.get("accepted", []))
+        after = run_checks(new_answer, list(defn.review.checks))
+        view.unresolved_checks = [f.message for f in after.failures]
+        if view.unresolved_checks:
+            result.warnings.append(_lang_note(
+                req, "Otomatik kontrol düzeltmeden sonra da başarısız (doğrulanamadı): ",
+                "Automatic check still fails after revision (unverified): ") + "; ".join(view.unresolved_checks[:3]))
+        by_id = {i["id"]: i for i in issues}
+        target = self._dispute_target(run)
+        for d in r.get("disputed", []):
+            issue = by_id.get(str(d.get("id")))
+            if issue is None or issue["source"] == "check":
+                continue  # doğrulama zaten engeller; savunma amaçlı
+            rec = DisputeRecord(
+                job_id=job.id, step_id=s.id, request=s.objective[:2000], producer=s.agent,
+                reviewer=defn.review.reviewer, issue_id=issue["id"], severity=issue["severity"],
+                issue=issue["claim"], evidence=issue.get("evidence", ""), producer_position=str(d.get("reason", "")),
+                escalated_to=target,
+            )
+            if self.rt.disputes:
+                self.rt.disputes.open(rec)
+            run.disputes.append(rec)
+            view.disputes.append(rec.id)
+        return {**output, "answer": new_answer}
+
+    def _dispute_target(self, run: _Run) -> Literal["owner", "claude"]:
+        """Anlaşmazlığa kim karar verir: Claude şef mi (kutu ya da çağıran), yoksa sahip mi."""
+        if run.origin == "claude":
+            return "claude"  # isteği zaten Claude şef gönderdi: iki görüş ona döner
+        claude_on = bool(self.rt.claude and self.rt.claude.is_enabled())
+        if self.settings.disputes == "claude_first" and claude_on and run.force != "local":
+            return "claude"
+        return "owner"
+
+    def _escalate_disputes(self, run: _Run) -> None:
+        result, req = run.result, run.request
+        summary = "; ".join(f"{d.producer} ↔ {d.reviewer}: {d.issue[:120]}" for d in run.disputes[:3])
+        n = len(run.disputes)
+        if run.origin == "claude":
+            result.warnings.append(_lang_note(
+                req, f"Ajanlar {n} konuda anlaşamadı (karar senin): {summary}",
+                f"The agents disagreed on {n} point(s) (your call): {summary}"))
+        elif run.disputes[0].escalated_to == "claude":
+            result.routing.decision = "claude_inbox"
+            result.routing.why = f"ajanlar {n} konuda anlaşamadı; Claude modu açık (anlaşmazlık politikası: claude_first)"
+            result.status = TaskStatus.WAITING_CLAUDE.value
+            result.warnings.append(_lang_note(
+                req, f"Ajanlar {n} konuda anlaşamadı; iş iki görüşle Claude kutusuna bırakıldı: {summary}",
+                f"The agents disagreed on {n} point(s); the job was left in the Claude inbox: {summary}"))
+        else:
+            result.warnings.append(_lang_note(
+                req, f"Ajanlar {n} konuda anlaşamadı; karar sana bırakıldı (kayaai disputes): {summary}",
+                f"The agents disagreed on {n} point(s); the decision is yours (kayaai disputes): {summary}"))
+        self.rt.store.log_event(run.job.id, "disputes.escalated",
+                                {"count": n, "to": run.disputes[0].escalated_to, "ids": [d.id for d in run.disputes]})
 
     def _ask(self, job: Task, worker: str, objective: str, input: dict[str, Any]) -> Task:
         task = self.rt.orchestrator.submit(objective, worker=worker, input=input or None, parent_id=job.id)

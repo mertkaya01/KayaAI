@@ -66,6 +66,11 @@ class ConductorSettings(BaseModel):
     merge: Literal["assemble", "llm"] = "assemble"
     # Karmaşıklık skoru bu eşiğe ulaşırsa planlayıcı demese de "Claude önerilir" (kayaai/conductor/complexity.py).
     claude_threshold: int = Field(3, ge=1, le=10)
+    # Adım 7: üretici ↔ gözden geçirici anlaşmazlığı. claude_first: Claude modu açıksa iş Claude kutusuna,
+    # kapalıysa sahibe; owner: her zaman sahibe.
+    disputes: Literal["claude_first", "owner"] = "claude_first"
+    # Bir işin toplam zaman bütçesi (sn). Aşılırsa gözden geçirme/revizyon turları atlanır (yerel GPU zamanı korunur).
+    time_budget_s: float = Field(600, ge=30, le=3600)
 
 
 class AllowedDir(BaseModel):

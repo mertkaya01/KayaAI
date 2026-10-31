@@ -115,6 +115,11 @@ class DecisionBody(BaseModel):
     note: str = Field("", max_length=1000)
 
 
+class DisputeDecisionBody(BaseModel):
+    side: Literal["producer", "reviewer"]
+    note: str = Field("", max_length=1000)
+
+
 class Accepted(BaseModel):
     id: str
     status: str
@@ -210,6 +215,8 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             out.append({
                 "name": w.name, "description": w.description, "output": w.output_model.__name__,
                 "local_model": w.model_spec(rt.registry).name, "claude_tier": d.claude_tier if d else "none",
+                "reviewed_by": d.review.reviewer if d and d.review.required else None,
+                "checks": list(d.review.checks) if d and d.review.required else [],
                 "status": statuses[w.name].model_dump(),
             })
         return out
@@ -381,6 +388,25 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return rt.permissions.reject(approval_id, decided_by="api", note=(body.note if body else "")).model_dump(mode="json")
         except ApprovalError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- anlaşmazlıklar (Adım 7)
+
+    @app.get("/api/disputes", dependencies=[Depends(auth)])
+    def disputes(status_: Literal["open", "resolved", "all"] = Query("open", alias="status"),
+                 limit: int = Query(100, ge=1, le=500)) -> list[dict[str, Any]]:
+        assert rt.disputes is not None
+        return [d.model_dump(mode="json") for d in rt.disputes.list(None if status_ == "all" else status_, limit=limit)]
+
+    @app.post("/api/disputes/{dispute_id}/resolve", dependencies=[Depends(auth)])
+    def dispute_resolve(dispute_id: str, body: DisputeDecisionBody) -> dict[str, Any]:
+        from ..core.disputes import DisputeError
+
+        assert rt.disputes is not None
+        try:
+            return rt.disputes.resolve(dispute_id, body.side, decided_by="api", note=body.note).model_dump(mode="json")
+        except DisputeError as exc:
+            code = 404 if "bulunamadı" in str(exc) else 409
+            raise HTTPException(code, str(exc)) from exc
 
     # ---------------------------------------------------------------- canlı olaylar
 

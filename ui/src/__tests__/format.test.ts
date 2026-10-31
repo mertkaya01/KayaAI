@@ -26,6 +26,12 @@ describe("biçimlendirme", () => {
       .toBe("Onay istendi (R2): deneme.md üzerine yaz");
     expect(describeEvent({ ...base, type: "claude.mode", data: { enabled: true } })).toBe("Claude modu açıldı");
     expect(describeEvent({ ...base, type: "bilinmeyen", data: {} })).toBe("bilinmeyen");
+    expect(describeEvent({ ...base, type: "dispute.opened", data: { producer: "coder", reviewer: "reviewer", issue: "x yanlış", escalated_to: "owner" } }))
+      .toBe("Anlaşmazlık: coder ↔ reviewer — x yanlış (sana)");
+    expect(describeEvent({ ...base, type: "dispute.resolved", data: { resolution: "producer" } }))
+      .toBe("Anlaşmazlık kapandı: üretici haklı bulundu");
+    expect(describeEvent({ ...base, type: "decision.summary", data: { status: "succeeded", steps: 1, reviewed_steps: 1, revised_steps: 1, disputes: 0 } }))
+      .toBe("İş bitti (tamamlandı): 1 adım, 1 gözden geçirme, 1 düzeltme");
   });
 
   it("kayan pencere en fazla max değer tutar", () => {

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from .config import Settings, load_settings
 from .core.claude_mode import ClaudeMode
+from .core.disputes import DisputeBook
 from .core.permissions import PermissionEngine
 from .core.orchestrator import Approver, Orchestrator
 from .core.store import TaskStore
@@ -26,6 +27,7 @@ class Runtime:
     recovered_task_ids: list[str] = field(default_factory=list)
     permissions: PermissionEngine | None = None
     files: "FileTools | None" = None  # noqa: F821 - aşağıda import edilir
+    disputes: DisputeBook | None = None
 
     def close(self) -> None:
         self.llm.close()
@@ -61,5 +63,5 @@ def build_runtime(
     return Runtime(
         settings, store, llm, registry, workers, orch,
         claude=ClaudeMode(store, settings.claude), recovered_task_ids=recovered,
-        permissions=permissions, files=files,
+        permissions=permissions, files=files, disputes=DisputeBook(store),
     )
