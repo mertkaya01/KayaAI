@@ -2,6 +2,13 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.10.1] - 2026-10-31
+
+### Düzeltildi
+- Windows'ta `setup.ps1` birim testlerinde 7 test düşüyordu: test yardımcısı örnek PDF üretirken Linux'a özgü DejaVu
+  yazı tipi yolunu sabit kullanıyordu. Artık üretim kodundaki sistem fontu araması kullanılır (Windows: Segoe UI /
+  Arial). Üretim kodu etkilenmemişti.
+
 ## [0.10.0] - 2026-10-31
 
 ### Eklendi (Adım 10 — iş modülleri; kabul #6, #7, #12)

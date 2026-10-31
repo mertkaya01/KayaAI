@@ -45,18 +45,19 @@ def make_xlsx(rows=ROWS, text_numbers: bool = False) -> bytes:
 
 def make_pdf(pages: list[str], encrypt: bool = False, text: bool = True) -> bytes:
     from reportlab.lib.pagesizes import A4
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas
 
-    pdfmetrics.registerFont(TTFont("dv", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+    from kayaai.business.report import _register_font
+
+    # Sistem fontu (Windows: Segoe UI/Arial, Linux: DejaVu) — v0.10.1: önceden Linux yolu sabitti, Windows'ta düşüyordu
+    font, _ = _register_font()
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     for page in pages:
         if text:
             y = 800
             for line in page.split("\n"):
-                c.setFont("dv", 11)
+                c.setFont(font, 11)
                 c.drawString(50, y, line)
                 y -= 16
         else:
@@ -272,6 +273,11 @@ def sample_report() -> Report:
                   key_figures=[("Toplam", "550")],
                   tables=[ReportTable(title="Bölgeler", columns=["Bölge", "Tutar"], rows=[["İzmir", 179.5], ["Ankara", 320.0]])],
                   sources=["satis.xlsx"], notes=["Sayılar programla hesaplandı."])
+
+
+def test_font_search_prefers_windows_fonts():
+    from kayaai.business.report import FONT_CANDIDATES
+    assert FONT_CANDIDATES[0][0].startswith("C:/Windows/Fonts/") and FONT_CANDIDATES[1][0].startswith("C:/Windows/Fonts/")
 
 
 def test_four_formats_roundtrip():
