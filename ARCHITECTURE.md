@@ -105,9 +105,14 @@ Tanım klasörü yoksa yerleşik `general` worker kullanılır.
 ```
 istek → planner (RoutePlan: direct | 2-4 adım, needs_claude)  ── geçersiz plan: geri bildirim → yine geçersiz: general
       → yönlendirme (D15/D16): local | local_with_warning | claude_inbox(waiting_claude)
-      → adımlar sırayla (önceki sonuçlar <input_data> olarak) → çok adımlıysa general birleştirir
-      → reviewer (review=plan: yalnızca çok adımlı) → sorun varsa ≤ max_revisions düzeltme → hâlâ sorun: uyarı
+      → adımlar sırayla (önceki sonuçlar <input_data> olarak)
+      → birleştirme: merge=assemble (varsayılan; adım cevapları başlıklarla, LLM'siz) | merge=llm
+      → reviewer (review=plan): YALNIZCA eksiklik + dil → missing_parts varsa general yazar, "Ek" olarak eklenir
+        (≤ max_revisions); diğer notlar "doğrulanmadı" uyarısı
 ```
+- Claude ihtiyacı = planlayıcının görüşü **veya** `complexity_signals` skoru ≥ `claude_threshold`
+  (`kayaai/conductor/complexity.py`: adım sayısı, mimari/tasarım/ödünleşim/ölçekleme… ifadeleri, uzunluk).
+  Gerekçe: 8B planlayıcı kendi sınırını bilemiyor (gerçek ölçüm).
 - İş kaydı: `worker="conductor"` üst görev; tüm adımlar `parent_id` ile alt görev.
 - `origin="claude"` (MCP): Claude zaten şef olduğu için kutuya gönderilmez; planlayıcının görüşü uyarı olur.
 - Yerel sonuç üretilemezse: Claude açık → kutu, kapalı → `failed` (asla sahte başarı).

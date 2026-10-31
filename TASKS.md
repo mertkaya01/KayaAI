@@ -52,8 +52,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   `waiting_claude` görev durumu, `kayaai claude status|on|off`, doctor + `kayaai_health` gösterimi — testli, Windows'ta doğrulanacak
 - [x] 3b Ajan tanımları (`config/agents/*.yaml`): general, reviewer, coder; `kayaai agents`; MCP `kayaai_list_agents`;
   kod benchmark'ı Windows'ta: qwen2.5-coder:7b 4/5 vs qwen3:8b 3/5 → coder ajanı coder-7b
-- [~] 3c Yerel şef (`kayaai do`, MCP `kayaai_do`): planner ajanı + kodla plan doğrulama, sıralı yürütme,
-  birleştirme, reviewer + 1 düzeltme turu, Claude yönlendirmesi (D15/D16) — 26 test; `scripts/conductor_check.py` Windows'ta bekleniyor
+- [x] 3c Yerel şef (`kayaai do`, MCP `kayaai_do`) — Windows `conductor_check`: 6/6 başarılı, mod/ajan/dil 6/6
+- [~] 3c düzeltmeleri: assemble birleştirme, reviewer yalnızca eksiklik/dil, karmaşıklık skoru → Claude önerisi — testli, Windows'ta tekrar ölçülecek
 - [ ] 3d Claude kutusu (MCP): inbox / complete / release; kapatınca yerelde yapma
 - [ ] 3e Claude çalışma klasörü üreticisi (`CLAUDE.md`, `.claude/agents/`, `.mcp.json`)
 

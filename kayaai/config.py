@@ -59,6 +59,11 @@ class ConductorSettings(BaseModel):
     # Gözden geçirme: never | plan (yalnızca çok adımlı işlerde) | always
     review: Literal["never", "plan", "always"] = "plan"
     max_revisions: int = Field(1, ge=0, le=3)
+    # Çok adımlı işte nihai cevap: assemble = adım cevaplarını başlıklarla sırayla birleştir (LLM'siz, bilgi kaybı yok);
+    # llm = genel ajan yeniden yazar (8B modelde bilgi kaybı gözlendi, 2026-10-31).
+    merge: Literal["assemble", "llm"] = "assemble"
+    # Karmaşıklık skoru bu eşiğe ulaşırsa planlayıcı demese de "Claude önerilir" (kayaai/conductor/complexity.py).
+    claude_threshold: int = Field(3, ge=1, le=10)
 
 
 class LoggingSettings(BaseModel):

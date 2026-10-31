@@ -90,62 +90,91 @@ def test_direct_to_coder_uses_coder_model(rt, fake_ollama):
     assert "qwen2.5-coder:7b" in s.models_used
 
 
-def test_plan_runs_in_order_passes_results_merges_and_reviews(rt, fake_ollama):
+def test_plan_assembles_all_step_answers_without_llm_merge(rt, fake_ollama):
+    """Gerçek hata (2026-10-31): LLM birleştirmesi 3 adımdan sadece kodu döndürdü. Artık kodla birleştirilir."""
     s = Script(
-        planner=[plan_steps([("s1", "coder", "Kodu yaz", []), ("s2", "general", "Kodu açıkla", ["s1"])])],
-        answers=[answer("KOD"), answer("AÇIKLAMA"), answer("NİHAİ CEVAP")],
+        planner=[plan_steps([("s1", "coder", "Kodu yaz", []), ("s2", "general", "Yöneticiye açıkla", ["s1"]),
+                             ("s3", "general", "Commit mesajı öner", ["s1"])])],
+        answers=[answer("KOD"), answer("AÇIKLAMA"), answer("COMMIT")],
         reviews=[review("ok")],
     )
-    res = run(rt, fake_ollama, s, "Bir Python fonksiyonu yaz ve ne yaptığını açıkla")
-    assert res.status == "succeeded" and res.answer == "NİHAİ CEVAP"
-    assert res.mode == "plan" and [st.status for st in res.steps] == ["succeeded", "succeeded"]
-    # s2, s1'in sonucunu input_data içinde görmeli
+    res = run(rt, fake_ollama, s, "Kod yaz, açıkla ve commit mesajı öner")
+    assert res.status == "succeeded" and res.mode == "plan"
+    for part in ("### Kodu yaz", "KOD", "### Yöneticiye açıkla", "AÇIKLAMA", "### Commit mesajı öner", "COMMIT"):
+        assert part in res.answer
+    assert res.answer.index("KOD") < res.answer.index("AÇIKLAMA") < res.answer.index("COMMIT")
+    # 3 adım = 3 cevap çağrısı (coder da GeneralAnswer şemasını kullanır); birleştirme için 4. çağrı YOK
+    assert s.calls["GeneralAnswer"] == 3 and s.calls["RoutePlan"] == 1
     s2_user = s.user_messages["GeneralAnswer"][1]
     assert "previous_results" in s2_user and "KOD" in s2_user
-    # birleştirme adımı tüm sonuçları görmeli
-    merge_user = s.user_messages["GeneralAnswer"][2]
-    assert "step_results" in merge_user and "AÇIKLAMA" in merge_user
-    assert res.review.performed and res.review.verdict == "ok" and not res.review.revised
+    assert res.review.performed and res.review.verdict == "ok" and not res.warnings
 
 
-def test_review_issues_trigger_one_revision(rt, fake_ollama):
+def test_llm_merge_still_available(rt, fake_ollama):
+    rt.settings.conductor.merge = "llm"
     s = Script(
         planner=[plan_steps([("s1", "general", "a", []), ("s2", "general", "b", ["s1"])])],
-        answers=[answer("A"), answer("B"), answer("İLK"), answer("DÜZELTİLMİŞ")],
-        reviews=[review("issues", ["eksik"]), review("ok")],
+        answers=[answer("A"), answer("B"), answer("NİHAİ")],
+        reviews=[review("ok")],
     )
-    res = run(rt, fake_ollama, s, "İki parçalı bir iş yap")
-    assert res.answer == "DÜZELTİLMİŞ" and res.review.revised and res.review.verdict == "ok"
-    assert "reviewer_issues" in s.user_messages["GeneralAnswer"][3]
+    res = run(rt, fake_ollama, s, "İki parçalı iş")
+    assert res.answer == "NİHAİ"
+    assert "step_results" in s.user_messages["GeneralAnswer"][2]
+
+
+def test_missing_parts_are_appended_not_overwritten(rt, fake_ollama):
+    s = Script(
+        planner=[plan_steps([("s1", "coder", "Kodu yaz", []), ("s2", "general", "Açıkla", ["s1"])])],
+        answers=[answer("KOD"), answer("AÇIKLAMA"), answer("COMMIT MESAJI")],
+        reviews=[review("issues", missing=["commit mesajı yok"]), review("ok")],
+    )
+    res = run(rt, fake_ollama, s, "Kod yaz, açıkla ve commit mesajı öner")
+    assert res.review.revised and res.review.verdict == "ok"
+    assert "KOD" in res.answer and "AÇIKLAMA" in res.answer
+    assert res.answer.rstrip().endswith("COMMIT MESAJI") and "### Ek" in res.answer
+    assert "missing_parts" in s.user_messages["GeneralAnswer"][2]
     assert not res.warnings
 
 
-def test_review_still_issues_after_revision_warns(rt, fake_ollama):
+def test_review_notes_without_missing_parts_do_not_trigger_revision(rt, fake_ollama):
+    """Gerçek hata: 8B reviewer kodda olmayan hatalar buldu. Notlar artık düzeltme tetiklemez, 'doğrulanmadı' etiketlenir."""
     s = Script(
         planner=[plan_steps([("s1", "general", "a", []), ("s2", "general", "b", [])])],
-        answers=[answer("A"), answer("B"), answer("İLK"), answer("İKİNCİ")],
-        reviews=[review("issues", ["yanlış"]), review("issues", ["hâlâ yanlış"])],
+        answers=[answer("A"), answer("B")],
+        reviews=[review("issues", issues=["parametre kullanılmıyor"])],
     )
     res = run(rt, fake_ollama, s, "İki parçalı bir iş yap")
-    assert res.status == "succeeded" and res.answer == "İKİNCİ"
-    assert any("hâlâ sorun" in w for w in res.warnings)
+    assert res.status == "succeeded" and not res.review.revised
+    assert s.calls["ReviewResult"] == 1 and s.calls["GeneralAnswer"] == 2
+    assert any("doğrulanmadı" in w and "parametre" in w for w in res.warnings)
+
+
+def test_missing_parts_still_missing_after_revision_warns(rt, fake_ollama):
+    s = Script(
+        planner=[plan_steps([("s1", "general", "a", []), ("s2", "general", "b", [])])],
+        answers=[answer("A"), answer("B"), answer("EK")],
+        reviews=[review("issues", missing=["X yok"]), review("issues", missing=["X hâlâ yok"])],
+    )
+    res = run(rt, fake_ollama, s, "İki parçalı bir iş yap")
+    assert res.status == "succeeded" and res.review.revised
+    assert any("eksik kalmış olabilir" in w and "X hâlâ yok" in w for w in res.warnings)
 
 
 def test_reviewer_failure_returns_answer_with_warning(rt, fake_ollama):
     s = Script(
         planner=[plan_steps([("s1", "general", "a", []), ("s2", "general", "b", [])])],
-        answers=[answer("A"), answer("B"), answer("NİHAİ")],
+        answers=[answer("A"), answer("B")],
         reviews=["bozuk"] * 3,
     )
     res = run(rt, fake_ollama, s, "İki parçalı bir iş yap")
-    assert res.status == "succeeded" and res.answer == "NİHAİ"
+    assert res.status == "succeeded" and "A" in res.answer and "B" in res.answer
     assert any("Gözden geçirme yapılamadı" in w for w in res.warnings)
 
 
 def test_failed_step_skips_dependents(rt, fake_ollama):
     s = Script(
         planner=[plan_steps([("s1", "general", "a", []), ("s2", "general", "b", ["s1"]), ("s3", "general", "c", [])])],
-        answers=["bozuk"] * 3 + [answer("C"), answer("NİHAİ")],
+        answers=["bozuk"] * 3 + [answer("C")],
         reviews=[review("ok")],
     )
     res = run(rt, fake_ollama, s, "Üç parçalı iş")
@@ -153,6 +182,7 @@ def test_failed_step_skips_dependents(rt, fake_ollama):
     assert st["s1"].status == "failed" and st["s2"].status == "failed" and "bağımlılık" in st["s2"].error
     assert st["s3"].status == "succeeded"
     assert res.status == "succeeded" and any("adım başarısız" in w for w in res.warnings)
+    assert "üretilemedi" in res.answer and "C" in res.answer
 
 
 def test_invalid_plan_falls_back_to_general(rt, fake_ollama):
@@ -258,3 +288,40 @@ def test_cli_do_subprocess(fake_ollama, tmp_path: Path):
                        capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "Komut satırından cevap." in r.stdout and "yönlendirme: local" in r.stdout
+
+
+# ---------------------------------------------------------------- karmaşıklık sinyali (gerçek istekler)
+
+SAAS = ("Çok kiracılı (multi-tenant) bir SaaS için mikroservis mimarisini; veri izolasyonu, kimlik doğrulama, "
+        "ölçekleme ve maliyet ödünleşimleriyle birlikte ayrıntılı tasarla.")
+CSV = ("Bir CSV dosyasındaki satışları aylara göre toplayan bir Python fonksiyonu yaz, sonra bu kodu programcı "
+       "olmayan bir yöneticiye 3 maddede Türkçe açıkla ve en sonunda İngilizce kısa bir commit mesajı öner.")
+
+
+def test_complexity_scores_on_real_requests():
+    from kayaai.conductor.complexity import complexity_signals
+
+    four = RoutePlan.model_validate({"mode": "plan", "steps": [
+        {"id": f"s{i}", "agent": "general", "objective": "x"} for i in range(4)]})
+    three = RoutePlan.model_validate({"mode": "plan", "steps": [
+        {"id": f"s{i}", "agent": "general", "objective": "x"} for i in range(3)]})
+    assert complexity_signals(SAAS, four)[0] >= 3
+    assert complexity_signals(CSV, three)[0] < 3
+    assert complexity_signals("Türkiye'nin başkenti neresi?", RoutePlan(mode="direct", agent="general"))[0] == 0
+    assert complexity_signals("x" * 300)[0] == 1
+
+
+def test_planner_says_no_but_signals_say_claude(rt, fake_ollama):
+    s = Script(planner=[plan_steps([(f"s{i}", "general", f"bölüm {i}", []) for i in range(1, 5)])],
+               answers=[answer(f"B{i}") for i in range(1, 5)], reviews=[review("ok")])
+    res = run(rt, fake_ollama, s, SAAS)
+    assert res.routing.needs_claude and res.routing.decision == "local_with_warning"
+    assert "karmaşıklık sinyalleri" in res.routing.reason and res.routing.complexity_score >= 3
+    assert any("Claude ile muhtemelen daha iyi" in w for w in res.warnings)
+
+
+def test_signals_route_to_inbox_when_claude_on(rt, fake_ollama):
+    rt.claude.enable()
+    s = Script(planner=[plan_steps([(f"s{i}", "general", f"bölüm {i}", []) for i in range(1, 5)])], answers=[])
+    res = run(rt, fake_ollama, s, SAAS)
+    assert res.status == "waiting_claude" and s.calls["GeneralAnswer"] == 0

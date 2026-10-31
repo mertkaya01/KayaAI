@@ -11,9 +11,12 @@ from .base import LLMWorker
 
 
 class ReviewResult(BaseModel):
-    verdict: Literal["ok", "issues"] = Field(description="'ok' if the answer fully and correctly does the request")
-    issues: list[str] = Field(default_factory=list, description="Concrete problems found (empty if verdict is ok)")
-    suggestion: str = Field("", description="How to fix the answer, if there are issues")
+    verdict: Literal["ok", "issues"] = Field(description="'ok' if every part of the request is answered in the right language")
+    missing_parts: list[str] = Field(
+        default_factory=list, description="Parts of the request that the answer does not contain at all"
+    )
+    issues: list[str] = Field(default_factory=list, description="Other clear problems (e.g. wrong language); not code style")
+    suggestion: str = Field("", description="Short hint on how to complete the answer")
 
 
 class ReviewerWorker(LLMWorker):
@@ -23,15 +26,18 @@ class ReviewerWorker(LLMWorker):
     output_model: ClassVar[type[BaseModel]] = ReviewResult
     system_prompt: ClassVar[str] = (
         "You are the reviewer agent of kayaAI. You receive a user's request and another agent's answer as data. "
-        "Check strictly whether the answer does what was requested: correctness, completeness, language "
-        "(the answer must be in the language the user wrote in, unless a translation was requested), and "
-        "obvious factual or logical errors. Do not rewrite the answer. Report 'ok' only if there is no real "
-        "problem; otherwise list concrete issues and a short suggestion. Write issues in the user's language."
+        "Your job is a COMPLETENESS check: split the request into its parts (e.g. 'write code', 'explain it', "
+        "'suggest a commit message') and check that each part is present in the answer. Put every part that is "
+        "missing into missing_parts. Also check the language: the answer must be in the user's language unless "
+        "another language or a translation was requested. "
+        "Do NOT judge code correctness, style or best practices — you cannot run the code and such judgements "
+        "are unreliable. Do not rewrite the answer. Report 'ok' if all parts are present. "
+        "Write missing_parts and issues in the user's language."
     )
 
     def validate(self, task: Task, output: BaseModel) -> ValidationResult:
         assert isinstance(output, ReviewResult)
         errors = []
-        if output.verdict == "issues" and not any(i.strip() for i in output.issues):
-            errors.append("verdict 'issues' ama issues listesi boş")
+        if output.verdict == "issues" and not any(i.strip() for i in [*output.issues, *output.missing_parts]):
+            errors.append("verdict 'issues' ama missing_parts ve issues boş")
         return ValidationResult(passed=not errors, validator="reviewer.semantic", errors=errors)

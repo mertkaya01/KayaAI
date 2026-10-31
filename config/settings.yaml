@@ -44,6 +44,10 @@ conductor:
   max_steps: 4
   review: plan
   max_revisions: 1
+  # Çok adımlı işte nihai cevap: assemble (adım cevapları başlıklarla, LLM'siz) | llm (genel ajan yeniden yazar)
+  merge: assemble
+  # Karmaşıklık skoru (adım sayısı, mimari/tasarım/ödünleşim gibi kelimeler, uzunluk) >= bu değer -> Claude önerilir
+  claude_threshold: 3
 
 logging:
   level: INFO

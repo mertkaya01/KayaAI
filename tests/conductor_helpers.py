@@ -23,8 +23,9 @@ def plan_steps(steps: list[tuple[str, str, str, list[str]]]) -> str:
                        "steps": [{"id": i, "agent": a, "objective": o, "depends_on": d} for i, a, o, d in steps]})
 
 
-def review(verdict: str, issues: list[str] | None = None) -> str:
-    return json.dumps({"verdict": verdict, "issues": issues or [], "suggestion": "düzelt" if issues else ""})
+def review(verdict: str, issues: list[str] | None = None, missing: list[str] | None = None) -> str:
+    return json.dumps({"verdict": verdict, "missing_parts": missing or [], "issues": issues or [],
+                       "suggestion": "tamamla" if (issues or missing) else ""})
 
 
 class Script:

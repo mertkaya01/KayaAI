@@ -11,6 +11,15 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 - `waiting_claude` görev durumu (Claude kutusu için; yeniden başlatmada korunur, iptal edilebilir)
 - Onaylanan Adım 3 planı: `docs/STEP3_PLAN.md`
 
+### Düzeltildi (3c — RTX 5070 Ti'deki `conductor_check` sonuçlarına göre)
+- **Birleştirme bilgi kaybediyordu:** 3 adımlı işte (kod → açıklama → commit mesajı) LLM birleştirmesi sadece kodu
+  döndürdü. Varsayılan artık `merge: assemble` — adım cevapları başlıklarla sırayla, LLM'siz; `llm` seçenek olarak kaldı.
+- **Gözden geçirici yanlış alarm veriyordu:** 8B model, kodda olmayan hatalar buldu (kullanılan parametreye
+  "kullanılmıyor" dedi). Reviewer artık yalnızca eksiklik + dil kontrol eder (`missing_parts`); eksik kısımlar
+  yazılıp cevaba "Ek" olarak eklenir, mevcut cevap ezilmez; diğer notlar "doğrulanmadı" uyarısı olur.
+- **Claude ihtiyacı hiç tetiklenmiyordu:** planlayıcıya ek olarak kodla karmaşıklık skoru (adım sayısı,
+  mimari/tasarım/ödünleşim/ölçekleme gibi ifadeler, uzunluk); skor ≥ `claude_threshold` (3) → Claude önerilir.
+
 ### Eklendi (Adım 3c — yerel şef)
 - `kayaai do "istek" [--local|--claude] [--json]` ve MCP `kayaai_do`: planla → yürüt → birleştir → gözden geçir
 - `planner` ajanı (`RoutePlan`: direct/plan, adımlar, needs_claude); plan geçerliliği kodla kontrol edilir,

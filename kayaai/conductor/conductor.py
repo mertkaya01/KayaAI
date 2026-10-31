@@ -19,6 +19,7 @@ from ..core.lang import detect_language
 from ..core.task import Task, TaskStatus, ValidationResult, utcnow
 from ..runtime import Runtime
 from ..workers.planner import FORBIDDEN_STEP_AGENTS, RoutePlan
+from .complexity import complexity_signals
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class StepView(BaseModel):
 class Routing(BaseModel):
     needs_claude: bool = False
     reason: str = ""
+    complexity_score: int = 0
     decision: Literal["local", "local_with_warning", "claude_inbox"] = "local"
     why: str = ""
 
@@ -49,8 +51,9 @@ class Routing(BaseModel):
 class Review(BaseModel):
     performed: bool = False
     verdict: str | None = None
-    issues: list[str] = Field(default_factory=list)
-    revised: bool = False
+    missing_parts: list[str] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)  # tavsiye niteliğinde; düzeltme tetiklemez
+    revised: bool = False  # eksik kısımlar eklendi mi
 
 
 class ConductorResult(BaseModel):
@@ -122,23 +125,22 @@ class Conductor:
         if len(succeeded) < len(result.steps):
             result.warnings.append(f"{len(result.steps) - len(succeeded)} adım başarısız oldu; cevap eksik olabilir.")
 
-        # Birleştirme: çok adımlıysa genel ajan tek cevap yazar; tek adımlıysa adımın cevabı nihaidir.
-        # `producer` = cevabı üreten (ajan, amaç, girdi); gözden geçirme sorun bulursa aynısı düzeltir.
-        if len(result.steps) > 1:
-            producer = ("general", self._merge_objective(request), {"step_results": outputs})
-            merged = self._ask(job, *producer)
+        # Birleştirme: tek adımlıysa adımın cevabı nihaidir. Çok adımlıysa varsayılan "assemble":
+        # adım cevapları başlıklarla sırayla (LLM'siz, bilgi kaybı yok). "llm": genel ajan yeniden yazar.
+        if len(result.steps) == 1:
+            answer = self._answer_of(outputs[succeeded[0].id])
+        elif self.settings.merge == "assemble":
+            answer = self._assemble(result.steps, outputs, request)
+        else:
+            merged = self._ask(job, "general", self._merge_objective(request), {"step_results": outputs})
             if merged.status != TaskStatus.SUCCEEDED:
                 self._fail_or_escalate(result, request, f"birleştirme başarısız: {merged.error}")
                 return
             answer = self._answer_of(merged.result)
-        else:
-            only = succeeded[0]
-            producer = (only.agent, only.objective, {})
-            answer = self._answer_of(outputs[only.id])
 
-        # Gözden geçirme (+ en fazla max_revisions düzeltme)
+        # Gözden geçirme: eksik kısım varsa tamamlanıp EKLENİR (mevcut cevap ezilmez)
         if self._should_review(plan):
-            answer = self._review_loop(job, request, answer, producer, result)
+            answer = self._review_loop(job, request, answer, result)
         result.answer = answer
         result.status = TaskStatus.SUCCEEDED.value if result.answer.strip() else TaskStatus.FAILED.value
         if not result.answer.strip():
@@ -176,9 +178,17 @@ class Conductor:
 
     def _route(self, plan: RoutePlan, force: Force, origin: Origin, request: str) -> Routing:
         claude_on = bool(self.rt.claude and self.rt.claude.is_enabled())
-        needs = plan.needs_claude or force == "claude"
-        reason = plan.claude_reason if plan.needs_claude else ("kullanıcı Claude istedi" if force == "claude" else "")
-        r = Routing(needs_claude=needs, reason=reason)
+        score, signals = complexity_signals(request, plan)
+        by_signals = score >= self.settings.claude_threshold
+        needs = plan.needs_claude or by_signals or force == "claude"
+        reasons = []
+        if plan.needs_claude:
+            reasons.append(f"planlayıcı: {plan.claude_reason}")
+        if by_signals:
+            reasons.append(f"karmaşıklık sinyalleri (skor {score}): " + "; ".join(signals))
+        if force == "claude":
+            reasons.append("kullanıcı Claude istedi")
+        r = Routing(needs_claude=needs, reason=" | ".join(reasons), complexity_score=score)
         if not needs:
             r.decision, r.why = "local", "yerel ajanlar yeterli (D15: önce yerel)"
         elif origin == "claude":
@@ -222,6 +232,20 @@ class Conductor:
             return ""
         return str(output.get("answer", ""))
 
+    @staticmethod
+    def _heading(objective: str) -> str:
+        first = objective.strip().splitlines()[0] if objective.strip() else ""
+        first = first.split(". ")[0].rstrip(" .:;")
+        return (first[:77] + "...") if len(first) > 80 else first
+
+    def _assemble(self, steps: list[StepView], outputs: dict[str, dict[str, Any]], request: str) -> str:
+        missing = _lang_note(request, "(bu kısım üretilemedi)", "(this part could not be produced)")
+        parts = []
+        for s in steps:
+            body = self._answer_of(outputs.get(s.id)) if s.id in outputs else missing
+            parts.append(f"### {self._heading(s.objective) or s.id}\n\n{body.strip()}")
+        return "\n\n".join(parts)
+
     def _merge_objective(self, request: str) -> str:
         return request + "\n\n" + _lang_note(
             request,
@@ -235,40 +259,52 @@ class Conductor:
         mode = self.settings.review
         return mode == "always" or (mode == "plan" and plan.mode == "plan")
 
-    def _review_loop(
-        self, job: Task, request: str, answer: str, producer: tuple[str, str, dict[str, Any]], result: ConductorResult
-    ) -> str:
+    def _review_loop(self, job: Task, request: str, answer: str, result: ConductorResult) -> str:
+        """Gözden geçirici yalnızca eksiklik + dil kontrol eder (8B model kod doğruluğunu güvenilir yargılayamadı).
+
+        missing_parts varsa: genel ajan eksik kısımları yazar ve cevaba "Ek" başlığıyla EKLENİR (en fazla
+        max_revisions kez). Diğer notlar düzeltme tetiklemez; tek bir "doğrulanmadı" uyarısı olarak gösterilir.
+        """
         if "reviewer" not in self.rt.workers:
             result.warnings.append("gözden geçirici ajan tanımlı değil; cevap kontrol edilmedi")
             return answer
         result.review.performed = True
+        notes: list[str] = []
         for revision in range(self.settings.max_revisions + 1):
             review = self._ask(job, "reviewer", _lang_note(
-                request, "Bu cevabın isteği doğru ve eksiksiz karşılayıp karşılamadığını kontrol et.",
-                "Check whether this answer correctly and completely fulfils the request."),
+                request, "Bu cevapta isteğin tüm parçalarının olup olmadığını kontrol et.",
+                "Check whether every part of the request is present in this answer."),
                 {"request": request, "answer": answer})
             if review.status != TaskStatus.SUCCEEDED or not review.result:
                 result.warnings.append("Gözden geçirme yapılamadı; cevap kontrol edilmeden döndü.")
                 return answer
-            result.review.verdict = review.result.get("verdict")
-            result.review.issues = list(review.result.get("issues", []))
-            self.rt.store.log_event(job.id, "review.result", review.result)
-            if result.review.verdict == "ok" or revision == self.settings.max_revisions:
+            r = review.result
+            self.rt.store.log_event(job.id, "review.result", r)
+            result.review.verdict = r.get("verdict")
+            result.review.missing_parts = [m for m in r.get("missing_parts", []) if str(m).strip()]
+            result.review.issues = [i for i in r.get("issues", []) if str(i).strip()]
+            notes = result.review.issues
+            if not result.review.missing_parts or revision == self.settings.max_revisions:
                 break
-            agent, objective, base_input = producer
-            fixed = self._ask(job, agent, objective, {
-                **base_input,
-                "previous_answer": answer,
-                "reviewer_issues": result.review.issues,
-                "reviewer_suggestion": review.result.get("suggestion", ""),
-            })
-            if fixed.status != TaskStatus.SUCCEEDED or not self._answer_of(fixed.result):
-                result.warnings.append("Düzeltme turu başarısız; ilk cevap döndü.")
-                return answer
-            answer = self._answer_of(fixed.result)
+            extra = self._ask(job, "general", request + "\n\n" + _lang_note(
+                request,
+                "(Not: Mevcut cevapta eksik kalan kısımları yaz; zaten var olanları tekrarlama.)",
+                "(Note: write only the parts that are missing from the current answer; do not repeat existing parts.)"),
+                {"current_answer": answer, "missing_parts": result.review.missing_parts})
+            text = self._answer_of(extra.result) if extra.status == TaskStatus.SUCCEEDED else ""
+            if not text.strip():
+                result.warnings.append("Eksik kısımlar tamamlanamadı.")
+                break
+            answer = f"{answer}\n\n### {_lang_note(request, 'Ek', 'Addendum')}\n\n{text.strip()}"
             result.review.revised = True
-        if result.review.verdict != "ok":
-            result.warnings.append("Gözden geçirici hâlâ sorun görüyor: " + "; ".join(result.review.issues[:3]))
+        if result.review.missing_parts and result.review.verdict != "ok":
+            result.warnings.append(
+                _lang_note(request, "Cevapta eksik kalmış olabilir: ", "The answer may still be missing: ")
+                + "; ".join(result.review.missing_parts[:3]))
+        if notes:
+            result.warnings.append(
+                _lang_note(request, "Gözden geçirici notları (doğrulanmadı): ", "Reviewer notes (unverified): ")
+                + "; ".join(notes[:3]))
         return answer
 
     # ------------------------------------------------------------------ hata / kapanış

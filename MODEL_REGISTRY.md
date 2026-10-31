@@ -70,6 +70,15 @@ Faz 10'da genişletilecek: kodlama, uzun bağlam, Türkçe-İngilizce çeviri ka
 Karar: `coder` ajanı → `coder-7b`. Örneklem küçük (5 görev); ajanın JSON çıktı uyumu `scripts/conductor_check.py`
 ile ayrıca doğrulanacak. VRAM: iki model birlikte ~10.6 GB (+ masaüstü) — 16 GB'a sığar.
 
+### Şef ölçümü (`scripts/conductor_check.py`, 2026-10-31)
+
+6/6 başarılı, mod 6/6, ajan seçimi 6/6, dil 6/6, ort. 7.7 sn (direct 1–3.6 sn; 3 adımlı 9.4 sn; 4 adımlı 27.5 sn).
+Bulgular: qwen3:8b (a) çok adımlı sonuçları birleştirirken bilgi kaybetti, (b) gözden geçirici olarak kod hakkında
+yanlış hatalar uydurdu, (c) planlayıcı olarak ağır bir mimari isteğinde bile Claude gerekmediğini söyledi.
+Sonuç: bu boyuttaki model **planlama ve yönlendirmede iyi**, **kod doğruluğu yargısında ve kendi sınırını
+bilmede güvenilmez** → birleştirme kodla, reviewer yalnızca eksiklik/dil, Claude önerisi kodla hesaplanan sinyallerle.
+qwen2.5-coder:7b yapılandırılmış JSON cevabı sorunsuz verdi (coder adımları ilk denemede geçti).
+
 ## Model değiştirme
 
 1. `ollama pull <etiket>`
