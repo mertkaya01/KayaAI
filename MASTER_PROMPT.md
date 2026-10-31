@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.5.0)
+## 12. Current state (v0.7.0)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -290,7 +290,9 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 2 | MCP server (8 tools) + Claude Code integration | [x] |
 | 3 | Two modes + conductor: Claude mode switch, agent definitions, local conductor (`kayaai do`), Claude inbox, Claude workspace generator | [x] Windows-verified incl. Opus 5.5 (Pro) processing the Claude inbox |
 | 4 | Local API (FastAPI, 127.0.0.1, token) + cross-process event stream | [x] Windows-verified |
-| 5 | Permission engine v2 (R0–R3, persistent approval queue) + sandboxed file tools | [~] code + tests done |
+| 5 | Permission engine v2 (R0–R3, persistent approval queue) + sandboxed file tools | [x] Windows-verified |
+| 6 | Control Center v1 (React + TS): system monitoring, agent cards, approval center, Claude toggle, CSP | [~] container e2e done; Windows pending |
+| 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [~] code + tests + container e2e; Windows `agents_check` pending |
 
 Note: everything built so far already works with Claude off; Claude Code is only an MCP *client*.
 

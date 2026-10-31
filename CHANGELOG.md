@@ -2,6 +2,28 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.7.0] - 2026-10-31
+
+### Eklendi (Adım 7 — ajan sistemi)
+- Uzman ajanlar `data` (tablo/sayı analizi) ve `document` (rapor, e-posta, özet, düzeltme)
+- Üretici → gözden geçirici akışı: ajan tanımında `review: {required, reviewer, checks}`; coder/data/document cevapları
+  incelenir; her sorun cevaptan birebir alıntı ister, alıntısı olmayan sorun kodla elenir; `code_syntax` kontrolü
+  Python/JSON/YAML bloklarını ayrıştırır (çalıştırmaz); ciddi sorunda bir tur revizyon (kabul / gerekçeli itiraz)
+- Anlaşmazlıklar: SQLite `disputes`; Claude modu açıksa iş taslak + iki görüşle Claude kutusuna, kapalıysa sahibe;
+  `kayaai disputes [list|show|resolve]`, `GET /api/disputes`, `POST /api/disputes/{id}/resolve`, MCP `kayaai_disputes`
+  (salt okunur), Control Center → Anlaşmazlıklar paneli; kutu öğelerinde `local_draft` + `disputes`
+- Geçici ajanlar (`data/agents`): izin tavanı (base ∩ yaratıcı), yerel planlayıcı önerisi (`new_agent`), MCP
+  `kayaai_agent_propose`, `kayaai agents new|promote|remove`, `/api/agents/{ad}/promote|remove`; kalıcı yapma =
+  en az bir başarılı kullanım + R2 sahip onayı (YAML önizlemesi); arayüzde "geçici" rozeti, kullanım, düğmeler
+- `conductor.disputes` (claude_first | owner), `conductor.time_budget_s`, `allow_temp_agents`, `max_temp_agents`
+- Olaylar: `dispute.opened|resolved`, `agent.created|promoted|removed`, `decision.summary`
+- `scripts/agents_check.py` (gerçek modelle ölçüm, ayrı veri klasöründe), `docs/REFERENCES.md`
+- Claude çalışma alanı talimatları: kutudaki anlaşmazlıklar, geçici ajan önerme
+
+### Değişti
+- Dal `main`'e birleştirildi; README sıfırdan kurulum için `main` + taşıma notu
+- İç yardımcı worker'lar planlayıcıya/arayüze/MCP'ye görünmez; MCP `kayaai_ask` yalnızca görünür ajanları kabul eder
+
 ## [0.6.0] - 2026-10-31
 
 ### Eklendi (Adım 6 — Control Center v1)

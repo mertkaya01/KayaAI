@@ -14,8 +14,9 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 1 | Yerel AI çekirdeği: Ollama istemcisi, orkestratör, görev geçmişi, genel worker, CLI | **Tamamlandı** — qwen3:8b ~138 token/sn, %100 GPU |
 | 2 | MCP sunucusu: Claude Code yerel modeli araç olarak çağırır | **Tamamlandı** — Claude Code → `kayaai_ask` → qwen3:8b doğrulandı |
 | 3–5 | Ajan ekibi + yerel şef, Claude modu, yerel API, izin motoru + dosya araçları | **Tamamlandı** (Windows'ta doğrulandı) |
-| 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Yeni** — Windows'ta doğrulama bekleniyor |
-| 7+ | Ajan sistemi, asistan çalışma alanı, hafıza, iş modülleri, ekran/ses, zamanlama | Planlandı |
+| 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Tamamlandı** — Windows'ta doğrulama bekleniyor |
+| 7 | Ajan sistemi: uzmanlar (coder, data, document), gözden geçirme, anlaşmazlık yükseltme, geçici ajanlar | **Yeni** — Windows'ta doğrulama bekleniyor |
+| 8+ | Asistan çalışma alanı, hafıza (RAG), iş modülleri, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -31,14 +32,22 @@ Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
 PowerShell açın (Başlat → "PowerShell"). Yönetici yetkisi gerekmez.
 
-**1. Projeyi indirin**
+**1. Projeyi indirin** (Git ve isteğe bağlı olarak Node.js LTS kurulu olmalı — Node yoksa arayüz derlenmez, gerisi çalışır)
 
 ```powershell
 cd $HOME\Documents
 git clone https://github.com/mertkaya01/KayaAI.git
 cd KayaAI
-git checkout claude/eloquent-goldberg-co7wjy
 ```
+
+`main` dalı Windows'ta doğrulanmış son sürümdür. Geliştirme sürümü `claude/eloquent-goldberg-co7wjy` dalındadır
+(`git checkout claude/eloquent-goldberg-co7wjy`).
+
+> **Sıfırdan kurulum / başka klasöre taşıma:** görev geçmişi, onaylar, erişim anahtarı ve sonradan oluşturulan
+> ajanlar `data\` klasöründedir ve git'e girmez. Eskisini korumak için eski kurulumun `data\` klasörünü yenisine
+> kopyalayın. Claude modu kullanıyorsanız kurulumdan sonra `scripts\windows\mcp_setup.ps1` ve
+> `.venv\Scripts\kayaai claude sync` çalıştırın (çalışma alanı yeni klasörün Python'unu göstermeli).
+> `~\kayaAI-files` (ajanların dosya klasörü) repodan bağımsızdır, etkilenmez.
 
 **2. Ortam denetimi (salt okunur, hiçbir şey kurmaz)**
 
@@ -183,14 +192,35 @@ kayaai models                         # model kayıt defteri
 kayaai audit                          # Python ile ortam denetimi
 kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi başlatır)
 kayaai claude [on|off]                # Claude modu: durum / aç / kapat (varsayılan kapalı)
-kayaai agents                         # tanımlı ajanlar (config/agents/*.yaml)
-kayaai do "istek"                     # şef: planla → ajanlara dağıt → birleştir → gözden geçir
+kayaai agents                         # ajanlar (config/agents + data/agents), geçici olanlar ve kullanımları
+kayaai do "istek"                     # şef: planla → ajanlara dağıt → gözden geçir → birleştir
+kayaai disputes                       # ajan anlaşmazlıkları; show <id> / resolve <id> --side producer|reviewer
 kayaai inbox                          # Claude kutusu (Claude gerektiren işler); run <id> → yerelde yap
-kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder / reviewer)
+kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder / data / document)
 ```
 
 `Activate.ps1` "running scripts is disabled" hatası verirse, sanal ortamı etkinleştirmeden:
 `powershell -ExecutionPolicy Bypass -File scripts\windows\run.ps1 ask "Merhaba"`
+
+## Ajan ekibi (Adım 7)
+
+| Ajan | İş | Yerel model | Gözden geçirme |
+|---|---|---|---|
+| `general` | sohbet, soru-cevap, özet, çeviri | qwen3:8b | — (hızlı kalsın) |
+| `coder` | kod yazma/açıklama | qwen2.5-coder:7b | reviewer + kod sözdizimi kontrolü (kod **çalıştırılmaz**) |
+| `data` | tablo/sayı analizi, hesap adımlarıyla | qwen3:8b | reviewer |
+| `document` | rapor, e-posta, özet, metin düzeltme | qwen3:8b | reviewer |
+
+- **Üretici → gözden geçirici:** uzman ajanın cevabını `reviewer` inceler. Her sorun için cevaptan birebir alıntı
+  ister; alıntısı cevapta olmayan (uydurma) sorunlar kodla elenir. Python/JSON/YAML blokları ayrıştırılır.
+  Ciddi sorun varsa üretici **bir tur** düzeltir ya da gerekçesiyle itiraz eder.
+- **Anlaşmazlık:** itiraz edilen sorun kayda geçer. Claude modu açıksa iş iki görüşle Claude kutusuna gider (Opus
+  karar verir); kapalıysa karar senin: `kayaai disputes` ya da Control Center → **Anlaşmazlıklar**.
+- **Geçici ajanlar:** uygun ajan yoksa yerel planlayıcı (ya da Claude şef, ya da sen: `kayaai agents new`) mevcut bir
+  ajana dayanan geçici bir ajan oluşturur (`data\agents\`). Dayandığı ajandan fazla izin alamaz, cevapları hep
+  gözden geçirilir. En az bir başarılı kullanımdan sonra `kayaai agents promote <ad>` (ya da kartındaki **Kalıcı yap**)
+  → onay merkezinde senin onayınla kalıcı olur. `kayaai agents remove <ad>` geçici ajanı siler.
+- Gerçek modelle ölçüm: `python scripts\agents_check.py` → `data\agents_check.json` (ayrı veri klasöründe çalışır).
 
 ## Yapılandırma
 

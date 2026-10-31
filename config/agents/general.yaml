@@ -9,6 +9,9 @@
 #   claude_role  : Claude alt ajanının talimatı (boşsa açıklamadan üretilir; yerel `role` kullanılmaz)
 #   permissions  : gereken izinler (llm.inference dışındakiler onay ister)
 #   limits       : timeout_s
+#   review       : (Adım 7) required: true → cevabı `reviewer` ile gözden geçirilir; checks: [code_syntax]
+#                  (kod blokları ayrıştırılır, çalıştırılmaz). Sohbet hızlı kalsın diye general'de kapalı.
+#   Sonradan oluşturulan (geçici / kalıcı yapılmış) ajanlar: data/agents/*.yaml — bkz. kayaai agents
 #   status       : permanent | temporary
 name: general
 description: Genel sohbet, soru-cevap, özet, çeviri, planlama ve sınıflandırma (Türkçe/İngilizce)

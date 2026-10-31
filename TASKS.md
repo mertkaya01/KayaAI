@@ -79,8 +79,22 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   `setup.ps1` derleme adımı — Python 199 test, Vitest 7 test, Playwright uçtan uca 23 kontrol (konteyner);
   Windows'ta doğrulama bekleniyor
 
+## Adım 7 — Ajan sistemi ([referans inceleme](docs/REFERENCES.md))
+Hedef (MASTER_PROMPT §13): yerel uzmanlar, gözden geçirici, anlaşmazlık yükseltme, geçici ajanlar.
+Kabul: üretici → gözden geçirici akışı çalışır; anlaşmazlık yükseltilir.
+- [x] 0 — Dal `main`'e birleştirildi (mertkaya01/KayaAI#2); referans repolar incelendi, lisansları kontrol edildi
+- [~] 7a — `data` ve `document` uzmanları; ajan başına `review` (gözden geçirici + `code_syntax` kontrolü); kanıtlı
+  gözden geçirme (alıntısız sorun kodla elenir); bir tur revizyon (kabul/itiraz); zaman bütçesi; `decision.summary`
+- [~] 7b — `disputes` tablosu; Claude açık → kutu (taslak + iki görüş), kapalı → sahip; `kayaai disputes`,
+  `/api/disputes`, MCP salt-okunur `kayaai_disputes`, arayüzde Anlaşmazlıklar paneli
+- [~] 7c — geçici ajanlar (`data/agents`): izin tavanı, planlayıcı önerisi (`new_agent`), MCP `kayaai_agent_propose`,
+  `kayaai agents new|promote|remove`, kalıcı yapma = başarılı kullanım + R2 sahip onayı; arayüzde rozet ve düğmeler
+- Testler: Python 241, Vitest 7, Playwright (Adım 7 akışı 17 kontrol); Windows: `scripts/agents_check.py` bekleniyor
+- Riskler: 8B gözden geçiricinin yanlış alarmı (alıntı şartı + itiraz hakkıyla sınırlandı; ölçülecek); ek GPU süresi
+  (zaman bütçesi, yalnızca uzmanlar gözden geçirilir)
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 5 tamamlandı (2026-10-31). Şu an: Adım 6 Windows doğrulaması → Adım 7 (ajan sistemi).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 5 tamamlandı (2026-10-31). Şu an: Adım 6 + 7 Windows doğrulaması → Adım 8 (Asistan çalışma alanı).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:
