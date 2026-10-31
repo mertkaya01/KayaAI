@@ -46,7 +46,7 @@ def build_runtime(
     recovered = store.recover_interrupted()
     registry = ModelRegistry.load(settings.models_file)
     llm = llm or OllamaClient(settings.ollama)
-    workers = workers or default_workers()
+    workers = workers or default_workers(registry, settings.config_dir / "agents")
     orch = Orchestrator(
         store, workers, llm, registry, settings.orchestrator, settings.permissions, approver=approver
     )

@@ -6,6 +6,7 @@
     kayaai task <id>         Görev ayrıntısı ve olayları
     kayaai models            Model kayıt defteri ve kurulu modeller
     kayaai audit             Ortam denetimi (data/audit_report.json)
+    kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
     kayaai claude [on|off]   Claude modu durumu / aç / kapat
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
@@ -238,6 +239,29 @@ def cmd_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agents(args: argparse.Namespace) -> int:
+    from .agents.definitions import AgentDefinitionError
+    from .workers import default_workers
+
+    settings = load_settings()
+    registry = ModelRegistry.load(settings.models_file)
+    try:
+        workers = default_workers(registry, settings.config_dir / "agents")
+    except AgentDefinitionError as exc:
+        _print(f"[HATA] Ajan tanımı geçersiz: {exc}")
+        return 1
+    for w in workers.all():
+        d = getattr(w, "definition", None)
+        spec = w.model_spec(registry)
+        _print(
+            f"{w.name:<10} yerel model: {spec.name:<16} çıktı: {w.output_model.__name__:<14} "
+            f"Claude karşılığı: {d.claude_tier if d else '-':<7} izinler: {', '.join(p.value for p in w.required_permissions)}"
+        )
+        _print(f"{'':<10} {w.description}")
+    _print(f"\nTanımlar: {settings.config_dir / 'agents'}")
+    return 0
+
+
 def cmd_claude(args: argparse.Namespace) -> int:
     from .core.claude_mode import ClaudeMode
     from .core.store import TaskStore
@@ -312,6 +336,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("models", help="model kayıt defteri").set_defaults(func=cmd_models)
     sub.add_parser("audit", help="ortam denetimi raporu").set_defaults(func=cmd_audit)
+    sub.add_parser("agents", help="tanımlı ajanlar (config/agents)").set_defaults(func=cmd_agents)
+
     c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
     c.add_argument("action", nargs="?", choices=["status", "on", "off"], default="status")
     c.add_argument("--json", action="store_true")

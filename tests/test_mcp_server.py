@@ -21,7 +21,7 @@ from .conftest import good_answer
 
 EXPECTED_TOOLS = {
     "kayaai_ask", "kayaai_submit_task", "kayaai_run_task", "kayaai_task_status",
-    "kayaai_cancel_task", "kayaai_list_tasks", "kayaai_list_models", "kayaai_health",
+    "kayaai_cancel_task", "kayaai_list_tasks", "kayaai_list_models", "kayaai_health", "kayaai_list_agents",
 }
 
 

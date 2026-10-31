@@ -11,6 +11,13 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 - `waiting_claude` görev durumu (Claude kutusu için; yeniden başlatmada korunur, iptal edilebilir)
 - Onaylanan Adım 3 planı: `docs/STEP3_PLAN.md`
 
+### Eklendi (Adım 3b — ajan tanımları)
+- `config/agents/*.yaml` tek kaynak ajan tanımları: `general`, `reviewer`, `coder`; kod yazmadan yeni ajan
+- `kayaai/agents/definitions.py`: doğrulamalı yükleyici (dosya adı, bilinmeyen/aday model, izinler, çıktı türü)
+- `reviewer` worker (`ReviewResult`: verdict / issues / suggestion)
+- Ajan başına zaman aşımı (`limits.timeout_s`), `kayaai agents`, MCP `kayaai_list_agents`
+- `scripts/coder_bench.py`: kod modeli karşılaştırması; varsayılan kod çalıştırmaz, `--execute` onay ister
+
 ### Değişti
 - `MASTER_PROMPT.md` v2: ilk MASTER_PROMPT + "Architecture & UI Design" prompt'u + sahibinin kararları
   (D1–D16) tek belgede. Claude isteğe bağlı bir "Claude modu" (aç/kapa); kayaAI onsuz tam çalışır;

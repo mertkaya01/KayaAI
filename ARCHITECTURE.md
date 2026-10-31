@@ -90,6 +90,14 @@ Claude isteğe bağlıdır (MASTER_PROMPT v2 D2). `kayaai/core/claude_mode.py`:
   güncellenir. Durumlar: `off` / `on_no_contact` / `on_recent_contact` / `on_stale_contact`.
 - `waiting_claude` görev durumu Claude kutusu (3d) içindir; terminal değildir, yeniden başlatmada korunur.
 
+## Ajan tanımları (Adım 3b)
+
+`config/agents/<ad>.yaml` → `kayaai/agents/definitions.py` → yerel worker. Alanlar: `name`, `description`,
+`output` (`answer` → `GeneralAnswer`, `review` → `ReviewResult`), `role` (sistem talimatı), `local_model`
+(models.yaml anahtarı; aday model reddedilir), `claude_tier` (Claude modunda karşılığı, 3e), `permissions`,
+`limits.timeout_s`, `status`. Şema ve anlamsal doğrulama çıktı türünün worker sınıfından gelir.
+Tanım klasörü yoksa yerleşik `general` worker kullanılır.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

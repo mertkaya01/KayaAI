@@ -34,6 +34,12 @@ Approver = Callable[[Task, list[str]], bool]
 _POLL_S = 0.1
 
 
+def _agent_timeout(worker: Any) -> float | None:
+    """config/agents tanımındaki limits.timeout_s (varsa)."""
+    definition = getattr(worker, "definition", None)
+    return definition.limits.timeout_s if definition is not None else None
+
+
 class Orchestrator:
     def __init__(
         self,
@@ -76,7 +82,7 @@ class Orchestrator:
             objective=objective,
             input=input or {},
             expected_output=expected_output or w.output_model.__name__,
-            timeout_s=timeout_s or self.settings.default_timeout_s,
+            timeout_s=timeout_s or _agent_timeout(w) or self.settings.default_timeout_s,
             permissions=sorted({p.value for p in w.required_permissions} | set(permissions)),
             depends_on=list(depends_on),
             parent_id=parent_id,

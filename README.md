@@ -121,6 +121,8 @@ kayaai models                         # model kayıt defteri
 kayaai audit                          # Python ile ortam denetimi
 kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi başlatır)
 kayaai claude [on|off]                # Claude modu: durum / aç / kapat (varsayılan kapalı)
+kayaai agents                         # tanımlı ajanlar (config/agents/*.yaml)
+kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder / reviewer)
 ```
 
 `Activate.ps1` "running scripts is disabled" hatası verirse, sanal ortamı etkinleştirmeden:

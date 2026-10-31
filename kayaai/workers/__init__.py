@@ -24,11 +24,22 @@ class WorkerRegistry:
     def names(self) -> list[str]:
         return list(self._workers)
 
+    def all(self) -> list[Worker]:
+        return list(self._workers.values())
+
     def __contains__(self, name: str) -> bool:
         return name in self._workers
 
 
-def default_workers() -> WorkerRegistry:
+def default_workers(registry=None, agents_dir=None) -> WorkerRegistry:  # noqa: ANN001
+    """Ajanları config/agents/*.yaml'dan kurar. Tanım yoksa yerleşik genel worker kullanılır."""
+    if registry is not None and agents_dir is not None:
+        from ..agents.definitions import build_workers
+
+        reg = build_workers(agents_dir, registry)
+        if "general" not in reg:
+            reg.register(GeneralWorker())
+        return reg
     reg = WorkerRegistry()
     reg.register(GeneralWorker())
     return reg

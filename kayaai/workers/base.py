@@ -106,8 +106,12 @@ class LLMWorker(Worker):
         """Deterministik düzeltmeler (ör. yanlış dil etiketi). Alt sınıflar genişletebilir."""
         return output
 
+    def model_spec(self, registry: ModelRegistry):  # -> ModelSpec
+        """Bu worker'ın kullanacağı yerel model. Tanımlı ajanlar (config/agents) bunu ezer."""
+        return registry.model_for_worker(self.name)
+
     def run(self, task: Task, ctx: WorkerContext) -> BaseModel:
-        spec = ctx.registry.model_for_worker(self.name)
+        spec = self.model_spec(ctx.registry)
         messages = self.build_messages(task)
         schema = self.output_model.model_json_schema()
         errors: list[str] = []

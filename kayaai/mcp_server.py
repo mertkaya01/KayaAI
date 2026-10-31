@@ -69,6 +69,19 @@ class AskResult(BaseModel):
     result: dict[str, Any]
 
 
+class AgentInfo(BaseModel):
+    name: str
+    description: str
+    output: str
+    local_model: str
+    claude_tier: str
+    permissions: list[str]
+
+
+class AgentList(BaseModel):
+    agents: list[AgentInfo]
+
+
 class TaskList(BaseModel):
     tasks: list[TaskView]
     total_in_history: int
@@ -193,8 +206,11 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
             raise ToolError(str(exc)) from exc
         _raise_if_not_succeeded(task)
         res = task.result or {}
+        answer = res.get("answer")
+        if answer is None and "verdict" in res:  # reviewer çıktısı
+            answer = f"verdict: {res['verdict']}" + (f" — {'; '.join(res.get('issues', []))}" if res.get("issues") else "")
         return AskResult(
-            answer=str(res.get("answer", "")),
+            answer=str(answer or ""),
             task_id=task.id,
             model=task.model,
             language=res.get("language"),
@@ -272,6 +288,30 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
         limit = max(1, min(limit, 200))
         tasks = r.store.list_tasks(limit=limit, status=TaskStatus(status) if status else None)
         return TaskList(tasks=[_view(t) for t in tasks], total_in_history=r.store.count())
+
+    @server.tool(
+        name="kayaai_list_agents",
+        description=(
+            "List kayaAI's local agents (name, what they do, local model). Use an agent name as the 'worker' "
+            "argument of kayaai_ask, e.g. 'coder' for code or 'reviewer' to check an answer."
+        ),
+    )
+    def kayaai_list_agents() -> AgentList:
+        r = rt()
+        out = []
+        for w in r.workers.all():
+            d = getattr(w, "definition", None)
+            out.append(
+                AgentInfo(
+                    name=w.name,
+                    description=w.description,
+                    output=w.output_model.__name__,
+                    local_model=w.model_spec(r.registry).name,
+                    claude_tier=d.claude_tier if d else "none",
+                    permissions=[p.value for p in w.required_permissions],
+                )
+            )
+        return AgentList(agents=out)
 
     @server.tool(name="kayaai_list_models", description="List kayaAI's model registry and which models are installed.")
     def kayaai_list_models() -> ModelList:

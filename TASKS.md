@@ -50,10 +50,11 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 ## Adım 3 — İki mod + şef ([plan](docs/STEP3_PLAN.md))
 - [~] 3a Claude modu: `claude.enabled` ayarı, SQLite'ta kalıcı aç/kapa, "son temas" (MCP çağrılarından),
   `waiting_claude` görev durumu, `kayaai claude status|on|off`, doctor + `kayaai_health` gösterimi — testli, Windows'ta doğrulanacak
-- [ ] 3b Ajan tanımları (`config/agents/*.yaml`): general, reviewer, coder
+- [~] 3b Ajan tanımları (`config/agents/*.yaml`): general, reviewer, coder; `kayaai agents`; MCP `kayaai_list_agents`;
+  `scripts/coder_bench.py` (qwen3:8b vs qwen2.5-coder:7b) — testli, Windows'ta benchmark bekleniyor
 - [ ] 3c Yerel şef (`kayaai do`): plan → doğrula → yürüt → birleştir → gözden geçir; yönlendirme kuralları
 - [ ] 3d Claude kutusu (MCP): inbox / complete / release; kapatınca yerelde yapma
 - [ ] 3e Claude çalışma klasörü üreticisi (`CLAUDE.md`, `.claude/agents/`, `.mcp.json`)
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: Adım 3b.
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: Adım 3c (yerel şef).
