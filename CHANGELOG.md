@@ -2,6 +2,27 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.11.0] - 2026-10-31
+
+### Eklendi (Adım 11 — görsel iş akışı + model yönetimi)
+- **Akış** sekmesi: şef işlerinin canlı düğüm grafiği (İstek → Planlayıcı → ajanlar → gözden geçirme/düzeltme → son
+  kontrol → Sonuç / Claude kutusu); grafik iş kaydı + alt görevler + olaylardan türetilir; `GET /api/jobs`,
+  `GET /api/jobs/{id}/graph`; Asistan'da "Akışı göster / izle"
+- **Modeller** sekmesi ve `kayaai models load|unload|assign|pull|compare|activate`:
+  model tablosu (boyut, nicemleme, VRAM, bellekte, kullanan ajanlar), yükle/boşalt (R1), ajan modeli değiştirme (R2),
+  Ollama'dan indirme (R2, arka planda, ilerleme), karşılaştırma testi (kodla puanlama, ayrı kayıt), adayı aktif yapma (R2)
+- Yerel model kaydı `data/models.local.yaml` ve ajan model atamaları `data/agent_overrides.yaml` (repo dosyaları
+  değişmez; süreçler arası eşitlenir)
+- API: `GET /api/model-admin`, `POST /api/models/load|unload|pull`, `POST /api/models/{anahtar}/activate`,
+  `POST /api/agents/{ad}/model`, `POST /api/model-compare`, `GET /api/model-compare/{id}`
+
+### Düzeltildi
+- Aylara/çeyreklere göre gruplamada sonuç takvim sırasıyla verilir (önceden tutara göre sıralanabiliyordu)
+- Dar ekranda üst sekmeler yatay kayar (5. sekme eklenince taşma olmasın)
+
+### Ertelendi
+- LM Studio / llama.cpp bağdaştırıcısı (sahip kararı: şimdilik yalnız Ollama)
+
 ## [0.10.2] - 2026-10-31
 
 ### Düzeltildi

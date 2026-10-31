@@ -335,3 +335,82 @@ export interface JobSummary {
   mode: string | null;
   steps: number;
 }
+
+// ---------------------------------------------------------------- model yönetimi (Adım 11)
+
+export interface ModelRow {
+  key: string | null;
+  name: string;
+  status: "active" | "candidate" | "unregistered";
+  purpose: string;
+  license: string | null;
+  approx_vram_gb: number | null;
+  installed: boolean | null;
+  size_gb: number | null;
+  family: string | null;
+  parameters: string | null;
+  quantization: string | null;
+  loaded: { vram_gb: number | null; expires_at: string | null } | null;
+  agents: string[];
+  embedding: boolean;
+}
+
+export interface AgentModelRow {
+  name: string;
+  model_key: string;
+  model_name: string;
+  overridden: boolean;
+  user_agent: boolean;
+  description: string;
+  output: "answer" | "review" | "plan";
+}
+
+export interface PullState {
+  name: string;
+  status: string;
+  completed: number;
+  total: number;
+  error: string | null;
+}
+
+export interface CompareRow {
+  request: string;
+  ok: boolean;
+  succeeded: boolean;
+  missing: string[];
+  language_ok: boolean;
+  code_ok: boolean;
+  foreign_script: boolean;
+  seconds: number;
+  tokens_per_second: number | null;
+  answer_head: string;
+}
+
+export interface CompareSide {
+  model: string;
+  cases: number;
+  ok: number;
+  avg_seconds: number;
+  avg_tokens_per_second: number | null;
+}
+
+export interface CompareRecord {
+  id: string;
+  agent: string;
+  current: string;
+  candidate: string;
+  status: "running" | "done" | "failed";
+  started_at: string;
+  finished_at?: string;
+  error?: string;
+  rows: Partial<Record<"current" | "candidate", CompareRow[]>>;
+  summary: Partial<Record<"current" | "candidate", CompareSide>>;
+}
+
+export interface ModelAdmin {
+  ollama_reachable: boolean;
+  models: ModelRow[];
+  agents: AgentModelRow[];
+  pulls: PullState[];
+  compares: CompareRecord[];
+}

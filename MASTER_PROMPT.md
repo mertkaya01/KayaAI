@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.10.2)
+## 12. Current state (v0.11.0)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -295,6 +295,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 8 | Assistant Workspace v1: persistent chat, context (last 8 messages + attachments), agent choice, text attachments, hand-off to Claude via the inbox (owner decision), safe Markdown | [x] Windows-verified (real chat, routing, review) |
 | 10 | Business modules: PDF summary, Excel/CSV analysis (model plans, code computes, narrative numbers checked by code), invoice extraction with arithmetic checks, reports in md/xlsx/docx/pdf (owner decision) | [x] Windows-verified (`business_check`; v0.10.2 fixes total-vs-max planning) |
 | 9 | Memory: personal memory (category + sensitivity, secrets never stored without permission, proposals need approval) + document search/RAG over allowed folders; SQLite + local bge-m3 + FTS5; private items and documents never sent to Claude | [x] Windows-verified (`memory_check` 10/10 + 10/10; per-kind thresholds 0.60 / 0.50) |
+| 11 | Visual workflow (live node graph of conductor jobs) + model management (Ollama only — owner decision: load/unload, change an agent's model with owner approval, pull new models, comparison test with code-scored cases, activate candidate) | [x] built; Windows verification pending |
 | 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [x] Windows-verified (`agents_check` 6/6); v0.7.1 fixes CJK leak, contradictory review items |
 
 Note: everything built so far already works with Claude off; Claude Code is only an MCP *client*.
@@ -319,7 +320,7 @@ UI, and the permission engine must exist **before** agents receive real tools.
 | 8 | Assistant Workspace v1 | Chat with local model, attachments, history, delegate to agent, hand-off to Claude Code | Real conversation; history restored after restart |
 | 9 | Memory | Categories + sensitivity, local embeddings + vector index, retrieval, Memory Manager UI | Relevant memory retrieved; private item never sent to Claude without approval |
 | 10 | Business modules | Excel/CSV analysis, PDF/invoice extraction, business report generation | v1 acceptance #6, #7, #12 |
-| 11 | Visual workflow + model management UI | Node graph of a workflow; model/routing page; LM Studio/llama.cpp adapter | Live workflow of a multi-agent task |
+| 11 | Visual workflow + model management UI | Node graph of a workflow; model/routing page (LM Studio/llama.cpp adapter deferred — owner decision 2026-10-31) | Live workflow of a multi-agent task |
 | 12 | Perception & action | Screen capture + OCR + vision model, voice (push-to-talk), live translation subtitles, browser automation with previews | v1 acceptance #8–#11 |
 | 13 | Scheduling, optimisation, multi-device prep | Scheduler, benchmarks, latency/VRAM tuning, deployment docs | Scheduled task runs without Claude Code open |
 
@@ -337,6 +338,8 @@ work starts, and needs the owner's approval to begin.
 - Scheduler technology (in-process vs Windows Task Scheduler)
 - Desktop wrapper (none / Tauri / Electron) and when
 - ~~Which business module comes first~~ **Decided 2026-10-31:** all three in Step 10; report formats xlsx, md, docx, pdf
+- ~~LM Studio / llama.cpp adapter in Step 11~~ **Decided 2026-10-31:** not now (Ollama only); model page has agent model
+  change, load/unload, pull, comparison test
 
 ---
 

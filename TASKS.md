@@ -131,8 +131,20 @@ Sahip kararı (2026-10-31): rapor biçimleri Excel, Markdown, Word, PDF.
   (2026-10-31, v0.10.1): analiz 2/3, uydurma sayı 0, fatura ✓, PDF özeti ✓, 4 rapor ✓, 13,8 sn. Tek hata: "en çok getiren
   ürün" sorusu max(tek satış) olarak planlandı → v0.10.2'de kodla denetim (toplam ifadesi + max/min → yeniden plan)
 
+## Adım 11 — Görsel iş akışı + model yönetimi ([plan kararları](MASTER_PROMPT.md))
+Sahip kararları (2026-10-31): LM Studio / llama.cpp şimdilik yok; Modeller sayfasında ajan modeli değiştirme,
+yükle/boşalt, yeni model indirme, karşılaştırma testi.
+- [x] 11a — Canlı iş akışı grafiği (`conductor/graph.py`, `/api/jobs`, Akış sekmesi, "Akışı göster"); zaman
+  gruplamasında takvim sırası (business_check gözlemi)
+- [x] 11b — Yerel model kaydı (`data/models.local.yaml`), ajan model geçersiz kılmaları (`data/agent_overrides.yaml`),
+  yükle/boşalt (R1), ajan modeli değiştirme (R2), `/api/model-admin`
+- [x] 11c — İndirme (R2, arka plan, ilerleme), karşılaştırma (`llm/compare.py`, kodla puanlama), adayı aktif yapma (R2)
+- [x] CLI `kayaai models load|unload|assign|pull|compare|activate`; Modeller sekmesi
+- Testler: Python (model yönetimi 28 + akış grafiği; tüm paket), Vitest 15, Playwright (akış canlı + Modeller 19 kontrol, mobil taşma yok)
+- [ ] Windows: gerçek çok adımlı işi Akış'ta izle; Modeller'de yükle/boşalt; isteğe bağlı `qwen3:4b` indir + karşılaştır
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Sıradaki: Adım 11 (görsel iş akışı + model yönetimi).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 kodlandı (Windows doğrulaması bekliyor). Sıradaki: Adım 12 (algı ve eylem).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

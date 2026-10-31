@@ -183,6 +183,19 @@ class Accepted(BaseModel):
     message: str
 
 
+class ModelName(BaseModel):
+    name: str = Field(min_length=1, max_length=140)
+
+
+class AgentModel(BaseModel):
+    model_key: str = Field(min_length=1, max_length=60)
+
+
+class CompareBody(BaseModel):
+    agent: str = Field(min_length=1, max_length=40)
+    candidate: str = Field(min_length=1, max_length=60)
+
+
 # ----------------------------------------------------------------------------- uygulama
 
 
@@ -577,6 +590,57 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         try:
             return build_graph(rt.store, job_id).model_dump(mode="json")
         except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
+    # ---------------------------------------------------------------- model yönetimi (Adım 11)
+
+    from ..llm import manager as mm
+    from ..llm.compare import CompareError, get_compare, start_compare
+
+    rt.background_ok = True  # indirme / karşılaştırma onaydan sonra arka planda sürer
+
+    def _admin(fn: Any, *args: Any) -> dict[str, Any]:
+        try:
+            return fn(rt, *args, requested_by="api").model_dump(mode="json")
+        except mm.ModelAdminError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/model-admin", dependencies=[Depends(auth)])
+    def model_admin() -> dict[str, Any]:
+        return mm.overview(rt)
+
+    @app.post("/api/models/load", dependencies=[Depends(auth)])
+    def model_load(body: ModelName) -> dict[str, Any]:
+        return _admin(mm.request_load, body.name)
+
+    @app.post("/api/models/unload", dependencies=[Depends(auth)])
+    def model_unload(body: ModelName) -> dict[str, Any]:
+        return _admin(lambda r, n, requested_by: mm.request_load(r, n, unload=True, requested_by=requested_by), body.name)
+
+    @app.post("/api/models/pull", dependencies=[Depends(auth)])
+    def model_pull(body: ModelName) -> dict[str, Any]:
+        return _admin(mm.request_pull, body.name)
+
+    @app.post("/api/models/{key}/activate", dependencies=[Depends(auth)])
+    def model_activate(key: str) -> dict[str, Any]:
+        return _admin(mm.request_activate, key)
+
+    @app.post("/api/agents/{name}/model", dependencies=[Depends(auth)])
+    def agent_model(name: str, body: AgentModel) -> dict[str, Any]:
+        return _admin(mm.request_agent_model, name, body.model_key)
+
+    @app.post("/api/model-compare", dependencies=[Depends(auth)])
+    def model_compare(body: CompareBody) -> dict[str, Any]:
+        try:
+            return start_compare(rt, body.agent, body.candidate)
+        except CompareError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/model-compare/{cid}", dependencies=[Depends(auth)])
+    def model_compare_get(cid: str) -> dict[str, Any]:
+        try:
+            return get_compare(rt, cid)
+        except CompareError as exc:
             raise HTTPException(404, str(exc)) from exc
 
     # ---------------------------------------------------------------- hafıza (Adım 9)

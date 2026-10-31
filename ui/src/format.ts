@@ -111,6 +111,19 @@ export function describeEvent(e: KEvent): string {
     case "decision.summary":
       return `İş bitti (${TASK_STATUS[String(d.status)] ?? d.status}): ${d.steps} adım, ${d.reviewed_steps} gözden geçirme`
         + `${Number(d.revised_steps) ? `, ${d.revised_steps} düzeltme` : ""}${Number(d.disputes) ? `, ${d.disputes} anlaşmazlık` : ""}`;
+    case "model.loaded":
+      return `Model belleğe yüklendi: ${d.name}`;
+    case "model.unloaded":
+      return `Model bellekten çıkarıldı: ${d.name}`;
+    case "model.pull":
+      return `Model indirme · ${d.name}: ${d.status}${d.percent != null ? ` (%${d.percent})` : ""}${d.error ? ` — ${d.error}` : ""}`;
+    case "model.activated":
+      return `Aday model aktif yapıldı: ${d.name}`;
+    case "model.compare":
+      return d.status ? `Model karşılaştırma ${d.status === "done" ? "bitti" : d.status === "failed" ? "başarısız" : "başladı"}`
+        : `Model karşılaştırma: ${d.done}/${d.total}`;
+    case "agent.model_changed":
+      return `Ajanın modeli değişti: ${d.name} → ${d.model_key}`;
     default:
       return e.type;
   }

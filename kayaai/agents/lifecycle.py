@@ -95,9 +95,81 @@ def sync_user_agents(rt: "Runtime") -> list[str]:
     for gone in _user_names(rt) - seen:
         rt.workers.unregister(gone)
     rt.workers.user_names = seen
+    warnings += apply_model_overrides(rt)
     for w in warnings:
         log.warning("kullanıcı ajanı %s", w)
     return warnings
+
+
+# ---------------------------------------------------------------------------- model atamaları (Adım 11)
+
+
+def overrides_path(rt: "Runtime") -> Path:
+    return rt.settings.data_dir / "agent_overrides.yaml"
+
+
+def read_overrides(rt: "Runtime") -> dict[str, dict[str, Any]]:
+    p = overrides_path(rt)
+    if not p.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        log.warning("agent_overrides.yaml okunamadı; yok sayıldı")
+        return {}
+    return {str(k): dict(v or {}) for k, v in data.items() if isinstance(v, dict)}
+
+
+def refresh_registry(rt: "Runtime") -> bool:
+    """Yerel model kaydı (`data/models.local.yaml`) başka süreçte değiştiyse yeniden yükler."""
+    from ..llm.registry import ModelRegistry, local_registry_path
+
+    p = local_registry_path(rt.settings)
+    stamp = p.stat().st_mtime if p.is_file() else None
+    if getattr(rt, "_local_registry_stamp", "unset") == stamp:
+        return False
+    rt._local_registry_stamp = stamp  # type: ignore[attr-defined]
+    try:
+        reg = ModelRegistry.load_for(rt.settings)
+    except (OSError, ValueError, KeyError) as exc:
+        log.warning("yerel model kaydı okunamadı: %s", exc)
+        return False
+    rt.registry = reg
+    rt.orchestrator.registry = reg
+    return True
+
+
+def apply_model_overrides(rt: "Runtime") -> list[str]:
+    """Repo ajanlarının modelini sahibin onayladığı geçersiz kılmalara göre ayarlar (repo dosyası değişmez).
+
+    Kullanıcı ajanlarının (data/agents) modeli doğrudan kendi dosyasında değişir; burada yalnız repo ajanları."""
+    refresh_registry(rt)
+    warnings: list[str] = []
+    overrides = read_overrides(rt)
+    base: dict[str, AgentDefinition] = rt.workers.base_definitions
+    for w in rt.workers.all():
+        d = getattr(w, "definition", None)
+        if d is None or w.name in _user_names(rt):
+            continue
+        base.setdefault(w.name, d)
+    for name, original in list(base.items()):
+        if name not in rt.workers:
+            continue
+        want = original
+        key = overrides.get(name, {}).get("local_model")
+        if key:
+            spec = rt.registry.models.get(key)
+            if spec is None or spec.status != "active":
+                warnings.append(f"{name}: geçersiz kılma yok sayıldı — '{key}' kayıtlı/aktif bir model değil")
+            else:
+                want = original.model_copy(update={"local_model": key})
+        if _definition(rt, name) != want:
+            rt.workers.unregister(name)
+            register_definition(rt.workers, want)
+    return warnings
+
+
+sync_agents = sync_user_agents  # Adım 11: kullanıcı ajanları + model geçersiz kılmaları + yerel model kaydı
 
 
 def claude_definitions(rt: "Runtime") -> list[AgentDefinition]:
