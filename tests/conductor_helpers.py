@@ -13,13 +13,14 @@ def answer(text: str, **kw: Any) -> str:
     return good_answer(text, **kw)
 
 
-def plan_direct(agent: str, needs_claude: bool = False, reason: str = "") -> str:
+def plan_direct(agent: str, needs_claude: bool = False, reason: str = "", topics: list[str] | None = None) -> str:
     return json.dumps({"mode": "direct", "agent": agent, "steps": [], "needs_claude": needs_claude,
-                       "claude_reason": reason})
+                       "claude_reason": reason, "key_topics": topics or []})
 
 
-def plan_steps(steps: list[tuple[str, str, str, list[str]]]) -> str:
+def plan_steps(steps: list[tuple[str, str, str, list[str]]], topics: list[str] | None = None) -> str:
     return json.dumps({"mode": "plan", "agent": None, "needs_claude": False, "claude_reason": "",
+                       "key_topics": topics or [],
                        "steps": [{"id": i, "agent": a, "objective": o, "depends_on": d} for i, a, o, d in steps]})
 
 

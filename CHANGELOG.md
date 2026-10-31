@@ -2,6 +2,17 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [Yayınlanmadı]
+
+### Eklendi
+- **Kapsam kontrolü** (Opus'un gerçek gözlemi: "çok kiracılı SaaS" isteğine yerel cevap çok kiracılılığa hiç
+  değinmedi, gözden geçirici yine "ok" dedi): planlayıcı `key_topics` (2–5 ana konu) çıkarır — ek model çağrısı yok;
+  konuların cevapta geçip geçmediğine `kayaai/conductor/coverage.py` KODLA karar verir (Türkçe eklere dayanıklı
+  kök eşleşmesi, "A / B" alternatifleri). Eksik konu gözden geçirmede "Ek" ile tamamlanır; yine eksikse tek uyarı.
+
+### Düzeltildi
+- Dil tespiti tek kelimelik metinde karar veriyordu (`"a"` → İngilizce); çok kısa metinde en az iki sinyal gerekir
+
 ## [0.3.0] - 2026-10-31
 
 Adım 3 (iki mod + şef) kod olarak tamamlandı.

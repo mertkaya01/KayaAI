@@ -55,6 +55,8 @@ def detect_language(text: str) -> Lang:
     tr, en = s["tr"], s["en"]
     if tr == en:  # 0-0 dahil: belirsiz
         return "other"
+    if s["words"] < 3 and max(tr, en) < 2:
+        return "other"  # çok kısa metin: tek bir sinyal yetmez (ör. tek harf "a" İngilizce sayılıyordu)
     winner, loser = (("tr", tr), en) if tr > en else (("en", en), tr)
     # Karışık metinde açık bir üstünlük iste.
     if loser and winner[1] < 2 * loser:

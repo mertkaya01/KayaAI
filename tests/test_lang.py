@@ -18,6 +18,9 @@ CASES = [
     ("Merhaba", "other"),
     ("391", "other"),
     ("", "other"),
+    ("a", "other"),          # tek kısa kelime: karar verilmez (gerçek test hatası)
+    ("the plan", "other"),
+    ("Hello, who are you?", "en"),
 ]
 
 

@@ -66,8 +66,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Şu an: Adım 4 planı (yerel API + olay yolu) onay bekliyor.
 
-Bekleyen iyileştirme (Opus'un gözlemi): yerel gözden geçirici, cevabın isteğin ana konusunu (ör. "çok kiracılı") yüzeysel geçtiğini
-yakalayamıyor → isteğin anahtar kavramlarının cevapta geçip geçmediğini kodla kontrol (kapsam kontrolü).
+- [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — testli,
+  Windows'ta `conductor_check` ile ölçülecek
 
 ## Sonraya not (kullanıcı isteği: "her şey bitince")
 Referans repolardan faydalanılacak; içerikleri henüz incelenmedi, her biri alınmadan önce lisansı kontrol edilecek:

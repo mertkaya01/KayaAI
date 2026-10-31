@@ -19,7 +19,9 @@ from ..core.lang import detect_language
 from ..core.task import Task, TaskStatus, ValidationResult, utcnow
 from ..runtime import Runtime
 from ..workers.planner import FORBIDDEN_STEP_AGENTS, RoutePlan
+from ..core.lang import mentions_target_language
 from .complexity import complexity_signals
+from .coverage import missing_topics
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +55,7 @@ class Review(BaseModel):
     verdict: str | None = None
     missing_parts: list[str] = Field(default_factory=list)
     issues: list[str] = Field(default_factory=list)  # tavsiye niteliğinde; düzeltme tetiklemez
+    uncovered_topics: list[str] = Field(default_factory=list)  # kodla kapsam kontrolü (coverage.py)
     revised: bool = False  # eksik kısımlar eklendi mi
 
 
@@ -169,8 +172,16 @@ class Conductor:
             answer = self._answer_of(merged.result)
 
         # Gözden geçirme: eksik kısım varsa tamamlanıp EKLENİR (mevcut cevap ezilmez)
+        topics = [] if mentions_target_language(request) else list(plan.key_topics)
         if self._should_review(plan):
-            answer = self._review_loop(job, request, answer, result)
+            answer = self._review_loop(job, request, answer, result, topics)
+        result.review.uncovered_topics = missing_topics(topics, answer)
+        if result.review.uncovered_topics:
+            result.warnings.append(_lang_note(
+                request,
+                "Cevap şu konulara yeterince değinmiyor olabilir (kodla kontrol edildi): ",
+                "The answer may not really cover these topics (checked by code): ")
+                + "; ".join(result.review.uncovered_topics))
         result.answer = answer
         result.status = TaskStatus.SUCCEEDED.value if result.answer.strip() else TaskStatus.FAILED.value
         if not result.answer.strip():
@@ -299,7 +310,9 @@ class Conductor:
         mode = self.settings.review
         return mode == "always" or (mode == "plan" and plan.mode == "plan")
 
-    def _review_loop(self, job: Task, request: str, answer: str, result: ConductorResult) -> str:
+    def _review_loop(
+        self, job: Task, request: str, answer: str, result: ConductorResult, topics: list[str] | None = None
+    ) -> str:
         """Gözden geçirici yalnızca eksiklik + dil kontrol eder (8B model kod doğruluğunu güvenilir yargılayamadı).
 
         missing_parts varsa: genel ajan eksik kısımları yazar ve cevaba "Ek" başlığıyla EKLENİR (en fazla
@@ -322,6 +335,11 @@ class Conductor:
             self.rt.store.log_event(job.id, "review.result", r)
             result.review.verdict = r.get("verdict")
             result.review.missing_parts = [m for m in r.get("missing_parts", []) if str(m).strip()]
+            # Gözden geçirici "ok" dese bile ana konu cevapta yoksa eksik say (Opus'un gözlemi, 2026-10-31).
+            uncovered = missing_topics(topics or [], answer)
+            topic_label = _lang_note(request, "ele alınmamış konu: ", "topic not covered: ")
+            result.review.missing_parts += [topic_label + t for t in uncovered
+                                            if topic_label + t not in result.review.missing_parts]
             result.review.issues = [i for i in r.get("issues", []) if str(i).strip()]
             notes = result.review.issues
             if not result.review.missing_parts or revision == self.settings.max_revisions:
@@ -337,10 +355,13 @@ class Conductor:
                 break
             answer = f"{answer}\n\n### {_lang_note(request, 'Ek', 'Addendum')}\n\n{text.strip()}"
             result.review.revised = True
-        if result.review.missing_parts and result.review.verdict != "ok":
+        # Konu eksikleri _run'da kapsam uyarısı olarak tek seferde raporlanır; burada yalnızca gözden geçiricininkiler.
+        topic_label = _lang_note(request, "ele alınmamış konu: ", "topic not covered: ")
+        reviewer_missing = [m for m in result.review.missing_parts if not m.startswith(topic_label)]
+        if reviewer_missing and result.review.verdict != "ok":
             result.warnings.append(
                 _lang_note(request, "Cevapta eksik kalmış olabilir: ", "The answer may still be missing: ")
-                + "; ".join(result.review.missing_parts[:3]))
+                + "; ".join(reviewer_missing[:3]))
         if notes:
             result.warnings.append(
                 _lang_note(request, "Gözden geçirici notları (doğrulanmadı): ", "Reviewer notes (unverified): ")

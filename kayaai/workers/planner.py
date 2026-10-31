@@ -35,6 +35,12 @@ class RoutePlan(BaseModel):
         "(complex system architecture, large multi-file code, deep multi-source analysis)",
     )
     claude_reason: str = Field("", description="Why Claude is needed (empty if needs_claude is false)")
+    key_topics: list[str] = Field(
+        default_factory=list,
+        description="2-5 main SUBJECTS the final answer must substantively cover (nouns, e.g. "
+        "'çok kiracılı / multi-tenant', 'veri izolasyonu'); not instructions like 'write' or 'explain'. "
+        "Use 'A / B' to give a Turkish and English name for the same subject.",
+    )
 
 
 class PlannerWorker(LLMWorker):
@@ -53,7 +59,9 @@ class PlannerWorker(LLMWorker):
         "Use 2-4 steps; each step depends only on earlier steps.\n"
         "- Never use the agent 'planner' or 'reviewer' in steps; reviewing is done automatically afterwards.\n"
         "- Set needs_claude true only when a small local model would very likely fail; otherwise false.\n"
-        "- Write step objectives in the user's language."
+        "- Write step objectives in the user's language.\n"
+        "- key_topics: the main subjects of the request that the answer must really address (not formatting or "
+        "instruction words). Give 'Turkish / English' names when the subject has both."
     )
 
     def validate(self, task: Task, output: BaseModel) -> ValidationResult:
@@ -70,6 +78,10 @@ FORBIDDEN_STEP_AGENTS = {"planner", "reviewer"}
 def validate_plan(plan: RoutePlan, agents: set[str], max_steps: int = DEFAULT_MAX_STEPS) -> list[str]:
     usable = agents - FORBIDDEN_STEP_AGENTS
     errors: list[str] = []
+    if len(plan.key_topics) > 6:
+        errors.append(f"key_topics en fazla 6 olmalı (gelen: {len(plan.key_topics)})")
+    if any(not t.strip() for t in plan.key_topics):
+        errors.append("key_topics içinde boş konu var")
     if plan.needs_claude and not plan.claude_reason.strip():
         errors.append("needs_claude true ise claude_reason gerekli")
     if plan.mode == "direct":

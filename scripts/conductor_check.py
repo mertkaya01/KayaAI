@@ -62,6 +62,7 @@ def main() -> int:
                 "needs_claude": res.routing.needs_claude,
                 "routing": res.routing.decision,
                 "review": res.review.model_dump(),
+                "uncovered_topics": res.review.uncovered_topics,
                 "warnings": res.warnings,
                 "seconds": round(time.perf_counter() - t0, 2),
                 "answer_language": detect_language(res.answer),
