@@ -211,6 +211,24 @@ arayüz /asistan ── POST /api/chat/{id}/messages {text, agent, attachments}
 - Arayüz: History API ile `/` (Kontrol Merkezi) ve `/asistan/<id>`; Kontrol Merkezi'nin metrik yoklaması yalnızca o sayfa
   açıkken çalışır. Markdown görüntüleyici (`ui/src/markdown.tsx`) yalnızca React öğesi üretir.
 
+## Hafıza (Adım 9)
+
+```
+kayaai.db (aynı dosya, ayrı bağlantı)       Ollama /api/embed (bge-m3, yerel)
+  memories ─┐                                         │
+  documents ├─ vectors (kind,item_id → float32) ◄─────┘   arama: numpy (mat @ q) + FTS5 (mem_fts, 5 harf önek)
+  chunks ───┘  mem_fts (FTS5)
+Memory.recall(query, for_claude) → {memory: [...], documents: [{source: "ad:satır", excerpt}]} → sohbet bağlamı
+```
+- `MemoryBook`: öğe (kategori, hassasiyet, durum active|proposed, kaynak). `secrets.detect_secrets` gizli bilgiyi
+  kodla bulur → `SecretRefused` (açık izin hariç). Arama izinli hassasiyetlerle süzülür: yerel {public, personal,
+  private}, Claude {public, personal}; secret hiçbir zaman otomatik dönmez.
+- `DocumentIndex`: kökler = dosya araçlarının kökleri; her yol `FileTools.resolve` ile doğrulanır; satır sınırında
+  parçalama (900 kr, 120 örtüşme), açık gizli kalıp geçen parça atlanır, artımlı (boyut+zaman+sha1).
+- Sohbet: `ChatBook._recall` iş başlamadan bağlamı zenginleştirir, mesaja `recall` (kaynaklar, kullanılan öğeler) yazar.
+  `hatırla: …` → `memory.classify` (iç worker) → `MemoryBook.add`.
+- Eşik `memory.min_score` (bge-m3 kosinüs) `scripts/memory_check.py` ile gerçek modelde ölçülerek ayarlanır.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

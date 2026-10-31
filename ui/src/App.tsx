@@ -5,6 +5,7 @@ import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { ChatView } from "./components/ChatView";
 import { DisputesPanel } from "./components/DisputesPanel";
 import { EventsPanel } from "./components/EventsPanel";
+import { MemoryView } from "./components/MemoryView";
 import { SystemPanel } from "./components/SystemPanel";
 import { TopBar } from "./components/TopBar";
 import { useEvents, usePolling } from "./hooks";
@@ -73,6 +74,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   const [keys, setKeys] = useState<Keys>({ agents: 0, approvals: 0, disputes: 0 });
   const [claudeKey, setClaudeKey] = useState(0);
   const [chatKey, setChatKey] = useState(0);
+  const [memoryKey, setMemoryKey] = useState(0);
   const [events, setEvents] = useState<KEvent[]>([]);
   const bump = useCallback((k: keyof Keys) => setKeys((p) => ({ ...p, [k]: p[k] + 1 })), []);
 
@@ -89,6 +91,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
     if (e.type === "task.status" || e.type.startsWith("agent.")) bump("agents");
     if (e.type.startsWith("approval.") || e.type === "tool.used") bump("approvals");
     if (e.type.startsWith("dispute.")) bump("disputes");
+    if (e.type.startsWith("memory.")) setMemoryKey((k) => k + 1);
     if (e.type.startsWith("chat.") || (e.type === "task.status" && e.data.worker === "conductor")) setChatKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
   }, [bump]);
@@ -109,9 +112,12 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         <ChatView
           convId={route.convId}
           onSelect={(id) => navigate({ page: "chat", convId: id })}
+          onOpenMemory={() => navigate({ page: "memory" })}
           refreshKey={chatKey}
           claude={claude.data}
         />
+      ) : route.page === "memory" ? (
+        <MemoryView refreshKey={memoryKey} />
       ) : (
         <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized} />
       )}

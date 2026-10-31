@@ -41,5 +41,7 @@ describe("yönlendirme", () => {
     expect(parseRoute("/asistan/abc123")).toEqual({ page: "chat", convId: "abc123" });
     expect(parseRoute("/asistan/../x")).toEqual({ page: "control" });
     expect(routePath({ page: "chat", convId: "abc" })).toBe("/asistan/abc");
+    expect(parseRoute("/hafiza")).toEqual({ page: "memory" });
+    expect(routePath({ page: "memory" })).toBe("/hafiza");
   });
 });

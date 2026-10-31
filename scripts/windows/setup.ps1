@@ -209,6 +209,22 @@ if ($installed -match [regex]::Escape($model)) {
     }
 }
 
+# Adım 9 — hafıza modeli (anlam araması). Zorunlu değil: yoksa hafıza kelime aramasıyla çalışır.
+$embed = (& $VenvPython -c "from kayaai.config import load_settings; from kayaai.llm.registry import ModelRegistry; s=load_settings(); print(ModelRegistry.load(s.models_file).get(s.memory.embed_model).name)").Trim()
+if ($LASTEXITCODE -eq 0 -and $embed) {
+    if ($installed -match [regex]::Escape($embed)) {
+        Write-Ok "Hafıza modeli zaten kurulu: $embed"
+    } elseif ($SkipModel) {
+        Write-Warn2 "Hafıza modeli indirme atlandı. Sonra: ollama pull $embed"
+    } elseif (Confirm-Action "Hafıza modeli '$embed' indirilsin mi? (~1.2 GB, MIT lisanslı; hafıza ve belge araması için)") {
+        & $ollama.Source pull $embed
+        if ($LASTEXITCODE -ne 0) { Write-Warn2 "Hafıza modeli indirilemedi; hafıza kelime aramasıyla çalışır." }
+        else { Write-Ok "Hafıza modeli indirildi: $embed" }
+    } else {
+        Write-Warn2 "Hafıza modeli indirilmedi (hafıza kelime aramasıyla çalışır). Sonra: ollama pull $embed"
+    }
+}
+
 # ---------------------------------------------------------------- 8. doctor
 Write-Step "8/8 Son kontrol (kayaai doctor)"
 & $VenvPython -m kayaai doctor

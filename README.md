@@ -17,7 +17,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 7 | Ajan sistemi: uzmanlar (coder, data, document), gözden geçirme, anlaşmazlık yükseltme, geçici ajanlar | **Tamamlandı** (Windows'ta doğrulandı) |
 | 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Tamamlandı** (Windows'ta doğrulandı) |
-| 9+ | Hafıza (RAG), iş modülleri (PDF/Excel), görsel iş akışı, ekran/ses, zamanlama | Planlandı |
+| 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Yeni** — Windows'ta doğrulama bekleniyor |
+| 10+ | İş modülleri (PDF/Excel), görsel iş akışı, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -219,6 +220,24 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - Cevaplar güvenli bir Markdown görüntüleyiciyle gösterilir (kod bloğu + kopyala, tablo, liste); HTML/betik çalışmaz.
 - Hafıza paneli Adım 9'da dolacak; sesli giriş sonraki adımlarda.
 
+## Hafıza (Adım 9)
+
+Üstteki **Hafıza** sekmesi (`/hafiza`). Sahip kararı: SQLite + yerel `bge-m3` (kurulum `setup.ps1` sorar ya da
+`ollama pull bge-m3`, ~1.2 GB). Model yoksa hafıza kelime aramasıyla yine çalışır.
+
+- **Kişisel hafıza:** sohbette `hatırla: kahvemi şekersiz içerim` ya da mesajdaki **Hafızaya ekle** → yerel model kısa
+  bir nota çevirip sınıflandırır (tercih, proje, karar, talimat, dosya, not). Hafıza sekmesinde gör, düzenle, sil,
+  JSON olarak dışa aktar. Claude yalnızca **öneri** ekleyebilir; sen onaylamadan kullanılmaz.
+- **Hassasiyet:** herkese açık · kişisel · **özel** (Claude'a hiç gönderilmez) · **gizli** (parola/anahtar/IBAN/kart gibi
+  kalıplar kodla tespit edilir; açık izin olmadan saklanmaz, saklansa da hiçbir sohbete otomatik girmez, listede maskeli).
+- **Belge araması (RAG):** `~\kayaAI-files` ve izin verdiğin klasörlerdeki metin dosyaları **Şimdi dizinle** ile parçalanıp
+  dizinlenir (artımlı). `.env`, anahtar dosyaları, `node_modules` vb. ve parola geçen parçalar atlanır.
+- **Sohbette:** her soruda ilgili hafıza öğeleri ve belge parçaları otomatik bulunur; cevabın altında **Kaynaklar**
+  (`dosya.md:12`) ve "Hafızadan N bilgi kullanıldı" görünür. Claude'a devrederken yalnızca kişisel/herkese açık notlar
+  gider; özel notlar ve yerel belgeler gitmez.
+- CLI: `kayaai memory [list|add|rm|approve|search|index|status|export]`. Ölçüm: `python scripts\memory_check.py`
+  (ayrı klasörde; gerçek bge-m3 ile benzerlik eşiğini önerir).
+
 ## Ajan ekibi (Adım 7)
 
 | Ajan | İş | Yerel model | Gözden geçirme |
@@ -258,6 +277,7 @@ kayaai/            Python paketi (çekirdek)
   system/          ortam denetimi
   api/             yerel API (FastAPI) + Control Center sunumu
   assistant/       sohbet: konuşmalar, mesajlar, ekler, Claude'a devretme (Adım 8)
+  memory/          hafıza: kişisel notlar, belge dizini (RAG), gizli bilgi tespiti, yerel vektörler (Adım 9)
   mcp_server.py    MCP sunucusu (Faz 2)
 ui/                Control Center (React + TypeScript + Vite); derleme çıktısı ui/dist (git'e girmez)
 config/            settings.yaml, models.yaml

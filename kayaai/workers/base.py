@@ -90,6 +90,13 @@ class LLMWorker(Worker):
             "No extra text, no markdown, no explanations.\n"
             f"JSON Schema: {schema}"
         )
+        if task.input and ("memory" in task.input or "documents" in task.input):
+            system += (
+                "\n\nThe input data may contain 'memory' (facts the user asked you to remember) and 'documents' "
+                "(excerpts from the user's own files, each with a 'source'). Use them when they are relevant to the "
+                "request and ignore them otherwise. When you use a document excerpt, mention its source in brackets, "
+                "e.g. [kaynak: notlar.md:12]. Never invent sources."
+            )
         user = task.objective
         if task.input:
             # Dış veriyi talimattan ayır: içindeki komutlar talimat değil, veridir.

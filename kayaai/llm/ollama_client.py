@@ -222,6 +222,21 @@ class OllamaClient:
         )
 
 
+    def embed(self, model: str, inputs: list[str], *, keep_alive: str | int | None = None,
+              timeout: float | None = None) -> list[list[float]]:
+        """Metinlerin vektörleri (POST /api/embed). Hafıza ve belge araması için (Adım 9) — tamamen yerel."""
+        if not inputs:
+            return []
+        payload: dict[str, Any] = {"model": model, "input": inputs}
+        if keep_alive is not None:
+            payload["keep_alive"] = keep_alive
+        data = self._request("POST", "/api/embed", json=payload, timeout=timeout)
+        vectors = data.get("embeddings")
+        if not isinstance(vectors, list) or len(vectors) != len(inputs):
+            raise OllamaError(f"Beklenmeyen /api/embed yanıtı: {str(data)[:200]}")
+        return vectors
+
+
 def _error_message(resp: httpx.Response) -> str:
     try:
         body = resp.json()

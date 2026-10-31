@@ -16,8 +16,16 @@ function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-function MessageView({ m, claude, onHandoff, busy }: { m: ChatMessage; claude: ClaudeStatus | null; onHandoff: (m: ChatMessage) => void; busy: boolean }) {
+function MessageView({ m, claude, onHandoff, onRemember, busy }: {
+  m: ChatMessage;
+  claude: ClaudeStatus | null;
+  onHandoff: (m: ChatMessage) => void;
+  onRemember: (m: ChatMessage) => void;
+  busy: boolean;
+}) {
   const [copied, setCopied] = useState(false);
+  const sources = m.recall?.sources ?? [];
+  const memories = m.recall?.memories ?? [];
   const waiting = m.status === "pending" || m.status === "running" || m.status === "waiting_claude";
   const agents = m.meta.agents?.length ? m.meta.agents.join(" → ") : m.agent === "auto" ? "" : m.agent;
   return (
@@ -36,7 +44,30 @@ function MessageView({ m, claude, onHandoff, busy }: { m: ChatMessage; claude: C
       ) : m.role === "assistant" ? (
         <Markdown text={m.content} />
       ) : (
-        <p className="user-text">{m.content}</p>
+        <>
+          <p className="user-text">{m.content}</p>
+          <div className="msg-meta user-actions">
+            <button className="ghost small" disabled={busy} title="Bu mesajı kısa bir not olarak hafızaya kaydet" onClick={() => onRemember(m)}>
+              Hafızaya ekle
+            </button>
+          </div>
+        </>
+      )}
+      {m.role === "assistant" && m.status === "done" && (sources.length > 0 || memories.length > 0) && (
+        <div className="recall">
+          {sources.length > 0 && (
+            <div className="chips">
+              <span className="muted">Kaynaklar:</span>
+              {sources.map((s, i) => <span key={i} className="chip" title={s.path}>📄 {s.name}:{s.line}</span>)}
+            </div>
+          )}
+          {memories.length > 0 && (
+            <details>
+              <summary className="muted">Hafızadan {memories.length} bilgi kullanıldı</summary>
+              <ul>{memories.map((x) => <li key={x.id}>{x.text}</li>)}</ul>
+            </details>
+          )}
+        </div>
       )}
       {m.role === "assistant" && m.status === "done" && (
         <div className="msg-meta">
@@ -70,11 +101,13 @@ function MessageView({ m, claude, onHandoff, busy }: { m: ChatMessage; claude: C
 export function ChatView({
   convId,
   onSelect,
+  onOpenMemory,
   refreshKey,
   claude,
 }: {
   convId: string | null;
   onSelect: (id: string | null) => void;
+  onOpenMemory: () => void;
   refreshKey: number;
   claude: ClaudeStatus | null;
 }) {
@@ -88,9 +121,11 @@ export function ChatView({
   const [agent, setAgent] = useState("auto");
   const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
+  const lastRecall = [...(view?.messages ?? [])].reverse().find((m) => m.role === "assistant" && m.status === "done")?.recall;
   const pending = view?.messages.some((m) => ["pending", "running", "waiting_claude"].includes(m.status)) ?? false;
 
   useEffect(() => {
@@ -188,6 +223,19 @@ export function ChatView({
     }
   }
 
+  async function rememberMsg(m: ChatMessage) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await post<{ message: string }>("/api/memory/from-text", { text: m.content, conv_id: convId });
+      setNotice(r.message.replace(/\*/g, ""));
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function rename(c: Conversation) {
     const title = window.prompt("Sohbetin yeni adı:", c.title);
     if (!title?.trim()) return;
@@ -238,10 +286,13 @@ export function ChatView({
             </div>
           )}
           {view?.messages.length === 0 && <p className="muted">Bu sohbette henüz mesaj yok.</p>}
-          {view?.messages.map((m) => <MessageView key={m.id} m={m} claude={claude} onHandoff={(x) => void handoff(x)} busy={busy} />)}
+          {view?.messages.map((m) => (
+            <MessageView key={m.id} m={m} claude={claude} onHandoff={(x) => void handoff(x)} onRemember={(x) => void rememberMsg(x)} busy={busy} />
+          ))}
           <div ref={bottom} />
         </div>
         {error && <p className="error">{error}</p>}
+        {notice && <p className="notice" role="status" onClick={() => setNotice(null)}>{notice}</p>}
         <div className="composer">
           {attachments.length > 0 && (
             <div className="chips">
@@ -288,7 +339,19 @@ export function ChatView({
 
       <aside className="chat-side panel">
         <h2>Hafıza</h2>
-        <p className="muted">Konuşmalarından öğrenilen bilgiler burada görünecek (Adım 9 — henüz yok).</p>
+        {lastRecall && (lastRecall.memories?.length || lastRecall.sources?.length) ? (
+          <>
+            <p className="muted">Son cevapta kullanılanlar:</p>
+            <ul className="side-list">
+              {lastRecall.memories?.map((x) => <li key={x.id}>{x.text}</li>)}
+              {lastRecall.sources?.map((s, i) => <li key={`s${i}`}>📄 {s.name}:{s.line}</li>)}
+            </ul>
+          </>
+        ) : (
+          <p className="muted">İlgili hafıza ve belge parçaları her soruda otomatik aranır; kullanılırsa burada görünür.</p>
+        )}
+        <p className="muted">Eklemek için: <code>hatırla: …</code> ya da mesajdaki "Hafızaya ekle".</p>
+        <button className="ghost small" onClick={onOpenMemory}>Hafızayı yönet</button>
         <h2>Claude</h2>
         <p className="muted">
           {claude?.enabled

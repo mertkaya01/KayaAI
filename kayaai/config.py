@@ -92,6 +92,28 @@ class FilesSettings(BaseModel):
     max_write_mb: float = Field(5.0, gt=0, le=50)
 
 
+class MemorySettings(BaseModel):
+    """Adım 9 — hafıza ve belge araması (sahip kararı: SQLite + bge-m3, tamamen yerel)."""
+
+    enabled: bool = True
+    embed_model: str = "embed-m3"            # config/models.yaml anahtarı
+    # Sohbette ilgili hafıza ve belge parçaları otomatik bağlama eklensin mi
+    recall_in_chat: bool = True
+    top_memories: int = Field(5, ge=0, le=20)
+    top_chunks: int = Field(4, ge=0, le=20)
+    # Kosinüs benzerliği eşiği (bge-m3); altındaki sonuçlar "ilgisiz" sayılır. scripts/memory_check.py ile ayarlanır.
+    min_score: float = Field(0.45, ge=0, le=1)
+    chunk_chars: int = Field(900, ge=200, le=4000)
+    chunk_overlap: int = Field(120, ge=0, le=1000)
+    max_file_mb: float = Field(2.0, gt=0, le=50)
+    max_files: int = Field(5000, ge=1, le=100_000)
+    # Dizinlenmeyen klasör ve dosya adları (gizli bilgi taşıyabilecek dosyalar dahil)
+    skip_dirs: list[str] = Field(default_factory=lambda: [
+        ".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".idea", ".vscode"])
+    skip_files: list[str] = Field(default_factory=lambda: [
+        ".env", ".env.*", "*.key", "*.pem", "id_rsa*", "*secret*", "*password*", "*credential*", "*.kdbx"])
+
+
 class ApprovalSettings(BaseModel):
     # Bu süreden uzun bekleyen onay talebi geçersiz sayılır (expired).
     expire_hours: int = Field(24, ge=1, le=24 * 30)
@@ -123,6 +145,7 @@ class Settings(BaseModel):
     api: ApiSettings = Field(default_factory=ApiSettings)
     files: FilesSettings = Field(default_factory=FilesSettings)
     approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property
