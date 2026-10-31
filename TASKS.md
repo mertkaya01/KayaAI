@@ -56,15 +56,18 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [x] 3c düzeltmeleri — Windows `conductor_check` 2. tur: 6/6 (Claude önerisi dahil); CSV 3 bölüm, 4.5 sn (önce 9.4 sn)
 - [~] 3c ince ayar: bağımlı adımlara "tekrarlama" notu (gerçek çıktıda bölümler aynı içeriği tekrarlıyordu), başlıklar kelime sınırında
 - [x] 3d Claude kutusu — Windows'ta: `claude on` → SaaS isteği kutuya (skor 3) → `inbox` → `claude off` → yerelde + uyarı
-  - [ ] Claude Code tarafı (`kayaai_claude_inbox/complete`) — 3e çalışma alanıyla test edilecek
-- [~] 3e Claude çalışma alanı: `kayaai claude on|sync` → `~/kayaAI-workspace` içinde `CLAUDE.md` (şef kuralları),
+  - [x] Claude Code tarafı: Opus 5.5 (Pro) `kayaAI-workspace`'te kutudaki işi aldı ve `kayaai_claude_complete` ile yazdı (kullanıcı bildirdi, 2026-10-31)
+- [x] 3e Claude çalışma alanı: `kayaai claude on|sync` → `~/kayaAI-workspace` içinde `CLAUDE.md` (şef kuralları),
   `.claude/agents/kayaai-*.md` (alt ajan biçimi resmi dokümandan doğrulandı), `.mcp.json`; yabancı dosyalara dokunmaz,
   repo içine üretmez — 10 test; Windows'ta üretildi, Claude Code v2.1.316 **Opus 5.5 (Pro)** ile açıldı;
-  "kutuyu işle" uçtan uca denemesi bekleniyor. Not: bu sürümde `/agents` komutu kaldırılmış; alt ajanlar
+  "kutuyu işle" uçtan uca geçti. Gözlem: Opus oturum başında `CLAUDE.md` kuralına uyup kutuyu kontrol etti, onaysız işe girişmedi. Not: bu sürümde `/agents` komutu kaldırılmış; alt ajanlar
   doğrudan `.claude/agents/` klasöründen okunur (Claude'a "hangi alt ajanların var?" diye sorarak doğrulanır)
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: 3e'nin Claude Code ile uçtan uca denemesi → Adım 3 kapanışı → Adım 4 (yerel API + olay yolu).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Şu an: Adım 4 planı (yerel API + olay yolu) onay bekliyor.
+
+Bekleyen iyileştirme (Opus'un gözlemi): yerel gözden geçirici, cevabın isteğin ana konusunu (ör. "çok kiracılı") yüzeysel geçtiğini
+yakalayamıyor → isteğin anahtar kavramlarının cevapta geçip geçmediğini kodla kontrol (kapsam kontrolü).
 
 ## Sonraya not (kullanıcı isteği: "her şey bitince")
 Referans repolardan faydalanılacak; içerikleri henüz incelenmedi, her biri alınmadan önce lisansı kontrol edilecek:

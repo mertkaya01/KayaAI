@@ -288,7 +288,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 0 | Environment audit, architecture, report | [x] |
 | 1 | Local core: Ollama client, model registry, task store (SQLite), orchestrator (approval, timeout, cancel, dependencies, validation), general worker, CLI | [x] |
 | 2 | MCP server (8 tools) + Claude Code integration | [x] |
-| 3 | Two modes + conductor: Claude mode switch, agent definitions, local conductor (`kayaai do`), Claude inbox, Claude workspace generator | [~] code done; Windows-verified except the Claude Code end-to-end run |
+| 3 | Two modes + conductor: Claude mode switch, agent definitions, local conductor (`kayaai do`), Claude inbox, Claude workspace generator | [x] Windows-verified incl. Opus 5.5 (Pro) processing the Claude inbox |
 
 Note: everything built so far already works with Claude off; Claude Code is only an MCP *client*.
 
