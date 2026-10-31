@@ -36,7 +36,7 @@ def env(fake_ollama, tmp_path: Path, monkeypatch):
     (tmp_path / "files").mkdir()
     s = load_settings()
     s.ollama.max_retries = 0
-    s.memory.min_score = 0.2  # sahte embedding kaba; gerçek eşik scripts/memory_check.py ile ayarlanır
+    s.memory.min_score_memory = s.memory.min_score_docs = 0.2  # sahte embedding kaba; gerçek eşik scripts/memory_check.py ile ayarlanır
     return s
 
 

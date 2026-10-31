@@ -260,7 +260,7 @@ class DocumentIndex:
 
     def search(self, query: str, *, k: int = 4, query_vec: list[float] | None = None,
                min_score: float | None = None) -> list[tuple[Chunk, float]]:
-        threshold = self.settings.min_score if min_score is None else min_score
+        threshold = self.settings.min_score_docs if min_score is None else min_score
         scores: dict[str, float] = {}
         if query_vec is not None:
             scores = dict(self.db.nearest("chunk", self.embedder.model, query_vec, 50))

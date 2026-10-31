@@ -6,7 +6,8 @@ Sonuç: data/memory_check.json
 
 AYRI bir veri ve dosya klasöründe çalışır (data/checks/memory): gerçek hafızan ve belgelerin kullanılmaz/değişmez.
 Her soru için doğru öğenin bulunup bulunmadığı ve puanlar ölçülür; ilgili/ilgisiz puan dağılımından
-`memory.min_score` için bir eşik ÖNERİLİR (ayar otomatik değiştirilmez).
+`memory.min_score_memory` / `memory.min_score_docs` için tür başına eşik ÖNERİLİR (ayar otomatik değiştirilmez).
+Süre embedding (Ollama) ve arama (numpy + FTS5) olarak ayrı ölçülür.
 """
 
 from __future__ import annotations
@@ -70,8 +71,9 @@ def main() -> int:
     settings.data_dir = work / "data"
     settings.files.home_dir = str(work / "files")
     settings.files.allowed_dirs = []
-    settings.memory.min_score = 0.0  # ham puanları görmek için; eşik aşağıda önerilir
-    rows, relevant, irrelevant = [], [], []
+    settings.memory.min_score_memory = settings.memory.min_score_docs = 0.0  # ham puanlar; eşik aşağıda önerilir
+    rows: list[dict] = []
+    scores: dict[str, dict[str, list[float]]] = {"memory": {"rel": [], "irr": []}, "docs": {"rel": [], "irr": []}}
     with build_runtime(settings) as rt:
         mem = rt.memory
         assert mem is not None
@@ -86,35 +88,53 @@ def main() -> int:
         print(f"{len(MEMORIES)} hafıza öğesi + {rep.indexed} belge ({rep.chunks_total} parça) {time.perf_counter() - t0:.1f} sn\n")
         for q, exp_mem, exp_doc in QUERIES:
             t1 = time.perf_counter()
-            res = mem.recall(q)
-            dt = round((time.perf_counter() - t1) * 1000)
-            top_m = res.memories[0] if res.memories else None
-            top_d = res.documents[0] if res.documents else None
-            mem_ok = exp_mem is None or (top_m is not None and exp_mem.lower() in top_m["text"].lower())
-            doc_ok = exp_doc is None or (top_d is not None and top_d["name"] == exp_doc)
-            for m in res.memories:
-                (relevant if exp_mem and exp_mem.lower() in m["text"].lower() else irrelevant).append(m["score"])
-            for d in res.documents:
-                (relevant if exp_doc and d["name"] == exp_doc else irrelevant).append(d["score"])
-            rows.append({"query": q, "memory_ok": mem_ok, "document_ok": doc_ok, "ms": dt,
-                         "top_memory": top_m and {"text": top_m["text"], "score": top_m["score"]},
-                         "top_document": top_d and {"name": top_d["name"], "score": top_d["score"]}})
+            [qvec] = mem.book.embedder.embed([q])
+            t2 = time.perf_counter()
+            mems = mem.book.search(q, k=5, query_vec=qvec, min_score=0.0)
+            docs = mem.docs.search(q, k=4, query_vec=qvec, min_score=0.0)
+            t3 = time.perf_counter()
+            embed_ms, search_ms = round((t2 - t1) * 1000), round((t3 - t2) * 1000)
+            unrelated = exp_mem is None and exp_doc is None
+            # Etiketleme (v0.9.1 düzeltmesi): yalnızca beklenen öğe "ilgili"; beklenmeyen tür ancak kesin ilgisizse sayılır.
+            for m, sc in mems:
+                if exp_mem and exp_mem.lower() in m.text.lower():
+                    scores["memory"]["rel"].append(sc)
+                elif unrelated or exp_mem or exp_doc:  # belge sorusunda hafıza cevabı yoktur
+                    scores["memory"]["irr"].append(sc)
+            for ch, sc in docs:
+                name = Path(ch.path).name
+                if exp_doc and name == exp_doc:
+                    scores["docs"]["rel"].append(sc)
+                elif unrelated or exp_doc:  # hafıza sorusunda belge parçası da ilgili olabilir: sayılmaz
+                    scores["docs"]["irr"].append(sc)
+            top_m, top_d = (mems[0] if mems else None), (docs[0] if docs else None)
+            mem_ok = exp_mem is None or (top_m is not None and exp_mem.lower() in top_m[0].text.lower())
+            doc_ok = exp_doc is None or (top_d is not None and Path(top_d[0].path).name == exp_doc)
+            rows.append({"query": q, "memory_ok": mem_ok, "document_ok": doc_ok, "embed_ms": embed_ms,
+                         "search_ms": search_ms,
+                         "top_memory": top_m and {"text": top_m[0].text, "score": top_m[1]},
+                         "top_document": top_d and {"name": Path(top_d[0].path).name, "score": top_d[1]}})
             flag = "OK " if mem_ok and doc_ok else "?? "
-            tm = f"{top_m['score']:.2f} {top_m['text'][:40]}" if top_m else "-"
-            td = f"{top_d['score']:.2f} {top_d['name']}" if top_d else "-"
-            print(f"[{flag}] {dt:>4} ms  {q[:42]:<44} hafıza: {tm:<50} belge: {td}")
-    best_irrelevant = max(irrelevant, default=0.0)
-    worst_relevant = min(relevant, default=1.0)
-    suggested = round((best_irrelevant + worst_relevant) / 2, 2) if worst_relevant > best_irrelevant else round(best_irrelevant + 0.02, 2)
+            tm = f"{top_m[1]:.2f} {top_m[0].text[:38]}" if top_m else "-"
+            td = f"{top_d[1]:.2f} {Path(top_d[0].path).name}" if top_d else "-"
+            print(f"[{flag}] embed {embed_ms:>4} ms + ara {search_ms:>3} ms  {q[:40]:<42} hafıza: {tm:<46} belge: {td}")
+
+    def suggest(kind: str) -> dict:
+        rel, irr = scores[kind]["rel"], scores[kind]["irr"]
+        lo, hi = min(rel, default=1.0), max(irr, default=0.0)
+        value = round((lo + hi) / 2, 2) if lo > hi else round(hi + 0.02, 2)
+        return {"relevant_min": round(lo, 3), "irrelevant_max": round(hi, 3), "separable": lo > hi, "suggested": value}
+
+    current = load_settings().memory
     summary = {
         "queries": len(rows),
         "memory_ok": sum(r["memory_ok"] for r in rows),
         "document_ok": sum(r["document_ok"] for r in rows),
-        "relevant_min_score": round(worst_relevant, 3),
-        "irrelevant_max_score": round(best_irrelevant, 3),
-        "suggested_min_score": suggested,
-        "current_min_score": load_settings().memory.min_score,
-        "avg_ms": round(sum(r["ms"] for r in rows) / len(rows)),
+        "memory_threshold": {**suggest("memory"), "current": current.min_score_memory},
+        "docs_threshold": {**suggest("docs"), "current": current.min_score_docs},
+        "avg_embed_ms": round(sum(r["embed_ms"] for r in rows) / len(rows)),
+        "max_embed_ms": max(r["embed_ms"] for r in rows),
+        "avg_search_ms": round(sum(r["search_ms"] for r in rows) / len(rows)),
     }
     report_path.write_text(json.dumps({"summary": summary, "rows": rows}, ensure_ascii=False, indent=2), encoding="utf-8")
     print("\nÖzet: " + ", ".join(f"{k}={v}" for k, v in summary.items()))

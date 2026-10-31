@@ -108,12 +108,14 @@ sohbetten devretme Claude kutusu üzerinden (arka planda `claude -p` yok).
 
 ## Adım 9 — Hafıza (kişisel hafıza + belge araması)
 Sahip kararları (2026-10-31): SQLite + bge-m3 (Ollama, MIT); v1 kapsamı kişisel hafıza + belge araması (RAG).
-- [~] Kişisel hafıza: kategori + hassasiyet, gizli bilgi tespiti (açık izinsiz saklanmaz), Claude önerileri onaylı,
+- [x] Kişisel hafıza: kategori + hassasiyet, gizli bilgi tespiti (açık izinsiz saklanmaz), Claude önerileri onaylı,
   `hatırla:` komutu + "Hafızaya ekle", düzenle/sil/dışa aktar; anlam (numpy) + kelime (FTS5) araması
-- [~] Belge araması: izinli klasörler, artımlı dizin, gizli dosya/parça atlama, kaynak gösterme (`dosya:satır`)
-- [~] Sohbette otomatik hatırlama (yerel: özel dahil; Claude'a: yalnız kişisel/herkese açık, belge yok);
+- [x] Belge araması: izinli klasörler, artımlı dizin, gizli dosya/parça atlama, kaynak gösterme (`dosya:satır`)
+- [x] Sohbette otomatik hatırlama (yerel: özel dahil; Claude'a: yalnız kişisel/herkese açık, belge yok);
   Hafıza sekmesi; `kayaai memory`; MCP `kayaai_memory_search` / `kayaai_memory_propose`; doctor + setup bge-m3
-- Testler: Python 297, Vitest 12, Playwright (Adım 9 akışı 15 kontrol); Windows: `scripts/memory_check.py` (eşik ölçümü)
+- Testler: Python 297, Vitest 12, Playwright (Adım 9 akışı 15 kontrol); Windows `memory_check` (2026-10-31, gerçek bge-m3):
+  hafıza 10/10, belge 10/10; hafıza ilgili 0.655–0.831 / ilgisiz ≤0.541, belge ilgili 0.553–0.679 / ilgisiz ≤0.389 →
+  v0.9.1'de tür başına eşik (hafıza 0.60, belge 0.50); betiğin tek eşik önerisi yanlış etiketliyordu, düzeltildi
 - Riskler: benzerlik eşiği (gerçek bge-m3 ile ölçülecek); büyük klasörlerde ilk dizinleme süresi (artımlı, sınırlı)
 
 ## Sıradaki adımlar

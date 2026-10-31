@@ -2,6 +2,20 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.9.1] - 2026-10-31
+
+### Değişti
+- Tek benzerlik eşiği yerine tür başına eşik: `memory.min_score_memory: 0.60`, `memory.min_score_docs: 0.50`
+  (Windows ölçümü, gerçek bge-m3: hafıza ilgili ≥0.655 / ilgisiz ≤0.541; belge ilgili ≥0.553 / ilgisiz ≤0.389).
+  Eski `min_score` ayarı okunursa ikisine uygulanır.
+
+### Düzeltildi
+- `memory_check` eşik önerisi yanlış etiketliyordu (hafıza sorusunda dönen ilgili belge parçasını "ilgisiz" sayıyordu →
+  0.62 önerdi). Artık yalnızca beklenen öğe ilgili; tür başına öneri; süre embedding / arama olarak ayrı ölçülür.
+
+### Doğrulandı (Windows, v0.9.0)
+- `memory_check`: hafıza 10/10, belge 10/10, ortalama 910 ms (bazı sorgular ~2 sn — v0.9.1 ölçümü kaynağını gösterecek)
+
 ## [0.9.0] - 2026-10-31
 
 ### Eklendi (Adım 9 — hafıza; sahip kararı: SQLite + bge-m3)

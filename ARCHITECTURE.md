@@ -227,7 +227,7 @@ Memory.recall(query, for_claude) → {memory: [...], documents: [{source: "ad:sa
   parçalama (900 kr, 120 örtüşme), açık gizli kalıp geçen parça atlanır, artımlı (boyut+zaman+sha1).
 - Sohbet: `ChatBook._recall` iş başlamadan bağlamı zenginleştirir, mesaja `recall` (kaynaklar, kullanılan öğeler) yazar.
   `hatırla: …` → `memory.classify` (iç worker) → `MemoryBook.add`.
-- Eşik `memory.min_score` (bge-m3 kosinüs) `scripts/memory_check.py` ile gerçek modelde ölçülerek ayarlanır.
+- Eşikler `memory.min_score_memory` (0.60) ve `memory.min_score_docs` (0.50) — bge-m3 kosinüs, `scripts/memory_check.py` ile gerçek modelde tür başına ölçülerek ayarlandı.
 
 ## MCP katmanı (Faz 2)
 

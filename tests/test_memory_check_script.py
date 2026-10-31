@@ -18,6 +18,6 @@ def test_memory_check_script(fake_ollama, tmp_path: Path):
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
     report = json.loads((tmp_path / "memory_check.json").read_text(encoding="utf-8"))
     s = report["summary"]
-    assert s["queries"] == 10 and "suggested_min_score" in s
+    assert s["queries"] == 10 and "suggested" in s["memory_threshold"] and "suggested" in s["docs_threshold"]
     assert not (tmp_path / "kayaai.db").exists()  # ayrı klasörde çalıştı
     assert (tmp_path / "checks" / "memory" / "data" / "kayaai.db").exists()

@@ -219,7 +219,7 @@ class MemoryBook:
                allowed: frozenset[str] = frozenset({"public", "personal", "private"}),
                include_proposed: bool = False) -> list[tuple[MemoryItem, float]]:
         """Anlam (vektör) + kelime araması. Secret öğeler `allowed` içinde verilmedikçe dönmez."""
-        threshold = self.rt.settings.memory.min_score if min_score is None else min_score
+        threshold = self.rt.settings.memory.min_score_memory if min_score is None else min_score
         scores: dict[str, float] = {}
         if query_vec is not None:
             for mid, s in self.db.nearest("memory", self.embedder.model, query_vec, 50):

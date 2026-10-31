@@ -49,7 +49,9 @@ memory:
   recall_in_chat: true        # sohbette ilgili hafıza/belge parçaları otomatik kullanılsın
   top_memories: 5
   top_chunks: 4
-  min_score: 0.45             # benzerlik eşiği; scripts/memory_check.py önerir
+  # Benzerlik eşikleri (bge-m3, Windows ölçümü 2026-10-31); scripts/memory_check.py tür başına önerir
+  min_score_memory: 0.60
+  min_score_docs: 0.50
   chunk_chars: 900
   chunk_overlap: 120
 
