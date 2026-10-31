@@ -100,10 +100,11 @@ Hedef (MASTER_PROMPT §9A, §13): gerçek sohbet; yeniden başlatınca geçmiş 
 sohbetten devretme Claude kutusu üzerinden (arka planda `claude -p` yok).
 - [x] v0.7.1 — Windows bulguları: Çince karakter koruması, çelişkili "eksik" ayıklama, talimat konusu kapsam dışı,
   `kayaai api --open`; PR mertkaya01/KayaAI#3 ile `main`'e birleştirildi
-- [~] Kalıcı sohbetler (SQLite), bağlam (son 8 mesaj + ekler, sınırlı), otomatik/ajan seçimi, metin ekleri (yükleme +
+- [x] Kalıcı sohbetler (SQLite), bağlam (son 8 mesaj + ekler, sınırlı), otomatik/ajan seçimi, metin ekleri (yükleme +
   izinli klasör), Claude'a devretme (onaylı, kutu üzerinden, cevap sohbete döner), güvenli Markdown, Asistan sekmesi
 - Testler: Python 271, Vitest 12, Playwright (Adım 8 akışı 23 kontrol: geçmiş bağlamı, ek → data, yeniden başlatma
-  sonrası geçmiş, Claude'a devret → başka süreçten tamamlama → sohbette, dar ekran); Windows doğrulaması bekleniyor
+  sonrası geçmiş, Claude'a devret → başka süreçten tamamlama → sohbette, dar ekran); Windows (2026-10-31): gerçek
+  sohbet, otomatik yönlendirme (general / data), data cevabı gözden geçirildi + düzeltildi, doğru hesap
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 7 tamamlandı (2026-10-31). Şu an: Adım 8 Windows doğrulaması → Adım 9 (hafıza: yerel embedding + RAG).

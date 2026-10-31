@@ -16,7 +16,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 3–5 | Ajan ekibi + yerel şef, Claude modu, yerel API, izin motoru + dosya araçları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 6 | Control Center v1: sistem izleme, ajan kartları, onay merkezi (React + TypeScript) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 7 | Ajan sistemi: uzmanlar (coder, data, document), gözden geçirme, anlaşmazlık yükseltme, geçici ajanlar | **Tamamlandı** (Windows'ta doğrulandı) |
-| 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Yeni** — Windows'ta doğrulama bekleniyor |
+| 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Tamamlandı** (Windows'ta doğrulandı) |
 | 9+ | Hafıza (RAG), iş modülleri (PDF/Excel), görsel iş akışı, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
