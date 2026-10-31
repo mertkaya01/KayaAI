@@ -136,7 +136,12 @@ class Conductor:
         self.rt.store.log_event(job.id, "routing.decision", result.routing.model_dump())
         if result.routing.decision == "claude_inbox":
             result.status = TaskStatus.WAITING_CLAUDE.value
-            result.warnings.append("İş Claude kutusuna bırakıldı; Claude Code oturumunda işlenecek (kutu araçları Adım 3d).")
+            result.warnings.append(_lang_note(
+                request,
+                "İş Claude kutusuna bırakıldı: Claude Code oturumunda işlenir (kayaai inbox ile görebilir, "
+                "kayaai inbox run <id> ile yerelde yaptırabilirsin).",
+                "The job was left in the Claude inbox: a Claude Code session will process it "
+                "(see it with kayaai inbox, run it locally with kayaai inbox run <id>)."))
             return
         if result.routing.decision == "local_with_warning":
             result.warnings.append(_lang_note(request, CLAUDE_WARNING_TR, CLAUDE_WARNING_EN))
@@ -241,7 +246,14 @@ class Conductor:
                 s.status, s.error = TaskStatus.FAILED.value, f"bağımlılık başarısız: {failed_deps}"
                 continue
             prev = {d: outputs[d] for d in s.depends_on}
-            task = self._ask(job, s.agent, s.objective, {"previous_results": prev} if prev else {})
+            objective = s.objective
+            if prev:
+                # Gerçek ölçüm: adımlar önceki sonuçları baştan tekrar yazıyordu (aynı içerik 3 bölümde).
+                objective += "\n\n" + _lang_note(
+                    s.objective,
+                    "(Not: Önceki adımların sonuçları girdi verisinde. Onları tekrarlama; yalnızca bu adımın kendi kısmını yaz.)",
+                    "(Note: earlier step results are in the input data. Do not repeat them; write only this step's own part.)")
+            task = self._ask(job, s.agent, objective, {"previous_results": prev} if prev else {})
             s.task_id, s.status, s.error = task.id, task.status.value, task.error
             if task.status == TaskStatus.SUCCEEDED and task.result:
                 outputs[s.id] = task.result
@@ -261,7 +273,10 @@ class Conductor:
     def _heading(objective: str) -> str:
         first = objective.strip().splitlines()[0] if objective.strip() else ""
         first = first.split(". ")[0].rstrip(" .:;")
-        return (first[:77] + "...") if len(first) > 80 else first
+        if len(first) <= 80:
+            return first
+        cut = first[:80].rsplit(" ", 1)[0]  # kelime ortasından kesme
+        return cut.rstrip(" ,;:") + "…"
 
     def _assemble(self, steps: list[StepView], outputs: dict[str, dict[str, Any]], request: str) -> str:
         missing = _lang_note(request, "(bu kısım üretilemedi)", "(this part could not be produced)")

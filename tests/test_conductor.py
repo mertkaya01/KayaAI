@@ -325,3 +325,14 @@ def test_signals_route_to_inbox_when_claude_on(rt, fake_ollama):
     s = Script(planner=[plan_steps([(f"s{i}", "general", f"bölüm {i}", []) for i in range(1, 5)])], answers=[])
     res = run(rt, fake_ollama, s, SAAS)
     assert res.status == "waiting_claude" and s.calls["GeneralAnswer"] == 0
+
+
+def test_dependent_step_told_not_to_repeat_and_headings_cut_on_words(rt, fake_ollama):
+    long_obj = "Mikroservis mimarisi tasarımını detaylandırarak her bir bileşenin işlevini ve etkileşimini açıkla lütfen"
+    s = Script(planner=[plan_steps([("s1", "general", "Plan yap", []), ("s2", "general", long_obj, ["s1"])])],
+               answers=[answer("PLAN"), answer("DETAY")], reviews=[review("ok")])
+    res = run(rt, fake_ollama, s, "Bir sistem için iki parçalı açıklama yap")
+    assert "tekrarlama" in s.user_messages["GeneralAnswer"][1]
+    assert "tekrarlama" not in s.user_messages["GeneralAnswer"][0]  # bağımlılığı olmayan adıma not eklenmez
+    heading = [ln for ln in res.answer.splitlines() if ln.startswith("### ") and "Mikroservis" in ln][0]
+    assert heading.endswith("…") and len(heading) <= 86 and not heading[:-1].endswith(("etkileşimin", "etkileşimi"))

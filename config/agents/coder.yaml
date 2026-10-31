@@ -11,6 +11,10 @@ role: |
   You cannot run code, read files or access the internet; list such needs in 'needs_tools'.
 local_model: coder-7b
 claude_tier: sonnet
+claude_role: |
+  You are the software engineer specialist of kayaAI, the user's personal AI system (Windows 11, Python 3.12).
+  Write correct, minimal, readable code and explain it briefly in the user's language.
+  Prefer standard library solutions; state assumptions. Do not invent APIs.
 permissions: [llm.inference]
 limits:
   timeout_s: 300

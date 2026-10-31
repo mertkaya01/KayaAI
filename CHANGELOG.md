@@ -2,7 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
-## [Yayınlanmadı]
+## [0.3.0] - 2026-10-31
+
+Adım 3 (iki mod + şef) kod olarak tamamlandı.
+
+### Eklendi (Adım 3e — Claude çalışma alanı)
+- `kayaai claude on` (aç + üret) / `kayaai claude sync [--workspace]`: şef (Opus) oturumu için ayrı klasör
+  (varsayılan `~/kayaAI-workspace`, `claude.workspace_dir`). Üretilenler: `CLAUDE.md` (önce yerel, kutu işleme,
+  "her mesajı araca yollama", dürüstlük/onay kuralları), `.claude/agents/kayaai-<ajan>.md` (claude_tier'a göre
+  haiku/sonnet/opus; biçim resmi Claude Code dokümanından doğrulandı), `.mcp.json`, `README.md`
+- Güvenlik: yalnızca `kayaai-generated` işaretli dosyalar güncellenir; kullanıcı dosyaları atlanır ve raporlanır;
+  artık Claude karşılığı olmayan ajanın üretilmiş dosyası kaldırılır; repo içine üretim reddedilir
+- Ajan tanımlarına `claude_role` (Claude alt ajanının talimatı; yerel talimat Claude'a taşınmaz)
+
+### Düzeltildi
+- Bağımlı adımlar önceki sonuçları tekrar yazıyordu (gerçek çıktıda 3 bölüm aynı içerik) → "tekrarlama" notu
+- Kutu uyarı metni eskimişti ("Adım 3d"); başlıklar artık kelime sınırında kesiliyor
+
 
 ### Eklendi (Adım 3a — Claude modu)
 - `claude` ayarı (`config/settings.yaml`, varsayılan kapalı) ve `kayaai/core/claude_mode.py`:

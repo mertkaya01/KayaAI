@@ -53,10 +53,19 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [x] 3b Ajan tanımları (`config/agents/*.yaml`): general, reviewer, coder; `kayaai agents`; MCP `kayaai_list_agents`;
   kod benchmark'ı Windows'ta: qwen2.5-coder:7b 4/5 vs qwen3:8b 3/5 → coder ajanı coder-7b
 - [x] 3c Yerel şef (`kayaai do`, MCP `kayaai_do`) — Windows `conductor_check`: 6/6 başarılı, mod/ajan/dil 6/6
-- [~] 3c düzeltmeleri: assemble birleştirme, reviewer yalnızca eksiklik/dil, karmaşıklık skoru → Claude önerisi — testli, Windows'ta tekrar ölçülecek
-- [~] 3d Claude kutusu: MCP `kayaai_claude_inbox/complete/release`, `kayaai inbox [run|cancel]`,
-  `kayaai claude off` → kutudaki işleri yerelde yapma (varsayılan evet, `--keep`/`--yes`) — 15 test, Windows'ta doğrulanacak
-- [ ] 3e Claude çalışma klasörü üreticisi (`CLAUDE.md`, `.claude/agents/`, `.mcp.json`)
+- [x] 3c düzeltmeleri — Windows `conductor_check` 2. tur: 6/6 (Claude önerisi dahil); CSV 3 bölüm, 4.5 sn (önce 9.4 sn)
+- [~] 3c ince ayar: bağımlı adımlara "tekrarlama" notu (gerçek çıktıda bölümler aynı içeriği tekrarlıyordu), başlıklar kelime sınırında
+- [x] 3d Claude kutusu — Windows'ta: `claude on` → SaaS isteği kutuya (skor 3) → `inbox` → `claude off` → yerelde + uyarı
+  - [ ] Claude Code tarafı (`kayaai_claude_inbox/complete`) — 3e çalışma alanıyla test edilecek
+- [~] 3e Claude çalışma alanı: `kayaai claude on|sync` → `~/kayaAI-workspace` içinde `CLAUDE.md` (şef kuralları),
+  `.claude/agents/kayaai-*.md` (alt ajan biçimi resmi dokümandan doğrulandı), `.mcp.json`; yabancı dosyalara dokunmaz,
+  repo içine üretmez — 10 test; Claude Code (Opus) ile uçtan uca deneme bekleniyor
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: 3c düzeltmeleri + 3d Windows doğrulaması, sonra 3e (Claude çalışma klasörü üreticisi).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: 3e'nin Claude Code ile uçtan uca denemesi → Adım 3 kapanışı → Adım 4 (yerel API + olay yolu).
+
+## Sonraya not (kullanıcı isteği: "her şey bitince")
+Referans repolardan faydalanılacak; içerikleri henüz incelenmedi, her biri alınmadan önce lisansı kontrol edilecek:
+sindresorhus/awesome · public-apis/public-apis · donnemartin/system-design-primer · cobusgreyling/loop-engineering ·
+SeloGPT/selogpt-prompt-labs · arturitu/the-delegation · ripienaar/free-for-dev · sdmg15/Best-websites-a-programmer-should-visit ·
+Donchitos/Claude-Code-Game-Studios · microsoft/Web-Dev-For-Beginners

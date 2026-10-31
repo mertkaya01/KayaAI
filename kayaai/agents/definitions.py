@@ -47,6 +47,9 @@ class AgentDefinition(BaseModel):
     # Claude modu açıkken bu ajanın Claude karşılığı (Adım 3e'de alt ajan dosyası üretilir).
     # none: Claude karşılığı yok, her zaman yerel.
     claude_tier: Literal["none", "haiku", "sonnet", "opus"] = "none"
+    # Claude alt ajanının talimatı (isteğe bağlı). Yerel `role` kullanılmaz: yerel talimat "yerel çalışıyorsun,
+    # kod çalıştıramazsın" gibi Claude için yanlış bilgiler içerir. Boşsa açıklamadan genel bir rol üretilir.
+    claude_role: str = ""
     permissions: list[str] = Field(default_factory=lambda: [Permission.LLM_INFERENCE.value])
     limits: AgentLimits = Field(default_factory=AgentLimits)
     # permanent: sisteme kayıtlı; temporary: şefin bir iş için oluşturduğu geçici ajan (D9)

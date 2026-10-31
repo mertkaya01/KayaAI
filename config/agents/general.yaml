@@ -6,6 +6,7 @@
 #   role         : rol talimatı; boşsa çıktı türünün varsayılan talimatı kullanılır
 #   local_model  : config/models.yaml anahtarı (aday modeller atanamaz)
 #   claude_tier  : Claude modunda karşılığı: none | haiku | sonnet | opus (Adım 3e)
+#   claude_role  : Claude alt ajanının talimatı (boşsa açıklamadan üretilir; yerel `role` kullanılmaz)
 #   permissions  : gereken izinler (llm.inference dışındakiler onay ister)
 #   limits       : timeout_s
 #   status       : permanent | temporary

@@ -50,6 +50,8 @@ class ClaudeSettings(BaseModel):
     enabled: bool = False
     # Claude Code'un MCP sunucusunu en son kullanmasından bu kadar dakika geçtiyse "yakın temas" sayılır.
     contact_window_min: int = Field(15, ge=1, le=24 * 60)
+    # Şef (Opus) Claude Code oturumunun açılacağı klasör; boşsa ~/kayaAI-workspace. Repo'nun içinde olamaz.
+    workspace_dir: str | None = None
 
 
 class ConductorSettings(BaseModel):

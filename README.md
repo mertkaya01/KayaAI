@@ -71,6 +71,19 @@ git pull
 powershell -ExecutionPolicy Bypass -File scripts\windows\setup.ps1
 ```
 
+## Claude modu (isteğe bağlı)
+
+kayaAI Claude olmadan tam çalışır. Claude Pro aboneliğin varken:
+
+```powershell
+kayaai claude on      # Claude modunu açar ve şef çalışma alanını üretir (~\kayaAI-workspace)
+cd $HOME\kayaAI-workspace
+claude                # Opus burada şef: CLAUDE.md kurallarını ve kayaai-* alt ajanlarını kullanır
+```
+
+Kurallar: her iki modda da önce yerel model; Claude yalnızca gerektiğinde. Claude gerektiren işler
+`kayaai inbox`'ta bekler; Claude Code oturumunda "kutuyu işle" de. `kayaai claude off` bekleyenleri yerelde yapar.
+
 ## Claude Code ile kullanım (MCP, Faz 2)
 
 kayaAI bir MCP sunucusu içerir: Claude Code, yerel modelinizi araç olarak çağırabilir. Sunucu yalnızca

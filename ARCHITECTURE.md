@@ -128,6 +128,13 @@ kayaai inbox run <id> / cancel <id>
 ```
 kayaAI Claude'a iş gönderemez; Claude Code kutuyu okur. Kutu SQLite'ta, yeniden başlatmada korunur.
 
+## Claude çalışma alanı (Adım 3e)
+
+`kayaai/claude_workspace.py` — `kayaai claude on|sync`. Geliştirme repo'sundan ayrı klasör (repo içi reddedilir):
+`CLAUDE.md` (şef kuralları) · `.claude/agents/kayaai-<ajan>.md` (`claude_tier` → `model`, `claude_role` → talimat) ·
+`.mcp.json` (bu bilgisayardaki `.venv` Python'u ile `kayaai.mcp_server`) · `README.md`.
+Hepsi `config/agents` ve ayarlardan türetilir (D14); yalnızca `kayaai-generated` işaretli dosyalar güncellenir.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

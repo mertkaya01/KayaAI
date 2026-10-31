@@ -38,6 +38,9 @@ claude:
   enabled: false
   # Claude Code bu kadar dakika içinde kayaAI'yi kullandıysa "yakın temas" gösterilir.
   contact_window_min: 15
+  # Claude modunda şef (Opus) Claude Code oturumunun açılacağı klasör (`kayaai claude sync` üretir).
+  # Boş bırakılırsa: C:\Users\<kullanıcı>\kayaAI-workspace. kayaAI repo'sunun içinde olamaz.
+  workspace_dir:
 
 conductor:
   # Yerel şef (`kayaai do`): en fazla adım, gözden geçirme (never | plan | always), düzeltme turu

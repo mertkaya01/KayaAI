@@ -8,7 +8,7 @@
     kayaai audit             Ortam denetimi (data/audit_report.json)
     kayaai do "istek"        Şef: planla → ajanlara dağıt → birleştir → gözden geçir
     kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
-    kayaai claude [on|off]   Claude modu durumu / aç / kapat
+    kayaai claude [on|off|sync]  Claude modu durumu / aç (+çalışma alanı) / kapat / alanı yeniden üret
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
@@ -305,11 +305,14 @@ def cmd_claude(args: argparse.Namespace) -> int:
     store = TaskStore(settings.db_path)
     try:
         mode = ClaudeMode(store, settings.claude)
-        if args.action == "on":
-            st = mode.enable()
-            _print(f"[AÇIK] {st.label}")
-            _print("Not: Claude için çalışma klasörü (CLAUDE.md, alt ajanlar) üretimi Adım 3e'de eklenecek.")
-            _print("Şimdilik Claude Code'u proje klasöründe açıp kayaai MCP araçlarını kullanabilirsiniz.")
+        if args.action in ("on", "sync"):
+            if args.action == "on":
+                st = mode.enable()
+                _print(f"[AÇIK] {st.label}")
+            code = _claude_sync(settings, args.workspace)
+            if code:
+                return code
+            st = mode.status()
         elif args.action == "off":
             st = mode.disable()
             _print(f"[KAPALI] {st.label}")
@@ -337,6 +340,35 @@ def cmd_claude(args: argparse.Namespace) -> int:
             _print(st.model_dump_json(indent=2))
     finally:
         store.close()
+    return 0
+
+
+def _claude_sync(settings, workspace: str | None) -> int:  # noqa: ANN001
+    from pathlib import Path
+
+    from .agents.definitions import AgentDefinitionError, load_definitions
+    from .claude_workspace import WorkspaceError, default_workspace, sync_workspace
+
+    registry = ModelRegistry.load(settings.models_file)
+    try:
+        agents = load_definitions(settings.config_dir / "agents", registry)
+        report = sync_workspace(settings, agents, Path(workspace) if workspace else default_workspace(settings))
+    except (AgentDefinitionError, WorkspaceError, OSError) as exc:
+        _print(f"[HATA] Çalışma alanı üretilemedi: {exc}")
+        return 1
+    _print(f"Claude çalışma alanı: {report.workspace}")
+    for f in report.written:
+        _print(f"  yazıldı      {f}")
+    for f in report.unchanged:
+        _print(f"  değişmedi    {f}")
+    for f in report.removed:
+        _print(f"  kaldırıldı   {f}")
+    for f in report.skipped_foreign:
+        _print(f"  [ATLANDI] {f} — kayaAI'nin üretmediği bir dosya; üzerine yazılmadı")
+    _print("\nŞef oturumunu başlatmak için:")
+    _print(f'  cd "{report.workspace}"')
+    _print("  claude")
+    _print("İlk açılışta 'kayaai' MCP sunucusunu onaylayın; sonra örneğin: \"kutuyu işle\".")
     return 0
 
 
@@ -449,7 +481,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("agents", help="tanımlı ajanlar (config/agents)").set_defaults(func=cmd_agents)
 
     c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
-    c.add_argument("action", nargs="?", choices=["status", "on", "off"], default="status")
+    c.add_argument("action", nargs="?", choices=["status", "on", "off", "sync"], default="status")
+    c.add_argument("--workspace", default=None, help="şef çalışma klasörü (varsayılan: ~/kayaAI-workspace)")
     c.add_argument("--json", action="store_true")
     c.add_argument("--keep", action="store_true", help="kapatırken kutudaki işleri beklet")
     c.add_argument("--yes", action="store_true", help="kapatırken kutudaki işleri sormadan yerelde yap")

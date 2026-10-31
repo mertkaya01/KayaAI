@@ -47,6 +47,14 @@
 **Not:** Claude Code, MCP araç sonuçlarını kendi bağlamına alır. Yerel modelin cevabı da güvenilmez
 çıktıdır; Claude Code tarafında yüksek etkili işlemler yine kullanıcı onayına tabidir.
 
+## Adım 3'te uygulananlar
+
+- [x] Claude modu varsayılan kapalı; kayaAI Claude'a iş gönderemez (API yok), Claude Code kutuyu kendisi okur
+- [x] Claude çalışma alanı repo dışında; üretici kullanıcı dosyalarının üzerine yazmaz (işaret kontrolü)
+- [x] Claude'un `kayaai_claude_complete` cevabı boyut sınırlı (20.000 karakter) ve yalnızca bekleyen işe yazılır
+- [x] Şef adımları arasında aktarılan sonuçlar `<input_data>` içinde güvenilmez veri olarak verilir
+- [x] Model tarafından üretilen kod varsayılan olarak çalıştırılmaz (`coder_bench --execute` onay ister)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Kimlik doğrulama (Faz 4), dosya yükleme doğrulaması (Faz 4/9), hız sınırlama (Faz 4), sandbox'lı kod
