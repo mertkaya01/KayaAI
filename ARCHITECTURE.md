@@ -117,6 +117,17 @@ istek → planner (RoutePlan: direct | 2-4 adım, needs_claude)  ── geçersi
 - `origin="claude"` (MCP): Claude zaten şef olduğu için kutuya gönderilmez; planlayıcının görüşü uyarı olur.
 - Yerel sonuç üretilemezse: Claude açık → kutu, kapalı → `failed` (asla sahte başarı).
 
+## Claude kutusu (Adım 3d)
+
+```
+kayaai do (Claude gerekli + Claude modu açık) ──► iş: waiting_claude  ◄── kayaai_claude_inbox (Claude Code)
+                                                     │                    kayaai_claude_complete → succeeded, model=claude
+                                                     │                    kayaai_claude_release  → yerel ekip (aynı iş)
+kayaai claude off ──► bekleyenler yerelde (D16 uyarısı) | --keep: bekler
+kayaai inbox run <id> / cancel <id>
+```
+kayaAI Claude'a iş gönderemez; Claude Code kutuyu okur. Kutu SQLite'ta, yeniden başlatmada korunur.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

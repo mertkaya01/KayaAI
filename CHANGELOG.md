@@ -11,6 +11,14 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 - `waiting_claude` görev durumu (Claude kutusu için; yeniden başlatmada korunur, iptal edilebilir)
 - Onaylanan Adım 3 planı: `docs/STEP3_PLAN.md`
 
+### Eklendi (Adım 3d — Claude kutusu)
+- `kayaai/conductor/inbox.py`: Claude gerektiren işler `waiting_claude` olarak bekler; Claude Code MCP ile alır
+- MCP: `kayaai_claude_inbox` (bekleyenler + sebep + yerel plan önerisi), `kayaai_claude_complete` (Claude'un
+  cevabını görev geçmişine yazar; `model: claude (Claude Code)`), `kayaai_claude_release` (yerel ekibe geri ver)
+- `Conductor.resume_local`: bekleyen iş aynı kayıtta yerelde tamamlanır (D16 uyarısıyla)
+- CLI: `kayaai inbox [list|run <id>|run all|cancel <id>]`; `kayaai claude off` kutudaki işleri yerelde yapmayı
+  sorar (varsayılan evet, `--keep` bekletir, `--yes` sormaz)
+
 ### Düzeltildi (3c — RTX 5070 Ti'deki `conductor_check` sonuçlarına göre)
 - **Birleştirme bilgi kaybediyordu:** 3 adımlı işte (kod → açıklama → commit mesajı) LLM birleştirmesi sadece kodu
   döndürdü. Varsayılan artık `merge: assemble` — adım cevapları başlıklarla sırayla, LLM'siz; `llm` seçenek olarak kaldı.

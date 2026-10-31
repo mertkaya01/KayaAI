@@ -84,17 +84,42 @@ class Conductor:
         request = request.strip()
         if not request:
             raise ValueError("istek boş olamaz")
-        t0 = time.perf_counter()
         job = Task(worker="conductor", objective=request, status=TaskStatus.RUNNING, started_at=utcnow(),
                    expected_output="ConductorResult", input={"force": force, "origin": origin})
         self.rt.store.save(job)
         self.rt.store.log_event(job.id, "submitted", {"origin": origin, "force": force})
+        return self._execute_job(job, request, force, origin)
+
+    def resume_local(self, job_id: str) -> ConductorResult:
+        """Claude kutusunda bekleyen işi AYNI iş kaydında yerel ekiple tamamlar (D16 uyarısıyla)."""
+        job = self.rt.store.get(job_id)
+        if job is None or job.worker != "conductor":
+            raise KeyError(f"Şef işi bulunamadı: {job_id}")
+        if job.status != TaskStatus.WAITING_CLAUDE:
+            raise ValueError(f"İş Claude kutusunda değil (durum: {job.status.value})")
+        job.status = TaskStatus.RUNNING
+        self.rt.store.save(job)
+        self.rt.store.log_event(job.id, "claude.released", {"to": "local"})
+        result = self._execute_job(job, job.objective, "local", "user", released=True)
+        return result
+
+    def _execute_job(
+        self, job: Task, request: str, force: Force, origin: Origin, released: bool = False
+    ) -> ConductorResult:
+        t0 = time.perf_counter()
         result = ConductorResult(job_id=job.id, status="running")
+        if released:
+            result.warnings.append(_lang_note(
+                request, "Claude kutusundan yerel ekibe geri verildi.", "Handed back from the Claude inbox to the local team."))
         try:
             self._run(job, request, force, origin, result)
         except Exception as exc:  # noqa: BLE001 - iş kaydı her durumda kapanmalı
             log.exception("şef işi %s beklenmeyen hata", job.id)
             result.status, result.error = TaskStatus.FAILED.value, f"{type(exc).__name__}: {exc}"
+        if released and result.status == TaskStatus.SUCCEEDED.value:
+            warning = _lang_note(request, CLAUDE_WARNING_TR, CLAUDE_WARNING_EN)
+            if warning not in result.warnings:
+                result.warnings.append(warning)  # D16: Claude gerekli görülmüştü
         result.duration_s = round(time.perf_counter() - t0, 3)
         self._close_job(job, result)
         return result

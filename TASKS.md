@@ -54,8 +54,9 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
   kod benchmark'ı Windows'ta: qwen2.5-coder:7b 4/5 vs qwen3:8b 3/5 → coder ajanı coder-7b
 - [x] 3c Yerel şef (`kayaai do`, MCP `kayaai_do`) — Windows `conductor_check`: 6/6 başarılı, mod/ajan/dil 6/6
 - [~] 3c düzeltmeleri: assemble birleştirme, reviewer yalnızca eksiklik/dil, karmaşıklık skoru → Claude önerisi — testli, Windows'ta tekrar ölçülecek
-- [ ] 3d Claude kutusu (MCP): inbox / complete / release; kapatınca yerelde yapma
+- [~] 3d Claude kutusu: MCP `kayaai_claude_inbox/complete/release`, `kayaai inbox [run|cancel]`,
+  `kayaai claude off` → kutudaki işleri yerelde yapma (varsayılan evet, `--keep`/`--yes`) — 15 test, Windows'ta doğrulanacak
 - [ ] 3e Claude çalışma klasörü üreticisi (`CLAUDE.md`, `.claude/agents/`, `.mcp.json`)
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: 3c Windows doğrulaması (`conductor_check.py`), sonra 3d (Claude kutusu).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Şu an: 3c düzeltmeleri + 3d Windows doğrulaması, sonra 3e (Claude çalışma klasörü üreticisi).

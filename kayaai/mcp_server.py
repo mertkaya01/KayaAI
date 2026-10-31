@@ -21,7 +21,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
 from . import APP_NAME, __version__
-from .conductor import Conductor, ConductorResult
+from .conductor import ClaudeInbox, Conductor, ConductorResult, InboxView
 from .config import Settings, load_settings
 from .core.task import Task, TaskStatus
 from .llm.ollama_client import OllamaError
@@ -304,6 +304,40 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
         res = Conductor(rt()).run(request, origin="claude")
         if res.status != TaskStatus.SUCCEEDED.value:
             raise ToolError(f"iş {res.job_id} {res.status}: {res.error}; uyarılar: {res.warnings}")
+        return res
+
+    @server.tool(
+        name="kayaai_claude_inbox",
+        description=(
+            "List kayaAI jobs that the local team judged too hard and left for Claude (you). For each job, do the "
+            "work yourself (you may still delegate parts to kayaai_ask/kayaai_do) and then call "
+            "kayaai_claude_complete with the final answer, or kayaai_claude_release to give it back to the local team."
+        ),
+    )
+    def kayaai_claude_inbox() -> InboxView:
+        return ClaudeInbox(rt()).view()
+
+    @server.tool(
+        name="kayaai_claude_complete",
+        description="Write Claude's final answer for a job from the Claude inbox into kayaAI's task history.",
+    )
+    def kayaai_claude_complete(job_id: str, answer: str, summary: str = "") -> ConductorResult:
+        try:
+            return ClaudeInbox(rt()).complete(job_id, answer, summary)
+        except (KeyError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+
+    @server.tool(
+        name="kayaai_claude_release",
+        description="Give a job from the Claude inbox back to kayaAI's local team; it runs locally now and returns the result.",
+    )
+    def kayaai_claude_release(job_id: str) -> ConductorResult:
+        try:
+            res = ClaudeInbox(rt()).release(job_id)
+        except (KeyError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+        if res.status != TaskStatus.SUCCEEDED.value:
+            raise ToolError(f"iş {res.job_id} {res.status}: {res.error}")
         return res
 
     @server.tool(

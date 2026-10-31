@@ -123,6 +123,7 @@ kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi
 kayaai claude [on|off]                # Claude modu: durum / aç / kapat (varsayılan kapalı)
 kayaai agents                         # tanımlı ajanlar (config/agents/*.yaml)
 kayaai do "istek"                     # şef: planla → ajanlara dağıt → birleştir → gözden geçir
+kayaai inbox                          # Claude kutusu (Claude gerektiren işler); run <id> → yerelde yap
 kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder / reviewer)
 ```
 

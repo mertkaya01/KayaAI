@@ -9,6 +9,7 @@
     kayaai do "istek"        Şef: planla → ajanlara dağıt → birleştir → gözden geçir
     kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
     kayaai claude [on|off]   Claude modu durumu / aç / kapat
+    kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
 
@@ -313,8 +314,20 @@ def cmd_claude(args: argparse.Namespace) -> int:
             st = mode.disable()
             _print(f"[KAPALI] {st.label}")
             if st.waiting_tasks:
-                _print(f"Uyarı: Claude kutusunda {st.waiting_tasks} görev bekliyor. Bunları yerelde yapma "
-                       "özelliği Adım 3d'de eklenecek; görevler silinmedi.")
+                if args.keep:
+                    _print(f"Claude kutusunda {st.waiting_tasks} iş bekletiliyor (--keep). Sonra: kayaai inbox run <id>")
+                else:
+                    go = args.yes
+                    if not go:
+                        try:
+                            ans = input(f"Claude kutusunda {st.waiting_tasks} iş var. Şimdi yerelde yapayım mı? [E/h]: ")
+                        except EOFError:
+                            ans = ""
+                        go = ans.strip().lower() not in {"h", "hayır", "hayir", "n", "no"}
+                    if go:
+                        store.close()
+                        return _inbox_run_all()
+                    _print("İşler bekletildi. Sonra: kayaai inbox run <id>")
         else:
             st = mode.status()
             _print(st.label)
@@ -325,6 +338,61 @@ def cmd_claude(args: argparse.Namespace) -> int:
     finally:
         store.close()
     return 0
+
+
+def _inbox_run_all() -> int:
+    from .conductor import ClaudeInbox
+    from .logging_setup import setup_logging
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    setup_logging(settings, console=True)
+    ok = True
+    with build_runtime(settings, approver=interactive_approver) as rt:
+        inbox = ClaudeInbox(rt)
+        for item in inbox.items():
+            _print(f"\n[yerelde] {item.job_id}: {item.request[:80]}")
+            res = inbox.release(item.job_id)
+            ok &= res.status == "succeeded"
+            _print(res.answer if res.status == "succeeded" else f"başarısız: {res.error}")
+            for w in res.warnings:
+                _print(f"[UYARI] {w}")
+    return 0 if ok else 1
+
+
+def cmd_inbox(args: argparse.Namespace) -> int:
+    from .conductor import ClaudeInbox
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    if args.action == "run" and args.job_id == "all":
+        return _inbox_run_all()
+    with build_runtime(settings, approver=interactive_approver) as rt:
+        inbox = ClaudeInbox(rt)
+        if args.action == "list":
+            view = inbox.view()
+            _print(view.note)
+            for i in view.items:
+                _print(f"  {i.job_id}  {i.created_at:%Y-%m-%d %H:%M}  {i.request[:70]}")
+                if i.reason:
+                    _print(f"  {'':12}  sebep: {i.reason[:110]}")
+            return 0
+        if not args.job_id:
+            _print("İş id gerekli: kayaai inbox run <id>  (hepsi için: kayaai inbox run all)")
+            return 2
+        if args.action == "cancel":
+            done = inbox.cancel(args.job_id)
+            _print("İptal edildi." if done else "Kutuda böyle bekleyen bir iş yok.")
+            return 0 if done else 1
+        try:
+            res = inbox.release(args.job_id)
+        except (KeyError, ValueError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+    _print("\n" + (res.answer if res.status == "succeeded" else f"İş başarısız: {res.error}"))
+    for w in res.warnings:
+        _print(f"[UYARI] {w}")
+    return 0 if res.status == "succeeded" else 1
 
 
 def cmd_mcp(args: argparse.Namespace) -> int:
@@ -383,6 +451,13 @@ def build_parser() -> argparse.ArgumentParser:
     c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")
     c.add_argument("action", nargs="?", choices=["status", "on", "off"], default="status")
     c.add_argument("--json", action="store_true")
+    c.add_argument("--keep", action="store_true", help="kapatırken kutudaki işleri beklet")
+    c.add_argument("--yes", action="store_true", help="kapatırken kutudaki işleri sormadan yerelde yap")
+
+    ib = sub.add_parser("inbox", help="Claude kutusu: listele / yerelde yap / iptal")
+    ib.add_argument("action", nargs="?", choices=["list", "run", "cancel"], default="list")
+    ib.add_argument("job_id", nargs="?")
+    ib.set_defaults(func=cmd_inbox)
     c.set_defaults(func=cmd_claude)
 
     sub.add_parser("mcp", help="MCP sunucusunu stdio üzerinden başlat (Claude Code için)").set_defaults(func=cmd_mcp)

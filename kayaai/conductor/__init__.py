@@ -1,3 +1,4 @@
 from .conductor import Conductor, ConductorResult
+from .inbox import ClaudeInbox, InboxItem, InboxView
 
-__all__ = ["Conductor", "ConductorResult"]
+__all__ = ["ClaudeInbox", "Conductor", "ConductorResult", "InboxItem", "InboxView"]
