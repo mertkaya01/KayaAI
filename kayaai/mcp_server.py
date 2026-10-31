@@ -99,6 +99,7 @@ class Health(BaseModel):
     worker_models_installed: dict[str, bool] = Field(default_factory=dict)
     loaded_models: list[dict[str, Any]] = Field(default_factory=list)
     gpus: list[dict[str, Any]] = Field(default_factory=list)
+    gpu_notes: list[str] = Field(default_factory=list)
     workers: list[str]
     problems: list[str] = Field(default_factory=list)
 
@@ -328,6 +329,7 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
             h.problems.append(f"Ollama'ya ulaşılamıyor: {exc}")
         gpu = gpu_info()
         h.gpus = gpu.get("gpus", [])
+        h.gpu_notes = gpu.get("notes", [])
         if not h.gpus:
             h.problems.append("NVIDIA GPU algılanmadı")
         return h

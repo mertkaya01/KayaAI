@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.2.1] - 2026-10-31
+
+Windows'taki gerçek test çalıştırmasında bulunan hatalar.
+
+### Düzeltildi
+- **Orkestratör `run_all` yarış durumu:** bağımlılık *başlatıldığında* hazır sayılıyordu; bağımlı görev,
+  bağımlılığı hâlâ çalışırken başlayıp "bağımlılık başarısız (running)" ile düşebiliyordu. Artık bağımlılık
+  *bittiğinde* hazır sayılıyor. Windows'ta `test_dependencies_run_in_order_and_failure_propagates` ile
+  yakalandı; deterministik regresyon testi eklendi.
+- **MCP `kayaai_health` GPU'yu göremiyordu:** MCP SDK alt sürece kısıtlı ortam veriyor. `nvidia-smi` için
+  Windows'ta bilinen konumlara yedek arama, `stdin` devralınmıyor, `mcp_check.py` tam ortamı aktarıyor;
+  GPU okunamazsa sebebi `gpu_notes` alanında raporlanıyor.
+
+### Doğrulandı (Windows)
+- CUDA sürücü sürümü artık okunuyor: 13.5
+- `mcp_check.py`: 8 araç, gerçek modelle TR/EN cevaplar doğru dilde (~138 tok/sn)
+
 ## [0.2.0] - 2026-10-31
 
 ### Eklendi (Faz 2 — MCP)

@@ -253,3 +253,27 @@ def test_translation_request_not_flagged(make_orchestrator, fake_ollama):
     assert task.status == TaskStatus.SUCCEEDED
     system = fake_ollama.chat_paths()[0]["messages"][0]["content"]
     assert "written in" not in system  # hedef dil belirtilmiş: dil talimatı eklenmez
+
+
+def test_dependent_waits_until_dependency_finishes(make_orchestrator, fake_ollama):
+    """Regresyon (Windows'ta yakalandı): bağımlılık başlatıldığında değil, BİTTİĞİNDE hazır sayılmalı."""
+    import time as _time
+
+    def reply(body):
+        q = body["messages"][-1]["content"]
+        if q == "A":
+            _time.sleep(0.6)  # A yavaş
+        if q == "B":
+            return "geçersiz"  # B hızlıca başarısız olur ve planlayıcıyı tekrar döndürür
+        return good_answer(answer=f"cevap {q}")
+
+    fake_ollama.chat_replies = [reply] * 10
+    orch = make_orchestrator(settings=OrchestratorSettings(max_parallel=2, max_output_attempts=1, default_timeout_s=10))
+    a = orch.submit("A")
+    b = orch.submit("B")
+    c = orch.submit("C", depends_on=[a.id])
+    results = {t.objective: t for t in orch.run_all([a.id, b.id, c.id])}
+    assert results["A"].status == TaskStatus.SUCCEEDED
+    assert results["B"].status == TaskStatus.FAILED
+    assert results["C"].status == TaskStatus.SUCCEEDED, results["C"].error
+    assert results["C"].started_at >= results["A"].finished_at

@@ -33,8 +33,9 @@ QUESTIONS = [
 
 
 async def check() -> dict:
-    # SDK alt sürece kısıtlı bir ortam verir; kayaAI ayarlarını (KAYAAI_*) açıkça aktar.
-    env = {k: v for k, v in os.environ.items() if k.startswith("KAYAAI_")} | {"PYTHONUTF8": "1"}
+    # SDK alt sürece güvenlik için kısıtlı bir ortam verir (ör. Windows'ta ProgramFiles/windir yok).
+    # Sunucu bizim kendi kodumuz ve bu bizim kendi kontrol scriptimiz: tam ortamı aktarmak güvenli.
+    env = dict(os.environ) | {"PYTHONUTF8": "1"}
     params = StdioServerParameters(command=sys.executable, args=["-m", "kayaai.mcp_server"], cwd=str(ROOT), env=env)
     report: dict = {"steps": {}}
     async with Client(params) as c:
@@ -49,6 +50,8 @@ async def check() -> dict:
         ok = not h.is_error and health.get("ollama_reachable") and all(health.get("worker_models_installed", {}).values())
         report["steps"]["health"] = {"passed": bool(ok), **health}
         print(f"[{'OK' if ok else 'HATA'}] kayaai_health: Ollama {health.get('ollama_version')}, sorunlar: {health.get('problems')}")
+        gpus = health.get("gpus") or []
+        print(f"     GPU: {', '.join(g.get('name', '?') for g in gpus) or 'yok'} | notlar: {health.get('gpu_notes')}")
         if not ok:
             return report
 

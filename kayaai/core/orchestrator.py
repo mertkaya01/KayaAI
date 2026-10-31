@@ -172,11 +172,13 @@ class Orchestrator:
     def run_all(self, task_ids: Iterable[str]) -> list[Task]:
         """Görevleri bağımlılık sırasına göre, en fazla max_parallel paralel çalıştırır."""
         ids = list(dict.fromkeys(task_ids))
-        remaining = set(ids)
+        batch = set(ids)
+        remaining = set(ids)   # henüz başlatılmamış
+        finished: set[str] = set()  # bitmiş (sonucu ne olursa olsun)
         running: dict[Future[Task], str] = {}
         with ThreadPoolExecutor(max_workers=self.settings.max_parallel, thread_name_prefix="kayaai") as pool:
             while remaining or running:
-                ready = [tid for tid in ids if tid in remaining and self._deps_settled(tid, remaining)]
+                ready = [tid for tid in ids if tid in remaining and self._deps_finished(tid, batch, finished)]
                 for tid in ready:
                     remaining.discard(tid)
                     running[pool.submit(self.run, tid)] = tid
@@ -190,6 +192,7 @@ class Orchestrator:
                 done, _ = wait(running, return_when=FIRST_COMPLETED)
                 for fut in done:
                     tid = running.pop(fut)
+                    finished.add(tid)
                     exc = fut.exception()
                     if exc is not None:  # run() kendi hatalarını yakalar; buraya düşmemeli
                         log.exception("run(%s) beklenmeyen hata", tid, exc_info=exc)
@@ -208,9 +211,13 @@ class Orchestrator:
 
     # ------------------------------------------------------------------ yardımcılar
 
-    def _deps_settled(self, tid: str, remaining: set[str]) -> bool:
+    def _deps_finished(self, tid: str, batch: set[str], finished: set[str]) -> bool:
+        """Bu partideki bağımlılıklar BİTMİŞ olmalı (yalnızca başlatılmış olması yetmez).
+
+        Parti dışındaki bağımlılıkların durumunu run() kontrol eder.
+        """
         task = self._require(tid)
-        return all(dep not in remaining for dep in task.depends_on)
+        return all(dep not in batch or dep in finished for dep in task.depends_on)
 
     def _cancel_event(self, task_id: str) -> threading.Event:
         with self._lock:

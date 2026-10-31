@@ -44,13 +44,14 @@ def _run(cmd: list[str], timeout: float = 15) -> tuple[int, str]:
     """Komutu çalıştırır; (dönüş kodu, çıktı) döner. Komut yoksa (-1, '')."""
     exe = cmd[0]
     if not os.path.isabs(exe):
-        resolved = shutil.which(exe)
+        resolved = shutil.which(exe) or _windows_fallback(exe)
         if resolved is None:
             return -1, ""
         cmd = [resolved, *cmd[1:]]
     try:
         proc = subprocess.run(
             cmd,
+            stdin=subprocess.DEVNULL,  # MCP gibi stdio protokollerinde ebeveynin stdin'ini devralma
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -157,6 +158,21 @@ def _gb(value: int | None) -> float | None:
 # --------------------------------------------------------------------------- GPU
 
 
+def _windows_fallback(exe: str) -> str | None:
+    """PATH kısıtlı olduğunda (ör. MCP alt süreci) bilinen Windows konumlarına bak."""
+    if not IS_WINDOWS or exe != "nvidia-smi":
+        return None
+    system_root = os.environ.get("SystemRoot") or os.environ.get("SYSTEMROOT") or r"C:\Windows"
+    program_files = os.environ.get("ProgramW6432") or os.environ.get("ProgramFiles") or r"C:\Program Files"
+    for candidate in (
+        Path(system_root) / "System32" / "nvidia-smi.exe",
+        Path(program_files) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe",
+    ):
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
 def gpu_info() -> dict[str, Any]:
     """nvidia-smi ile NVIDIA GPU bilgisi. Sürücü yoksa açıklayıcı not döner."""
     result: dict[str, Any] = {"nvidia_smi_found": False, "gpus": [], "notes": []}
@@ -166,6 +182,9 @@ def gpu_info() -> dict[str, Any]:
         result["notes"].append("nvidia-smi bulunamadı: NVIDIA sürücüsü kurulu değil veya PATH'te yok.")
         return result
     result["nvidia_smi_found"] = True
+    if code == -2:
+        result["notes"].append(f"nvidia-smi çalıştırılamadı: {out[:200]}")
+        return result
     if code != 0:
         # Eski sürücüler compute_cap alanını desteklemeyebilir; onsuz tekrar dene.
         query = "name,driver_version,memory.total,memory.used,memory.free,utilization.gpu"
@@ -182,6 +201,10 @@ def gpu_info() -> dict[str, Any]:
             except (KeyError, ValueError):
                 pass
         result["gpus"].append(gpu)
+
+    if not result["gpus"]:
+        result["notes"].append(f"nvidia-smi çıktısı okunamadı (kod {code}): {out.strip()[:200]!r}")
+        return result
 
     # CUDA sürücü API sürümü: önce nvidia-smi başlığı, sonra ayrıntılı sorgu (-q).
     _, header = _run(["nvidia-smi"])

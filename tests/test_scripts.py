@@ -46,3 +46,31 @@ def test_parse_cuda_version_formats():
     assert parse_cuda_version("Driver Version: 621.01   CUDA Driver Version: 13.1") == "13.1"
     assert parse_cuda_version("CUDA Version: N/A") is None
     assert parse_cuda_version("") is None
+
+
+def test_gpu_info_reports_reason_when_nvidia_smi_cannot_run(monkeypatch):
+    from kayaai.system import audit
+
+    monkeypatch.setattr(audit, "_run", lambda cmd, timeout=15: (-2, "OSError: [WinError 6] The handle is invalid"))
+    info = audit.gpu_info()
+    assert info["gpus"] == []
+    assert any("çalıştırılamadı" in n and "WinError 6" in n for n in info["notes"])
+
+
+def test_gpu_info_reports_unparseable_output(monkeypatch):
+    from kayaai.system import audit
+
+    monkeypatch.setattr(audit, "_run", lambda cmd, timeout=15: (0, "garbage"))
+    info = audit.gpu_info()
+    assert info["gpus"] == [] and any("okunamadı" in n for n in info["notes"])
+
+
+def test_gpu_info_parses_real_query_line(monkeypatch):
+    from kayaai.system import audit
+
+    line = "NVIDIA GeForce RTX 5070 Ti, 621.01, 16303, 7765, 8231, 12.0, 10"
+    header = "| NVIDIA-SMI 621.01   Driver Version: 621.01   CUDA Version: 13.5 |"
+    monkeypatch.setattr(audit, "_run", lambda cmd, timeout=15: (0, header if len(cmd) == 1 else line))
+    info = audit.gpu_info()
+    assert info["gpus"][0]["memory.total_mb"] == 16303
+    assert info["cuda_driver_version"] == "13.5"
