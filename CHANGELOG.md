@@ -2,6 +2,22 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.1.1] - 2026-10-31
+
+Gerçek donanımdaki (RTX 5070 Ti) ilk smoke/benchmark sonuçlarına göre düzeltmeler.
+
+### Düzeltildi
+- İngilizce sorulara Türkçe cevap verme hatası: İngilizce sistem promptu, koddan dil tespiti
+  (`kayaai/core/lang.py`), cevap dili doğrulaması ve geri bildirimle tekrar deneme
+- Yanlış `language` etiketi artık deterministik olarak düzeltilip `metrics.corrections`'a yazılıyor
+- Anlamsal doğrulama hataları da artık modele geri bildirilip tekrar deneniyor (önce yalnızca şema hataları)
+- Denetimde CUDA sürümü okunamıyordu (`null`): esnek regex + `nvidia-smi -q` yedeği + teşhis örneği
+- Benchmark: çeviri sorusunun beklenen dili hedef dil; soğuk/sıcak gecikme ayrı; 16 token altı çıktıda tok/sn yok
+
+### Eklendi
+- `config/models.yaml`: kurulu `qwen2.5-coder:7b` ve `llama3.1:8b` aday (`status: candidate`) olarak
+- Dokümanlar gerçek ölçümlerle güncellendi (PHASE0_REPORT, MODEL_REGISTRY, TASKS)
+
 ## [0.1.0] - 2026-10-31
 
 ### Eklendi

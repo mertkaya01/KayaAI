@@ -35,3 +35,14 @@ def test_audit_module_is_stdlib_only():
 def test_package_init_has_no_third_party_imports():
     src = (Path(PROJECT_ROOT) / "kayaai" / "__init__.py").read_text(encoding="utf-8")
     assert "import httpx" not in src and "import pydantic" not in src
+
+
+def test_parse_cuda_version_formats():
+    from kayaai.system.audit import parse_cuda_version
+
+    header = "| NVIDIA-SMI 621.01      Driver Version: 621.01       CUDA Version: 13.2     |"
+    assert parse_cuda_version(header) == "13.2"
+    assert parse_cuda_version("    CUDA Version                          : 12.8") == "12.8"
+    assert parse_cuda_version("Driver Version: 621.01   CUDA Driver Version: 13.1") == "13.1"
+    assert parse_cuda_version("CUDA Version: N/A") is None
+    assert parse_cuda_version("") is None

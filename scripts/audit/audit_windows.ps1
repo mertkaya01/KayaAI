@@ -95,7 +95,16 @@ if ($smi) {
         }
     }
     $header = (& $smi.Source 2>&1) -join "`n"
-    if ($header -match "CUDA Version:\s*([\d\.]+)") {
+    $cudaRe = "CUDA(?:[ \t]+[A-Za-z]+)?[ \t]+Version[ \t]*:[ \t]*(\d+\.\d+)"
+    $cudaFound = $header -match $cudaRe
+    if (-not $cudaFound) {
+        $detail = (& $smi.Source -q 2>&1) -join "`n"
+        $cudaFound = $detail -match $cudaRe
+    }
+    if (-not $cudaFound) {
+        $gpuInfo.cuda_header_sample = @($header -split "`n" | Select-Object -First 6)
+    }
+    if ($cudaFound) {
         $gpuInfo.cuda_driver_version = $Matches[1]
         if ([version]$Matches[1] -lt [version]"12.8") {
             $gpuInfo.notes += "UYARI: Sürücünün CUDA sürümü $($Matches[1]) < 12.8. NVIDIA sürücüsünü güncelleyin."

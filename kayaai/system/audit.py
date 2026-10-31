@@ -183,10 +183,16 @@ def gpu_info() -> dict[str, Any]:
                 pass
         result["gpus"].append(gpu)
 
-    # CUDA sürücü API sürümü nvidia-smi başlığında yazar ("CUDA Version: 12.8").
+    # CUDA sürücü API sürümü: önce nvidia-smi başlığı, sonra ayrıntılı sorgu (-q).
     _, header = _run(["nvidia-smi"])
-    m = re.search(r"CUDA Version:\s*([\d.]+)", header)
-    result["cuda_driver_version"] = m.group(1) if m else None
+    cuda = parse_cuda_version(header)
+    if cuda is None:
+        _, detail = _run(["nvidia-smi", "-q"])
+        cuda = parse_cuda_version(detail)
+    result["cuda_driver_version"] = cuda
+    if cuda is None:
+        # Biçim değişmiş olabilir: teşhis için başlığın ilk satırlarını sakla.
+        result["cuda_header_sample"] = [ln.rstrip() for ln in header.splitlines()[:6]]
 
     for gpu in result["gpus"]:
         cap = gpu.get("compute_cap", "")
@@ -202,6 +208,15 @@ def gpu_info() -> dict[str, Any]:
                     f"UYARI: Sürücünün desteklediği CUDA {cuda} < 12.8. NVIDIA sürücüsünü güncelleyin."
                 )
     return result
+
+
+_CUDA_RE = re.compile(r"CUDA(?:[ \t]+[A-Za-z]+)?[ \t]+Version[ \t]*:[ \t]*(\d+\.\d+(?:\.\d+)?)", re.IGNORECASE)
+
+
+def parse_cuda_version(text: str) -> str | None:
+    """'CUDA Version: 12.8', 'CUDA Version : 13.0', 'CUDA Driver Version: 13.1' biçimlerini tanır."""
+    m = _CUDA_RE.search(text or "")
+    return m.group(1) if m else None
 
 
 def _version_tuple(v: str) -> tuple[int, ...]:

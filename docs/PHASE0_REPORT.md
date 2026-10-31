@@ -1,24 +1,37 @@
 # Faz 0 — Ortam Denetimi ve Teknik Rapor
 
-> Durum: **Hedef makinede doğrulama bekliyor.**
-> Bu rapor MASTER_PROMPT'taki donanım bilgilerine dayanır. kayaAI bulut ortamında geliştirildiği için
-> Windows makinesi doğrudan denetlenemedi. Gerçek değerler `scripts\audit\audit_windows.ps1`
-> çıktısıyla (`data\audit_windows.json`) doğrulanınca bu rapor güncellenecek.
+> Durum: **Hedef makinede doğrulandı (2026-10-31).** Kaynak: kullanıcının `data\audit_windows.json` ve
+> `data\smoke_report.json` çıktıları.
 
-## 1. Donanım (beyan edilen)
+## 1. Donanım (ölçülen)
 
-| Bileşen | Değer | kayaAI için anlamı |
+| Bileşen | Ölçülen değer | kayaAI için anlamı |
 |---|---|---|
-| GPU | NVIDIA RTX 5070 Ti, 16 GB GDDR7 | 8B–14B modeller tamamen VRAM'de, hızlı |
-| CPU | Intel Core i7-14700K (20 çekirdek / 28 iş parçacığı) | OCR, ses ön işleme, VRAM'e sığmayan katmanlar |
-| RAM | 32 GB | VRAM'e sığmayan modellerde kısmi CPU offload mümkün ama yavaş |
-| Disk | 2 TB SSD | Model deposu için bol yer |
-| OS | Windows (10/11 doğrulanacak) | Yerel Windows desteği zorunlu |
+| OS | Windows 11 Pro, build 26200, 64 bit, PowerShell 5.1 | Yerel Windows desteği zorunlu |
+| CPU | Intel Core i7-14700K — 20 çekirdek / 28 iş parçacığı | OCR, ses ön işleme, kısmi offload |
+| RAM | 31.8 GB (ölçüm anında 16.2 GB boş) | VRAM'e sığmayan modellerde kısmi offload mümkün ama yavaş |
+| Disk | C: 1862 GB, **521.9 GB boş** | Model deposu için bol yer |
+| GPU | NVIDIA GeForce RTX 5070 Ti — **16303 MB VRAM**, compute 12.0 (Blackwell) | 8B–14B modeller tamamen VRAM'de |
+| Ek GPU | Intel UHD 770 (iGPU) | Masaüstü bu karta taşınırsa NVIDIA'da VRAM boşalır (opsiyonel) |
+| NVIDIA sürücüsü | 621.01 | Blackwell ve CUDA 12.8+ destekli (ilk denetimde CUDA satırı okunamadı, regex düzeltildi) |
 | Bütçe | 0 TL/ay | Sadece ücretsiz, yerel araçlar |
 
-**Kullanılabilir VRAM gerçekçi olarak ~14–15 GB'tır.** Windows masaüstü, tarayıcı ve diğer uygulamalar
-0.8–1.5 GB VRAM kullanır. Bu yüzden plan, "her şey aynı anda yüklü" yerine **tek büyük model yüklü**
-politikasına dayanır (Ollama `keep_alive` ile otomatik boşaltma).
+**Boşta VRAM kullanımı 1.3–1.6 GB** (masaüstü + uygulamalar). Bu yüzden plan, "her şey aynı anda
+yüklü" yerine **tek büyük model yüklü** politikasına dayanır (Ollama `keep_alive` ile otomatik boşaltma).
+
+### Kurulu yazılımlar (ölçülen)
+
+| Araç | Sürüm | Not |
+|---|---|---|
+| Python | 3.11.9 (Microsoft Store) + 3.12.10 (kayaAI .venv bununla kuruldu) | OK |
+| Git | 2.51.2 | OK |
+| Node.js / npm | 24.15.0 / 12.0.2 | Faz 4 arayüz için hazır |
+| Docker | 29.6.1 | Gerekmiyor, kullanılmayacak |
+| Ollama | 0.33.3 | OK, GPU'yu tam kullanıyor |
+| ffmpeg | 9.0.1 (gyan.dev full build) | Faz 6 için hazır |
+| Tesseract | yok | Faz 5'te kurulacak |
+| winget | 1.29 | OK |
+| Kurulu modeller | qwen3:8b, llama3.1:8b, qwen2.5-coder:7b, qwen2:7b | qwen2:7b eski; silinirse ~4.4 GB yer açılır (`ollama rm qwen2:7b`) |
 
 ## 2. GPU uyumluluğu — RTX 50 (Blackwell) notları
 
@@ -61,16 +74,32 @@ JSON çıktısıyla bazen çakışır. Karmaşık akıl yürütme gerektiren wor
 
 ## 5. Disk ve VRAM bütçesi
 
+**Ölçülen (qwen3:8b, 8K bağlam):** model belleği 5.86 GB, **tamamı VRAM'de** (`size_vram = size`).
+Toplam GPU belleği yüklemeden önce 1587 MB → yükledikten sonra 7726 MB; **~8.3 GB boş kalıyor.**
+
 | Kalem | Disk | VRAM (yüklüyken) |
 |---|---|---|
 | Ollama uygulaması | ~1 GB | — |
-| qwen3:8b | 5.2 GB | ~6–6.5 GB |
-| (sonra) qwen3:14b | 9.3 GB | ~10–11 GB |
-| (Faz 5) qwen2.5vl:7b | ~6 GB | ~7–8 GB |
-| (Faz 6) whisper large-v3-turbo | ~1.6 GB | ~1.5–2.5 GB |
+| qwen3:8b | 5.2 GB | **5.86 GB (ölçüldü)** |
+| (sonra) qwen3:14b | 9.3 GB | ~10–11 GB (tahmin) |
+| (Faz 5) qwen2.5vl:7b | ~6 GB | ~7–8 GB (tahmin) |
+| (Faz 6) whisper large-v3-turbo | ~1.6 GB | ~1.5–2.5 GB (tahmin) |
 | Python ortamı + bağımlılıklar | 0.2 GB (Faz 1) → ~5 GB (Faz 5–6, PyTorch vb.) | — |
-| **Faz 1 toplam** | **~7 GB** | **~6.5 GB** |
-| Faz 6 sonu tahmini | ~30–40 GB | tek seferde en fazla ~12 GB |
+
+Sonuç: qwen3:8b + whisper birlikte rahat sığar; qwen3:8b + görsel model (~13.5 GB + masaüstü) sınırda →
+görsel model kullanılırken LLM boşaltılacak.
+
+### Hız (ölçülen)
+
+| Ölçüm | Değer |
+|---|---|
+| Soğuk başlangıç (ilk istek) | 47.8 sn toplam, bunun 22.1 sn'si model yükleme |
+| Sıcak yanıt (model yüklü) | 0.36–1.1 sn |
+| Üretim hızı | **~138 token/sn** (132–139) |
+
+Soğuk başlangıç yüksek: 22 sn yükleme + ~25 sn ilk hesaplama (muhtemelen ilk çalıştırmada GPU çekirdek
+derlemesi/ısınma; sürücü bunu önbelleğe alır). Bir sonraki smoke çalıştırmasında `latency` alanı soğuk ve
+sıcak süreyi ayrı raporlar. Model `keep_alive: 10m` boyunca VRAM'de kalır.
 
 Ollama modelleri varsayılan olarak `C:\Users\<kullanıcı>\.ollama\models` altına iner. C: dolu ise
 `OLLAMA_MODELS` kullanıcı ortam değişkeniyle başka sürücüye taşınabilir.
@@ -109,9 +138,9 @@ sunucusu olarak Claude Code'a açılır, Faz 4'te FastAPI + web arayüzü ekleni
 
 | Faz | İçerik | Durum |
 |---|---|---|
-| 0 | Ortam denetimi, mimari, rapor | Kod hazır, **Windows'ta çalıştırılması bekleniyor** |
-| 1 | Ollama + Python çekirdeği, görev yöneticisi, worker registry | Kod + birim testleri hazır, **gerçek model testi bekleniyor** |
-| 2 | MCP sunucusu: Claude Code yerel worker'ları çağırır | Sonraki adım |
+| 0 | Ortam denetimi, mimari, rapor | **Tamamlandı** — Windows'ta doğrulandı |
+| 1 | Ollama + Python çekirdeği, görev yöneticisi, worker registry | **Tamamlandı** — kabul testleri #1-4, #13 geçti |
+| 2 | MCP sunucusu: Claude Code yerel worker'ları çağırır | Devam ediyor |
 | 3 | Uzman worker'lar, delegasyon, doğrulama | |
 | 4 | Masaüstü/web arayüzü | |
 | 5 | Ekran zekası (yakalama, OCR, görsel model) | |

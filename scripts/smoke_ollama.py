@@ -32,6 +32,7 @@ sys.path.insert(0, str(ROOT))
 
 from kayaai import __version__  # noqa: E402
 from kayaai.config import load_settings  # noqa: E402
+from kayaai.core.lang import detect_language  # noqa: E402
 from kayaai.core.task import TaskStatus  # noqa: E402
 from kayaai.runtime import build_runtime  # noqa: E402
 from kayaai.system.audit import gpu_info  # noqa: E402
@@ -42,12 +43,14 @@ for stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
+# (beklenen cevap dili, soru). Çeviri sorusunda beklenen dil HEDEF dildir.
 BENCH_PROMPTS = [
     ("tr", "Python'da liste ile demet (tuple) arasındaki farkı iki cümleyle açıkla."),
     ("en", "Give three short tips for writing readable Python code."),
-    ("tr", "Şu cümleyi İngilizceye çevir: 'Yarın sabah toplantıya geç kalacağım.'"),
+    ("en", "Şu cümleyi İngilizceye çevir: 'Yarın sabah toplantıya geç kalacağım.'"),
     ("tr", "Bir freelance yazılımcı için haftalık plan önerisi ver, 3 madde."),
     ("en", "Summarize in one sentence: Local LLMs run on the user's own hardware, keeping data private."),
+    ("en", "Explain what an API is in two sentences."),
 ]
 
 
@@ -112,10 +115,28 @@ def main() -> int:
         return {
             "passed": "ankara" in res.content.lower(),
             "answer": res.content.strip()[:200],
+            "cold_start": True,  # ilk çağrı: model diskten VRAM'e yüklenir + GPU ısınması
             **res.metrics(),
         }
 
     ok1 = report.check("#1", "Yerel LLM yanıt veriyor (Türkçe doğruluk: Ankara)", t1) if ok2 else False
+
+    # Aynı istek model yüklüyken: soğuk/sıcak başlangıç farkı
+    if ok1:
+        try:
+            warm = rt.llm.chat(
+                spec.name,
+                [{"role": "user", "content": "Türkiye'nin başkenti neresidir? Sadece şehir adını yaz."}],
+                options=spec.ollama_options(), think=spec.think, keep_alive=spec.keep_alive,
+            )
+            report.data["latency"] = {
+                "cold_total_s": report.data["acceptance"]["#1"].get("total_duration_s"),
+                "cold_load_s": report.data["acceptance"]["#1"].get("load_duration_s"),
+                "warm_total_s": round(warm.total_duration_s, 3),
+                "warm_load_s": round(warm.load_duration_s, 3),
+            }
+        except Exception as exc:  # noqa: BLE001
+            report.data["latency"] = {"error": str(exc)}
 
     # VRAM ölçümü: model şimdi yüklü olmalı
     try:
@@ -169,13 +190,17 @@ def main() -> int:
         rows = []
         for lang, prompt in BENCH_PROMPTS:
             t = current.orchestrator.ask(prompt)
+            answer_text = str((t.result or {}).get("answer", ""))
             rows.append(
                 {
                     "lang": lang,
                     "prompt": prompt[:60],
                     "status": t.status.value,
                     "first_try_valid": t.metrics.get("output_attempts") == 1,
-                    "detected_language": (t.result or {}).get("language"),
+                    "validation_retries": t.metrics.get("validation_retries", 0),
+                    "corrections": t.metrics.get("corrections", []),
+                    "model_language_label": (t.result or {}).get("language"),
+                    "detected_language": detect_language(answer_text),
                     "tokens_per_second": t.metrics.get("tokens_per_second"),
                     "seconds": t.duration_s,
                     "answer": str((t.result or {}).get("answer", t.error))[:300],
@@ -186,8 +211,8 @@ def main() -> int:
         report.data["benchmark"] = {
             "runs": rows,
             "success_rate": sum(r["status"] == "succeeded" for r in rows) / len(rows),
-            "first_try_json_rate": sum(r["first_try_valid"] for r in rows) / len(rows),
-            "language_match_rate": sum(r["detected_language"] == r["lang"] for r in rows) / len(rows),
+                        "language_match_rate": sum(r["detected_language"] == r["lang"] for r in rows) / len(rows),
+            "first_try_all_checks_rate": sum(r["first_try_valid"] for r in rows) / len(rows),
             "avg_tokens_per_second": round(sum(tps) / len(tps), 1) if tps else None,
         }
 
@@ -215,7 +240,7 @@ def main() -> int:
     print("SONUÇ:", "TÜM KABUL TESTLERİ GEÇTİ" if all_ok else "BAZI KABUL TESTLERİ BAŞARISIZ")
     if report.data["benchmark"]:
         b = report.data["benchmark"]
-        print(f"Benchmark: başarı {b['success_rate']:.0%}, ilk denemede geçerli JSON {b['first_try_json_rate']:.0%}, "
+        print(f"Benchmark: başarı {b['success_rate']:.0%}, ilk denemede tüm kontroller {b['first_try_all_checks_rate']:.0%}, "
               f"dil eşleşmesi {b['language_match_rate']:.0%}, ort. {b['avg_tokens_per_second']} token/sn")
     print(f"Rapor: {out}")
     return 0 if all_ok else 1

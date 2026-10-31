@@ -40,3 +40,16 @@ def test_project_settings_load(monkeypatch, tmp_path):
     s = load_settings()
     assert s.ollama.is_local, "varsayılan Ollama adresi localhost olmalı"
     assert "llm.inference" in s.permissions.auto_approve
+
+
+def test_candidate_model_cannot_be_assigned():
+    with pytest.raises(ValueError, match="candidate"):
+        ModelRegistry.from_dict(
+            {"models": {"c": {"name": "qwen2.5-coder:7b", "status": "candidate"}}, "workers": {"general": "c"}}
+        )
+
+
+def test_project_candidates_present():
+    reg = ModelRegistry.load(PROJECT_ROOT / "config" / "models.yaml")
+    assert reg.get("coder-7b").status == "candidate"
+    assert reg.model_for_worker("general").status == "active"
