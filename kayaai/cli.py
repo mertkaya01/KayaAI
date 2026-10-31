@@ -551,6 +551,37 @@ def cmd_files(args: argparse.Namespace) -> int:
             return 1
 
 
+def cmd_business(args: argparse.Namespace) -> int:
+    """İş modülleri (Adım 10): kayaai analyze | summarize | invoice <dosya> [soru] [--report biçim]."""
+    from .business import from_result, run_mode, save
+    from .business.readers import ReadError
+    from .runtime import build_runtime
+
+    path = Path(args.file).expanduser()
+    if not path.is_file():
+        _print(f"[HATA] Dosya yok: {path}")
+        return 1
+    settings = load_settings()
+    mode = {"analyze": "analyze", "summarize": "summarize", "invoice": "invoice"}[args.command]
+    with build_runtime(settings) as rt:
+        _print(f"[{mode}] {path.name} işleniyor... (yerel modeller)")
+        try:
+            result = run_mode(rt, mode, path.read_bytes(), path.name, " ".join(args.question))
+        except (ReadError, ValueError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        _print("\n" + result.markdown())
+        for w in result.warnings:
+            _print(f"[UYARI] {w}")
+        if args.report:
+            res = save(rt, from_result(result.model_dump(mode="json")), args.report, requested_by="cli")
+            if res.status == "done" and res.result:
+                _print(f"\n[RAPOR] {res.result['path']}")
+            else:
+                _print(f"\n[RAPOR] {res.message or res.error}")
+    return 0
+
+
 def cmd_memory(args: argparse.Namespace) -> int:
     """Hafıza (Adım 9): kişisel notlar + belge dizini. Her şey yerel."""
     import json as _json
@@ -916,6 +947,15 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    for name, help_text in (("analyze", "Excel/CSV analizi (sayıları program hesaplar)"),
+                            ("summarize", "PDF özeti"), ("invoice", "PDF faturadan alanlar + tutar denetimi")):
+        bp = sub.add_parser(name, help=help_text)
+        bp.add_argument("file")
+        bp.add_argument("question", nargs="*")
+        bp.add_argument("--report", choices=["md", "xlsx", "docx", "pdf"], default=None,
+                        help="raporu ~/kayaAI-files/raporlar altına kaydet")
+        bp.set_defaults(func=cmd_business)
 
     mp = sub.add_parser("memory", help="hafıza: listele / ekle / sil / ara / belgeleri dizinle / dışa aktar")
     mp.add_argument("action", nargs="?", choices=["list", "add", "rm", "approve", "search", "index", "status", "export"],

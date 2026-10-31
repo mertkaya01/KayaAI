@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 
 from ..core.task import utcnow
+from ..business.readers import BINARY_SUFFIXES, ReadError, extract_text
 from ..tools.files import TEXT_SUFFIXES, PathNotAllowed, roots
 from .book import EmbedUnavailable, Embedder
 from .db import MemoryDB
@@ -51,6 +52,11 @@ class Chunk(BaseModel):
     path: str
     line: int
     text: str
+    loc: str = ""  # Adım 10: PDF'te "s.3" (sayfa); metinde boş → satır numarası kullanılır
+
+    @property
+    def where(self) -> str:
+        return self.loc or str(self.line)
 
 
 class IndexReport(BaseModel):
@@ -106,6 +112,18 @@ def chunk_text(text: str, size: int, overlap: int) -> list[tuple[int, str]]:
     return out
 
 
+def _pdf_page(text: str, line: int) -> str:
+    """PDF metnindeki [s.N] işaretlerinden parçanın başladığı sayfa."""
+    page = 1
+    for ln in text.split("\n")[:line]:
+        if ln.startswith("[s.") and ln.rstrip().endswith("]"):
+            try:
+                page = int(ln.strip()[3:-1])
+            except ValueError:
+                pass
+    return f"s.{page}"
+
+
 class DocumentIndex:
     def __init__(self, rt: "Runtime", db: MemoryDB | None = None):
         self.rt = rt
@@ -137,7 +155,7 @@ class DocumentIndex:
                     if self._skip_file(name):
                         skip("gizli bilgi taşıyabilir (dosya adı)")
                         continue
-                    if p.suffix.lower() not in TEXT_SUFFIXES:
+                    if p.suffix.lower() not in TEXT_SUFFIXES | BINARY_SUFFIXES:
                         skip("desteklenmeyen tür")
                         continue
                     try:
@@ -188,7 +206,7 @@ class DocumentIndex:
                     report.unchanged += 1
                     continue
                 raw = path.read_bytes()
-                if b"\x00" in raw[:4096]:
+                if path.suffix.lower() not in BINARY_SUFFIXES and b"\x00" in raw[:4096]:
                     report.skipped["ikili içerik"] = report.skipped.get("ikili içerik", 0) + 1
                     continue
                 sha1 = hashlib.sha1(raw).hexdigest()
@@ -198,7 +216,16 @@ class DocumentIndex:
                         c.execute("UPDATE documents SET data = ? WHERE id = ?", (self.db.dumps(old.model_dump(mode="json")), old.id))
                     report.unchanged += 1
                     continue
-                embed_ok = self._index_file(path, root, raw.decode("utf-8", errors="replace"), st, sha1, old, report) and embed_ok
+                if path.suffix.lower() in BINARY_SUFFIXES:  # Adım 10: PDF ve Excel metne çevrilir
+                    try:
+                        text, _ = extract_text(raw, path.name)
+                    except ReadError as exc:
+                        report.skipped["okunamadı (PDF/Excel)"] = report.skipped.get("okunamadı (PDF/Excel)", 0) + 1
+                        report.errors.append(str(exc)[:200])
+                        continue
+                else:
+                    text = raw.decode("utf-8", errors="replace")
+                embed_ok = self._index_file(path, root, text, st, sha1, old, report) and embed_ok
                 report.indexed += 1
             except OSError as exc:
                 report.errors.append(f"{path}: {exc}")
@@ -229,7 +256,9 @@ class DocumentIndex:
                       mtime=st.st_mtime, sha1=sha1, chunks=len(kept), skipped_secret_chunks=secret)
         if old:
             self._remove(old)
-        chunks = [Chunk(id=f"{doc.id}-{i}", doc_id=doc.id, path=str(path), line=line, text=body)
+        pdf = path.suffix.lower() == ".pdf"
+        chunks = [Chunk(id=f"{doc.id}-{i}", doc_id=doc.id, path=str(path), line=line, text=body,
+                        loc=_pdf_page(text, line) if pdf else "")
                   for i, (line, body) in enumerate(kept)]
         vectors: list[list[float]] = []
         embedded = True

@@ -229,6 +229,21 @@ Memory.recall(query, for_claude) → {memory: [...], documents: [{source: "ad:sa
   `hatırla: …` → `memory.classify` (iç worker) → `MemoryBook.add`.
 - Eşikler `memory.min_score_memory` (0.60) ve `memory.min_score_docs` (0.50) — bge-m3 kosinüs, `scripts/memory_check.py` ile gerçek modelde tür başına ölçülerek ayarlandı.
 
+## İş modülleri (Adım 10)
+
+```
+ek / izinli dosya ──► readers (pypdf, openpyxl, csv; Türkçe sayılar) ──► Table | PdfDoc
+analiz:  profile (kod) → business.plan (model, AnalysisPlan şeması, sütunlar KODLA doğrulanır) → execute (kod: süz,
+         grupla, topla…, pay %) → business.narrate (model; yorumdaki sayılar hesaplanan değerlerle KODLA karşılaştırılır)
+özet:    sayfa grupları → document ajanı bölüm özetleri → birleştirme ([s.N] kaynakları)
+fatura:  business.invoice (model, Invoice şeması) → check_invoice (kod: toplamlar, KDV oranı, metinde var mı)
+rapor:   Report → md | xlsx (openpyxl) | docx (python-docx) | pdf (reportlab + sistem fontu) → FileTools.write_bytes
+         (yeni dosya R1, üzerine yazma R2 + yedek) → ~/kayaAI-files/raporlar
+```
+- Sohbet: `ChatBook._business` (mod: analyze | summarize | invoice; tablo eki + otomatik/data → analyze), sonuç JSON'u
+  mesajda (`meta.business`) saklanır → `ChatBook.report` aynı veriden dört biçimde rapor üretir.
+- Belge dizini PDF/Excel'i metne çevirip dizinler (`Chunk.loc` = `s.N`).
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

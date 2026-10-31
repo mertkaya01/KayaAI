@@ -18,7 +18,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 7 | Ajan sistemi: uzmanlar (coder, data, document), gözden geçirme, anlaşmazlık yükseltme, geçici ajanlar | **Tamamlandı** (Windows'ta doğrulandı) |
 | 8 | Asistan çalışma alanı: kalıcı sohbet, ekler, ajan seçimi, Claude'a devretme | **Tamamlandı** (Windows'ta doğrulandı) |
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
-| 10+ | İş modülleri (PDF/Excel), görsel iş akışı, ekran/ses, zamanlama | Planlandı |
+| 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
+| 11+ | Görsel iş akışı + model yönetimi, ekran/ses, zamanlama | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -238,6 +239,24 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - CLI: `kayaai memory [list|add|rm|approve|search|index|status|export]`. Ölçüm: `python scripts\memory_check.py`
   (ayrı klasörde; gerçek bge-m3 ile benzerlik eşiğini önerir).
 
+## İş modülleri (Adım 10)
+
+Asistan'da bir **Excel/CSV** ya da **PDF** ekle (dosya seçici ya da "Klasörden ekle"; en fazla 10 MB):
+
+- **Analiz et** (Excel/CSV): yerel model soruyu bir hesap planına çevirir (süz, grupla, topla/ortalama/say/en düşük/en
+  yüksek, aylık/çeyreklik, ilk N); **tüm sayıları program hesaplar**; model kısa bir yorum yazar ve yorumdaki her sayı
+  hesaplanan değerlerle **kodla** karşılaştırılır (uydurma sayı → model düzeltir, düzeltmezse uyarı). Türkçe sayı
+  biçimleri (`1.234,56 ₺`) anlaşılır; formüller/makrolar çalıştırılmaz.
+- **Özetle** (PDF): uzun belgeler bölüm bölüm özetlenip birleştirilir; maddelerde kaynak sayfa `[s.3]`.
+- **Fatura olarak oku** (PDF): satıcı, alıcı, no, tarih, kalemler, ara toplam, KDV, toplam; **kod denetimi**: satırlar ≈ ara
+  toplam, ara toplam + KDV ≈ toplam, KDV oranı, tutarlar belgede gerçekten var mı.
+- **Rapor oluştur** (her cevabın altında): **Excel**, **PDF**, **Word**, **Markdown** → `~\kayaAI-files\raporlar\`.
+  Yeni dosya otomatik; aynı adlı dosyanın üzerine yazmak onay ister (yedek alınır).
+- Taranmış (görüntü) PDF'ler henüz okunamaz — OCR Adım 12'de. Eski `.xls` → Excel'de `.xlsx` olarak kaydet.
+- Belge araması (Hafıza) PDF ve Excel dosyalarını da dizinler (kaynak: `rapor.pdf:s.3`).
+- CLI: `kayaai analyze satis.xlsx "bölgelere göre toplam" --report pdf` · `kayaai summarize rapor.pdf` ·
+  `kayaai invoice fatura.pdf --report xlsx`. Ölçüm: `python scripts\business_check.py`.
+
 ## Ajan ekibi (Adım 7)
 
 | Ajan | İş | Yerel model | Gözden geçirme |
@@ -278,6 +297,7 @@ kayaai/            Python paketi (çekirdek)
   api/             yerel API (FastAPI) + Control Center sunumu
   assistant/       sohbet: konuşmalar, mesajlar, ekler, Claude'a devretme (Adım 8)
   memory/          hafıza: kişisel notlar, belge dizini (RAG), gizli bilgi tespiti, yerel vektörler (Adım 9)
+  business/        iş modülleri: PDF/Excel okuma, analiz, fatura, rapor yazıcıları (Adım 10)
   mcp_server.py    MCP sunucusu (Faz 2)
 ui/                Control Center (React + TypeScript + Vite); derleme çıktısı ui/dist (git'e girmez)
 config/            settings.yaml, models.yaml

@@ -139,6 +139,12 @@ def render_claude_md(agents: list, settings: Settings) -> str:
         "oluşturabilirsin (mevcut bir ajana dayanır, ondan fazla izin alamaz). Kalıcı yapmak yalnızca kullanıcının "
         "onayıyla olur. Açık anlaşmazlıkları `kayaai_disputes` ile görebilirsin; kararı kullanıcı verir.",
         "",
+        "## Kural 3b2 — İş modülleri",
+        "",
+        "- Excel/CSV analizi için `kayaai_analyze_table`, PDF özeti ve fatura okuma için `kayaai_read_pdf` kullan: sayıları "
+        "yerel program hesaplar ve fatura tutarlarını kodla denetler. Bu sayıları kendin yeniden hesaplayıp değiştirme; "
+        "yorumlarken tablolardaki değerlere sadık kal.",
+        "",
         "## Kural 3c — Hafıza",
         "",
         "- Kullanıcının tercihleri, kararları ve proje notları için önce `kayaai_memory_search` ile yerel hafızaya bak "

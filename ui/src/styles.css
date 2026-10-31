@@ -201,6 +201,7 @@ select { font: inherit; background: var(--bg); color: var(--text); border: 1px s
 .recall { margin-top: 8px; font-size: 12px; }
 .recall details ul { margin: 4px 0 0; padding-left: 18px; }
 .user-actions { justify-content: flex-end; margin-top: 4px; }
+.small-select { font-size: 12px; padding: 2px 6px; }
 .side-list li { font-size: 12px; color: var(--muted); }
 
 /* Markdown */

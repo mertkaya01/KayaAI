@@ -32,6 +32,8 @@ TITLE_CHARS = 60
 AUTO = "auto"
 
 MessageStatus = Literal["done", "pending", "running", "waiting_claude", "failed", "cancelled"]
+BusinessMode = Literal["analyze", "summarize", "invoice"]
+MAX_BINARY_MB = 10.0
 _SAFE_NAME = re.compile(r"[^\w.\- ()]+", re.UNICODE)
 
 
@@ -51,6 +53,7 @@ class AttachmentRef(BaseModel):
     id: str
     name: str
     chars: int
+    kind: Literal["text", "pdf", "table"] = "text"  # Adım 10: PDF ve tablo (Excel/CSV) ekleri
 
 
 class Attachment(AttachmentRef):
@@ -143,12 +146,52 @@ class ChatBook:
         size = len(text.encode("utf-8"))
         if size > limit:
             raise ChatError(f"Ek çok büyük ({size / 1e6:.1f} MB > {self.rt.settings.files.max_read_mb} MB)")
+        kind: Literal["text", "table"] = "table" if Path(safe_name(name)).suffix.lower() in (".csv", ".tsv") else "text"
         a = Attachment(id=uuid.uuid4().hex[:12], name=safe_name(name), chars=len(text), size=size, source=source,
-                       path=path)
+                       path=path, kind=kind)
         self.attach_dir.mkdir(parents=True, exist_ok=True)
         (self.attach_dir / f"{a.id}.txt").write_text(text, encoding="utf-8")
         self.store.save_attachment(a.id, a.created_at.isoformat(), a.model_dump(mode="json"))
         return a
+
+    def _save_binary(self, name: str, data: bytes, source: Literal["upload", "path"], path: str | None) -> Attachment:
+        """PDF/Excel eki: özgün dosya saklanır (iş modülleri için), çıkarılan metin bağlam için."""
+        from ..business.readers import ReadError, extract_text
+
+        if len(data) > MAX_BINARY_MB * 1024 * 1024:
+            raise ChatError(f"Ek çok büyük ({len(data) / 1e6:.1f} MB > {MAX_BINARY_MB:.0f} MB)")
+        try:
+            text, kind = extract_text(data, safe_name(name))
+        except ReadError as exc:
+            raise ChatError(str(exc)) from exc
+        a = Attachment(id=uuid.uuid4().hex[:12], name=safe_name(name), chars=len(text), size=len(data), source=source,
+                       path=path, kind=kind)
+        self.attach_dir.mkdir(parents=True, exist_ok=True)
+        (self.attach_dir / f"{a.id}.bin").write_bytes(data)
+        (self.attach_dir / f"{a.id}.txt").write_text(text, encoding="utf-8")
+        self.store.save_attachment(a.id, a.created_at.isoformat(), a.model_dump(mode="json"))
+        return a
+
+    def upload_binary(self, name: str, data_b64: str) -> Attachment:
+        import base64
+        import binascii
+
+        from ..business.readers import BINARY_SUFFIXES
+
+        suffix = Path(safe_name(name)).suffix.lower()
+        if suffix not in BINARY_SUFFIXES:
+            raise ChatError(f"Bu dosya türü ikili ek olarak kabul edilmiyor ({suffix or 'uzantısız'}); PDF ve Excel (.xlsx) olur")
+        try:
+            data = base64.b64decode(data_b64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ChatError("Dosya içeriği bozuk (base64)") from exc
+        return self._save_binary(name, data, "upload", None)
+
+    def file_bytes(self, att_id: str) -> tuple[Attachment, bytes]:
+        """İş modülleri için ekin özgün baytları (metin eklerinde metnin kendisi, ör. CSV)."""
+        a, text = self.attachment(att_id)
+        raw = self.attach_dir / f"{a.id}.bin"
+        return a, (raw.read_bytes() if raw.is_file() else text.encode("utf-8"))
 
     def upload(self, name: str, text: str) -> Attachment:
         from ..tools.files import TEXT_SUFFIXES
@@ -162,6 +205,13 @@ class ChatBook:
     def attach_path(self, path: str) -> Attachment:
         """İzinli klasörden dosya (FileTools: kök kontrolü, tür ve boyut sınırı; R0)."""
         assert self.rt.files is not None
+        from ..business.readers import BINARY_SUFFIXES
+
+        if Path(path).suffix.lower() in BINARY_SUFFIXES:
+            resolved, _ = self.rt.files.resolve(path)  # kök kontrolü (izinli klasör dışı → PathNotAllowed)
+            if not resolved.is_file():
+                raise ChatError(f"Dosya yok: {resolved}")
+            return self._save_binary(resolved.name, resolved.read_bytes(), "path", str(resolved))
         res = self.rt.files.read(path, requested_by="assistant")
         if res.status != "done" or not res.result:
             raise ChatError(res.error or res.message or "Dosya okunamadı")
@@ -216,8 +266,8 @@ class ChatBook:
         conv.updated_at = utcnow()
         self._save_conv(conv)
 
-    def send(self, conv_id: str, text: str, agent: str = AUTO,
-             attachment_ids: list[str] | None = None) -> tuple[ChatMessage, ChatMessage, Callable[[], None]]:
+    def send(self, conv_id: str, text: str, agent: str = AUTO, attachment_ids: list[str] | None = None,
+             mode: BusinessMode | None = None) -> tuple[ChatMessage, ChatMessage, Callable[[], None]]:
         """Kullanıcı mesajını kaydeder, bekleyen asistan mesajını ve işi oluşturur. Üçüncü değer: işi çalıştıran
         çağrılabilir (API onu arka plan kuyruğuna verir, CLI/test doğrudan çağırır)."""
         conv = self.get(conv_id)
@@ -233,13 +283,22 @@ class ChatBook:
         refs = []
         for att_id in attachment_ids or []:
             a, _ = self.attachment(att_id)
-            refs.append(AttachmentRef(id=a.id, name=a.name, chars=a.chars))
+            refs.append(AttachmentRef(id=a.id, name=a.name, chars=a.chars, kind=a.kind))
         user = ChatMessage(conv_id=conv_id, role="user", content=text, agent=agent, attachments=refs)
         self._save_msg(user)
         from ..memory import REMEMBER_RE
 
         if (m := REMEMBER_RE.match(text)) and not refs:
             reply, runner = self._remember(conv_id, user, m.group(1))
+            self._touch(conv, text)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": user.id, "role": "user"})
+            return user, reply, runner
+        # Adım 10: tablo eki + otomatik/data → analiz; açık mod (Analiz et / Özetle / Fatura olarak oku) her zaman
+        if mode is None and agent in (AUTO, "data") and any(r.kind == "table" for r in refs) \
+                and not any(r.kind == "pdf" for r in refs):
+            mode = "analyze"
+        if mode is not None:
+            reply, runner = self._business(conv_id, user, refs, mode)
             self._touch(conv, text)
             self.store.emit("chat.message", {"conv_id": conv_id, "message_id": user.id, "role": "user"})
             return user, reply, runner
@@ -271,6 +330,70 @@ class ChatBook:
         runner = self._start(reply, msg.content, AUTO, ctx, force="claude")
         self._touch(conv)
         return reply, runner
+
+    def _business(self, conv_id: str, user: ChatMessage, refs: list[AttachmentRef],
+                  mode: BusinessMode) -> tuple[ChatMessage, Callable[[], None]]:
+        """İş modülü: dosya üzerinde analiz / özet / fatura (sayıları kod hesaplar, tutarlar kodla denetlenir)."""
+        want = "table" if mode == "analyze" else "pdf"
+        target = next((r for r in refs if r.kind == want), None)
+        if target is None:
+            need = "bir Excel/CSV dosyası" if want == "table" else "bir PDF"
+            raise ChatError(f"Bu işlem için {need} ekle.")
+        agent = "data" if mode == "analyze" else "document"
+        reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent=agent, reply_to=user.id)
+        self._save_msg(reply)
+
+        def run_business() -> None:
+            from ..business import run_mode
+            from ..business.readers import ReadError
+
+            msg = ChatMessage.model_validate(self.store.get_message(reply.id))
+            msg.status = "running"
+            self._save_msg(msg)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": msg.id, "role": "assistant",
+                                             "status": "running"})
+            try:
+                _, data = self.file_bytes(target.id)
+                result = run_mode(self.rt, mode, data, target.name, user.content)
+                msg.content = result.markdown()
+                msg.warnings = list(result.warnings)
+                msg.meta = {"business": _trim_result(result.model_dump(mode="json")), "agents": [agent]}
+                msg.status = "done"
+            except (ReadError, ValueError) as exc:
+                msg.content, msg.status = f"Dosya işlenemedi: {exc}", "failed"
+            except Exception as exc:  # noqa: BLE001 - mesaj her durumda kapanmalı
+                msg.content, msg.status = f"Beklenmeyen hata: {exc}", "failed"
+            self._save_msg(msg)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": msg.id, "role": "assistant",
+                                             "status": msg.status})
+        return reply, run_business
+
+    def report(self, conv_id: str, message_id: str, fmt: str):  # -> SubmitResult
+        """Bir asistan cevabından iş raporu (md/xlsx/docx/pdf) → ~/kayaAI-files/raporlar (R1; aynı ad R2)."""
+        from ..business import FORMATS, from_markdown, from_result, save
+        from ..business.report import ReportError
+
+        if fmt not in FORMATS:
+            raise ChatError(f"Biçim {', '.join(FORMATS)} olmalı")
+        raw = self.store.get_message(message_id)
+        if raw is None or raw.get("conv_id") != conv_id:
+            raise ChatError(f"Mesaj bulunamadı: {message_id}")
+        msg = ChatMessage.model_validate(raw)
+        if msg.role != "assistant" or msg.status != "done" or not msg.content.strip():
+            raise ChatError("Rapor yalnızca tamamlanmış bir cevaptan üretilebilir")
+        conv = self.get(conv_id)
+        try:
+            business = msg.meta.get("business")
+            rep = from_result(business) if business else from_markdown(
+                msg.content, title=conv.title, sources=[s.get("name", "") for s in msg.recall.get("sources", [])])
+            if not business and msg.warnings:
+                rep.notes = list(msg.warnings)
+            res = save(self.rt, rep, fmt, requested_by="assistant")  # type: ignore[arg-type]
+        except ReportError as exc:
+            raise ChatError(str(exc)) from exc
+        self.store.emit("chat.report", {"conv_id": conv_id, "message_id": message_id, "format": fmt,
+                                        "status": res.status})
+        return res
 
     def _remember(self, conv_id: str, user: ChatMessage, body: str) -> tuple[ChatMessage, Callable[[], None]]:
         """"hatırla: …" — sahibin açık isteği: not hafızaya kaydedilir (gizli bilgi reddedilir)."""
@@ -310,7 +433,8 @@ class ChatBook:
             msg.recall = {
                 "memories": [{"id": m["id"], "text": m["text"], "category": m["category"],
                               "sensitivity": m["sensitivity"]} for m in rec.memories],
-                "sources": [{"path": d["path"], "name": d["name"], "line": d["line"]} for d in rec.documents],
+                "sources": [{"path": d["path"], "name": d["name"], "line": d["line"], "loc": d.get("loc", "")}
+                            for d in rec.documents],
             }
         msg.context_warnings = _merge(msg.context_warnings, warn)
         msg.warnings = _merge(msg.warnings, warn)
@@ -400,6 +524,15 @@ class ChatBook:
                 self.store.emit("chat.message", {"conv_id": msg.conv_id, "message_id": msg.id, "role": "assistant",
                                                  "status": msg.status})
         return msg
+
+
+def _trim_result(d: dict[str, Any], max_rows: int = 200) -> dict[str, Any]:
+    """Mesajda saklanan iş sonucu: rapor için yeterli, veritabanını şişirmeyecek kadar."""
+    for r in d.get("results", []):
+        r["rows"] = r.get("rows", [])[:max_rows]
+    if "profile" in d:
+        d["profile"] = {**d["profile"], "sample_rows": d["profile"].get("sample_rows", [])[:3]}
+    return d
 
 
 def _merge(a: list[str], b: list[str]) -> list[str]:

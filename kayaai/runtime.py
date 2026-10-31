@@ -79,5 +79,8 @@ def build_runtime(
 
     if "memory.classify" not in workers:
         workers.register(MemoryClassifierWorker(), internal=True)
+    from .business import register_workers as register_business_workers
+
+    register_business_workers(workers)
     rt.memory = Memory(rt)
     return rt

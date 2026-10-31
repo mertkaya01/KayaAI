@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView } from "../api";
+import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView, type SubmitResult } from "../api";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { Markdown } from "../markdown";
@@ -16,11 +16,25 @@ function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-function MessageView({ m, claude, onHandoff, onRemember, busy }: {
+const BINARY = /\.(pdf|xlsx|xlsm)$/i;
+const REPORT_FORMATS: [string, string][] = [["xlsx", "Excel"], ["pdf", "PDF"], ["docx", "Word"], ["md", "Markdown"]];
+const KIND_ICON: Record<string, string> = { pdf: "📕", table: "📊", text: "📎" };
+
+function readBase64(f: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",", 2)[1] ?? "");
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(f);
+  });
+}
+
+function MessageView({ m, claude, onHandoff, onRemember, onReport, busy }: {
   m: ChatMessage;
   claude: ClaudeStatus | null;
   onHandoff: (m: ChatMessage) => void;
   onRemember: (m: ChatMessage) => void;
+  onReport: (m: ChatMessage, format: string) => void;
   busy: boolean;
 }) {
   const [copied, setCopied] = useState(false);
@@ -37,7 +51,7 @@ function MessageView({ m, claude, onHandoff, onRemember, busy }: {
         <span className="muted when"> · {ago(m.created_at)}</span>
       </header>
       {m.attachments.length > 0 && (
-        <div className="chips">{m.attachments.map((a) => <span key={a.id} className="chip">📎 {a.name}</span>)}</div>
+        <div className="chips">{m.attachments.map((a) => <span key={a.id} className="chip">{KIND_ICON[a.kind ?? "text"]} {a.name}</span>)}</div>
       )}
       {waiting ? (
         <p className="thinking"><span className="dot" />{STATUS_TEXT[m.status]}</p>
@@ -58,7 +72,7 @@ function MessageView({ m, claude, onHandoff, onRemember, busy }: {
           {sources.length > 0 && (
             <div className="chips">
               <span className="muted">Kaynaklar:</span>
-              {sources.map((s, i) => <span key={i} className="chip" title={s.path}>📄 {s.name}:{s.line}</span>)}
+              {sources.map((s, i) => <span key={i} className="chip" title={s.path}>📄 {s.name}:{s.loc || s.line}</span>)}
             </div>
           )}
           {memories.length > 0 && (
@@ -76,6 +90,16 @@ function MessageView({ m, claude, onHandoff, onRemember, busy }: {
           {!!m.meta.disputes && <span className="badge state-failed">{m.meta.disputes} anlaşmazlık</span>}
           {m.meta.duration_s != null && <span className="muted">{m.meta.duration_s} sn</span>}
           <span className="spacer" />
+          <select
+            className="small-select"
+            aria-label="Rapor oluştur"
+            value=""
+            disabled={busy}
+            onChange={(e) => { if (e.target.value) onReport(m, e.target.value); }}
+          >
+            <option value="">Rapor oluştur…</option>
+            {REPORT_FORMATS.map(([f, label]) => <option key={f} value={f}>{label} (.{f})</option>)}
+          </select>
           <button className="ghost small" onClick={() => { void navigator.clipboard?.writeText(m.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
             {copied ? "Kopyalandı" : "Kopyala"}
           </button>
@@ -157,8 +181,9 @@ export function ChatView({
     onSelect(c.id);
   }
 
-  async function send() {
-    const body = text.trim();
+  async function send(mode?: "analyze" | "summarize" | "invoice") {
+    const defaults = { analyze: "Bu tabloyu analiz et ve öne çıkanları özetle.", summarize: "Bu belgeyi özetle.", invoice: "Bu faturanın bilgilerini çıkar." };
+    const body = text.trim() || (mode ? defaults[mode] : "");
     if (!body || busy) return;
     setBusy(true);
     setError(null);
@@ -168,7 +193,7 @@ export function ChatView({
         id = (await post<Conversation>("/api/chat", {})).id;
         onSelect(id);
       }
-      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id) });
+      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id), mode: mode ?? null });
       setText("");
       setAttachments([]);
       setListKey((k) => k + 1);
@@ -185,7 +210,8 @@ export function ChatView({
     setError(null);
     for (const f of Array.from(files)) {
       try {
-        const a = await post<AttachmentRef>("/api/attachments", { name: f.name, text: await f.text() });
+        const body = BINARY.test(f.name) ? { name: f.name, data_b64: await readBase64(f) } : { name: f.name, text: await f.text() };
+        const a = await post<AttachmentRef>("/api/attachments", body);
         setAttachments((prev) => [...prev, a]);
       } catch (e) {
         setError(`${f.name}: ${errText(e)}`);
@@ -216,6 +242,22 @@ export function ChatView({
     try {
       await post(`/api/chat/${convId}/messages/${m.id}/handoff`, {});
       setViewKey((k) => k + 1);
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function report(m: ChatMessage, format: string) {
+    if (!convId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await post<SubmitResult>(`/api/chat/${convId}/messages/${m.id}/report`, { format });
+      if (r.status === "done" && r.result?.path) setNotice(`Rapor kaydedildi: ${r.result.path}`);
+      else if (r.status === "awaiting_approval") setNotice(`Aynı adda dosya var; üzerine yazmak için onay gerekiyor (Kontrol Merkezi → Onay merkezi).`);
+      else setError(r.error ?? r.message);
     } catch (e) {
       setError(errText(e));
     } finally {
@@ -287,7 +329,8 @@ export function ChatView({
           )}
           {view?.messages.length === 0 && <p className="muted">Bu sohbette henüz mesaj yok.</p>}
           {view?.messages.map((m) => (
-            <MessageView key={m.id} m={m} claude={claude} onHandoff={(x) => void handoff(x)} onRemember={(x) => void rememberMsg(x)} busy={busy} />
+            <MessageView key={m.id} m={m} claude={claude} onHandoff={(x) => void handoff(x)} onRemember={(x) => void rememberMsg(x)}
+              onReport={(x, f) => void report(x, f)} busy={busy} />
           ))}
           <div ref={bottom} />
         </div>
@@ -298,7 +341,7 @@ export function ChatView({
             <div className="chips">
               {attachments.map((a) => (
                 <span key={a.id} className="chip">
-                  📎 {a.name}
+                  {KIND_ICON[a.kind ?? "text"]} {a.name}
                   <button className="chip-x" aria-label={`${a.name} ekini kaldır`} onClick={() => setAttachments((p) => p.filter((x) => x.id !== a.id))}>×</button>
                 </span>
               ))}
@@ -330,7 +373,16 @@ export function ChatView({
             <input ref={fileInput} type="file" multiple hidden onChange={(e) => void addFiles(e.target.files)} />
             <button className="ghost" onClick={() => fileInput.current?.click()}>Dosya ekle</button>
             <button className="ghost" onClick={() => void addFromFolder()}>Klasörden ekle</button>
-            <span className="muted hint">Metin dosyaları · PDF/Excel Adım 10 · ses sonra</span>
+            {attachments.some((a) => a.kind === "table") && (
+              <button className="ghost" disabled={busy} onClick={() => void send("analyze")} title="Sayıları program hesaplar">Analiz et</button>
+            )}
+            {attachments.some((a) => a.kind === "pdf") && (
+              <>
+                <button className="ghost" disabled={busy} onClick={() => void send("summarize")}>Özetle</button>
+                <button className="ghost" disabled={busy} onClick={() => void send("invoice")}>Fatura olarak oku</button>
+              </>
+            )}
+            <span className="muted hint">Metin, PDF, Excel/CSV · ses sonra</span>
             <span className="spacer" />
             <button className="toggle" disabled={busy || !text.trim()} onClick={() => void send()}>Gönder</button>
           </div>

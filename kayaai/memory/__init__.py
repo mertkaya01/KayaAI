@@ -37,7 +37,8 @@ class RecallResult(BaseModel):
         if self.memories:
             out["memory"] = [{"text": m["text"], "category": m["category"]} for m in self.memories]
         if self.documents:
-            out["documents"] = [{"source": f"{d['name']}:{d['line']}", "excerpt": d["text"]} for d in self.documents]
+            out["documents"] = [{"source": f"{d['name']}:{d.get('loc') or d['line']}", "excerpt": d["text"]}
+                                for d in self.documents]
         return out
 
 
@@ -73,6 +74,7 @@ class Memory:
 
             for ch, score in self.docs.search(query, k=cfg.top_chunks, query_vec=qvec):
                 res.documents.append({"chunk_id": ch.id, "path": ch.path, "name": Path(ch.path).name, "line": ch.line,
+                                      "loc": ch.where,
                                       "text": ch.text, "score": score})
         return res
 

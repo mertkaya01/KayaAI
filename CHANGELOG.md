@@ -2,6 +2,43 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.10.2] - 2026-10-31
+
+### Düzeltildi
+- Analiz planı: "En çok satış getiren ürün hangisi?" sorusunu model ürün başına `max` (tek satışın en büyüğü) olarak
+  planlamıştı (Windows, gerçek model). Artık soru "en çok satan/getiren, toplam, ciro, revenue…" içeriyor ve tek kayıt
+  ifadesi ("en pahalı", "tek satış"…) içermiyorsa gruplu işlemde `max`/`min` KODLA reddedilir → model `sum` ile yeniden
+  planlar; planlayıcı talimatına da kural eklendi.
+
+### Doğrulandı (Windows, v0.10.1)
+- `business_check`: analiz 2/3 (yukarıdaki hata), uydurma sayı 0, fatura tüm alanlar + kalemler ✓, PDF özeti 4/4 anahtar
+  bilgi + sayfa kaynakları ✓, dört rapor biçimi ✓, toplam 13,8 sn
+- `memory_check`: hafıza 10/10, belge 10/10; embedding ~51 ms, arama ~1 ms (önceki ~2 sn ilk model yüklemesiydi);
+  eşikler 0.60 / 0.50 ayrışmayı koruyor
+- smoke: tüm kabul testleri ✓ (qwen3:8b + bge-m3 birlikte 9,1 GB VRAM)
+
+## [0.10.1] - 2026-10-31
+
+### Düzeltildi
+- Windows'ta `setup.ps1` birim testlerinde 7 test düşüyordu: test yardımcısı örnek PDF üretirken Linux'a özgü DejaVu
+  yazı tipi yolunu sabit kullanıyordu. Artık üretim kodundaki sistem fontu araması kullanılır (Windows: Segoe UI /
+  Arial). Üretim kodu etkilenmemişti.
+
+## [0.10.0] - 2026-10-31
+
+### Eklendi (Adım 10 — iş modülleri; kabul #6, #7, #12)
+- `kayaai/business/`: okuyucular (PDF: pypdf; Excel/CSV: openpyxl/csv, Türkçe sayı biçimleri, sütun türü çıkarımı),
+  analiz (profil → `AnalysisPlan` → kodla yürütme → sayı denetimli yorum; pay %, dönem gruplama), PDF özeti
+  (bölümlü, `[s.N]`), fatura çıkarma + kodla tutar denetimi, rapor (Markdown, Excel, Word, PDF — sahip kararı)
+- Sohbet: PDF/Excel ekleri (base64, ≤10 MB), "Analiz et / Özetle / Fatura olarak oku", her cevapta "Rapor oluştur";
+  tablo eki + otomatik/data ajanı → analiz
+- Raporlar `~/kayaAI-files/raporlar` altına (`FileTools.write_bytes`: yeni R1, üzerine yazma R2 + yedek)
+- Belge araması PDF ve Excel'i de dizinler (kaynak `dosya.pdf:s.3`)
+- API `/api/business/run`, `/api/chat/{id}/messages/{mid}/report`, `/api/attachments` (`data_b64`); CLI
+  `kayaai analyze|summarize|invoice <dosya> [soru] [--report biçim]`; MCP `kayaai_analyze_table`, `kayaai_read_pdf`
+- `scripts/business_check.py` (gerçek modelle; ayrı klasör, örnek dosyalar üretir)
+- Bağımlılıklar: pypdf, openpyxl, python-docx, reportlab
+
 ## [0.9.1] - 2026-10-31
 
 ### Değişti
