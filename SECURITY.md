@@ -93,6 +93,17 @@
 - [x] İç yardımcı worker'lar (`*.revise`, `*.check`) MCP'den çağrılamaz; bozuk/çakışan `data/agents` dosyaları atlanır,
       repo ajanlarını ezemez
 
+## Adım 8'de uygulananlar (asistan)
+
+- [x] Sohbet geçmişi, ekler ve bağlam yalnızca yerelde (SQLite + `data/attachments`, git'e girmez)
+- [x] Ekler: yalnızca metin türleri, ≤ `files.max_read_mb`, ikili (NUL baytlı) içerik reddedilir, dosya adı temizlenir
+      (yol parçaları atılır); klasörden ekleme mevcut kök kontrolünden geçer (izinli klasör dışı 403)
+- [x] Ekler ve geçmiş modele `<input_data>` içinde güvenilmez VERİ olarak gider; boyut sınırlı
+- [x] Claude'a devretme yalnızca sahibin açık eylemiyle (onay penceresi: neyin gideceği yazılı) ve Claude kutusu üzerinden;
+      kayaAI Claude'u kendisi çağırmaz; Claude kapalıyken API 409
+- [x] Model çıktısı HTML olarak işlenmez (Markdown → React öğeleri, `dangerouslySetInnerHTML` yok); bağlantılar tıklanamaz
+- [x] Sohbet silme kalıcıdır ve onay ister; iç ajanlar (planner/reviewer) sohbetten doğrudan seçilemez
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

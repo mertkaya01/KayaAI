@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.8.0] - 2026-10-31
+
+### Eklendi (Adım 8 — Asistan çalışma alanı v1)
+- Arayüzde **Asistan** sekmesi (`/asistan`): kalıcı sohbetler (liste, yeniden adlandır, sil), yazma alanı (Enter gönderir),
+  ajan seçici (otomatik / uzmanlar / geçici ajanlar), metin ekleri (yükleme ya da izinli klasörden), cevaplarda ajan adı,
+  gözden geçirme/düzeltme/anlaşmazlık rozetleri, uyarılar, kopyala; güvenli Markdown görüntüleyici (kod, tablo, liste)
+- **Claude'a devret** (sahip kararı: Claude kutusu üzerinden): onay penceresi → kutuya iş (sohbet geçmişi + ekler
+  `InboxItem.context`) → Claude Code'da tamamlanınca cevap sohbete düşer; Claude kapalıyken pasif
+- `kayaai/assistant/chat.py` (`ChatBook`), SQLite `conversations` / `messages` / `attachments`, `data/attachments/`
+- API: `/api/chat` (liste/oluştur/görüntüle/adlandır/sil), `/api/chat/{id}/messages`, `.../handoff`,
+  `/api/attachments`, `/api/attachments/from-path`; olay `chat.message`
+- Şef işine sohbet bağlamı (`context`): adımlar, gözden geçirici ve revizyon aynı veriyi görür; planlayıcı kısa geçmişi görür
+- Claude çalışma alanı talimatı: sohbetten devredilen işlerde bağlamın kullanımı
+
+### Değişti
+- Kontrol Merkezi metrikleri yalnızca o sayfa açıkken yoklanır
+
 ## [0.7.1] - 2026-10-31
 
 ### Düzeltildi (Windows'ta gerçek modelle görülenler)

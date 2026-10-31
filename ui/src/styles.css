@@ -131,3 +131,67 @@ input { font: inherit; background: var(--bg); color: var(--text); border: 1px so
 .login h1 { font-size: 20px; margin-top: 0; }
 .login form { display: flex; gap: 8px; margin-top: 12px; }
 .login input { flex: 1; }
+
+/* sayfa sekmeleri */
+.main-tabs { margin-left: 12px; }
+.main-tabs button { background: transparent; }
+
+/* küçük düğmeler */
+button.small { padding: 2px 8px; font-size: 12px; }
+button.danger { color: var(--bad); }
+.spacer { flex: 1; }
+
+/* Asistan (Adım 8) */
+.chat { display: grid; grid-template-columns: 260px minmax(0, 1fr) 240px; gap: 16px; padding: 16px 20px; max-width: 1600px;
+  margin: 0 auto; height: calc(100vh - 62px); }
+@media (max-width: 1200px) { .chat { grid-template-columns: 220px minmax(0, 1fr); } .chat-side { display: none; } }
+@media (max-width: 760px) { .chat { grid-template-columns: 1fr; height: auto; padding: 12px; } .chat-list { max-height: 200px; overflow: auto; } }
+.chat-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.chat-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.chat-list li.active .conv { border-color: var(--accent); }
+.conv { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; background: var(--panel-2); }
+.conv-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv .when { font-size: 11px; }
+.conv-actions { display: flex; gap: 4px; margin-top: 4px; }
+.new-chat { width: 100%; }
+.chat-main { display: flex; flex-direction: column; min-height: 0; padding: 0; }
+.messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 240px; }
+.empty { margin: auto; max-width: 520px; text-align: center; }
+.msg { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--panel-2); max-width: 900px; }
+.msg-user { align-self: flex-end; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.msg-assistant { align-self: flex-start; width: 100%; }
+.msg.handoff { border-left: 3px solid var(--accent); }
+.msg.status-failed { border-color: var(--bad); }
+.msg header { font-size: 12px; margin-bottom: 4px; }
+.user-text { white-space: pre-wrap; margin: 0; }
+.thinking { color: var(--muted); margin: 4px 0; display: flex; align-items: center; gap: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+.msg-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; }
+.warnings { margin: 6px 0 0; padding-left: 18px; color: var(--warn); font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.chip-x { border: none; background: transparent; padding: 0 0 0 4px; color: var(--muted); }
+.composer { border-top: 1px solid var(--line); padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.composer textarea { font: inherit; width: 100%; resize: vertical; min-height: 64px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.composer textarea:focus { outline: none; border-color: var(--accent); }
+.composer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.composer-bar select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.hint { font-size: 12px; }
+.chat-side h2 { font-size: 14px; }
+
+/* Markdown */
+.md { overflow-wrap: anywhere; }
+.md p { margin: 6px 0; }
+.md h3, .md h4, .md h5 { margin: 10px 0 6px; }
+.md ul, .md ol { margin: 6px 0; padding-left: 22px; }
+.md blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--line); color: var(--muted); }
+.codeblock { border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; background: var(--bg); overflow: hidden; }
+.codeblock-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.codeblock pre { margin: 0; padding: 10px; overflow: auto; font-size: 13px; }
+.codeblock code { background: none; padding: 0; }
+.table-wrap { overflow: auto; }
+.md table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
+.md th { background: var(--panel); }

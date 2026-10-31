@@ -187,3 +187,51 @@ export interface KEvent {
   task_id: string | null;
   data: Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------- Asistan (Adım 8)
+
+export interface Conversation {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  agent: string;
+}
+
+export interface AttachmentRef {
+  id: string;
+  name: string;
+  chars: number;
+}
+
+export type MessageStatus = "done" | "pending" | "running" | "waiting_claude" | "failed" | "cancelled";
+
+export interface ChatMessage {
+  id: string;
+  conv_id: string;
+  created_at: string;
+  role: "user" | "assistant";
+  content: string;
+  status: MessageStatus;
+  agent: string;
+  job_id: string | null;
+  reply_to: string | null;
+  handoff: boolean;
+  attachments: AttachmentRef[];
+  warnings: string[];
+  meta: {
+    agents?: string[];
+    model?: string | null;
+    routing?: string | null;
+    duration_s?: number | null;
+    reviewed?: number;
+    revised?: number;
+    disputes?: number;
+    dropped?: number;
+  };
+}
+
+export interface ConversationView {
+  conversation: Conversation;
+  messages: ChatMessage[];
+}

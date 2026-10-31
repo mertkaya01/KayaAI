@@ -115,6 +115,29 @@ class DecisionBody(BaseModel):
     note: str = Field("", max_length=1000)
 
 
+class ChatCreateBody(BaseModel):
+    title: str | None = Field(None, max_length=200)
+
+
+class ChatRenameBody(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+
+class ChatSendBody(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+    agent: str = "auto"
+    attachments: list[str] = Field(default_factory=list, max_length=10)
+
+
+class AttachmentBody(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    text: str = Field(max_length=5 * 1024 * 1024)
+
+
+class AttachPathBody(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+
+
 class DisputeDecisionBody(BaseModel):
     side: Literal["producer", "reviewer"]
     note: str = Field("", max_length=1000)
@@ -413,6 +436,66 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return rt.permissions.reject(approval_id, decided_by="api", note=(body.note if body else "")).model_dump(mode="json")
         except ApprovalError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- asistan / sohbet (Adım 8)
+
+    from ..assistant import ChatBook, ChatError
+
+    chat = ChatBook(rt)
+
+    def chat_call(fn: Any, *args: Any) -> Any:
+        try:
+            return fn(*args)
+        except ChatError as exc:
+            msg = str(exc)
+            code = 404 if "bulunamadı" in msg else (409 if "Claude modu kapalı" in msg else 400)
+            raise HTTPException(code, msg) from exc
+
+    @app.get("/api/chat", dependencies=[Depends(auth)])
+    def chat_list() -> list[dict[str, Any]]:
+        return [c.model_dump(mode="json") for c in chat.list()]
+
+    @app.post("/api/chat", status_code=201, dependencies=[Depends(auth)])
+    def chat_create(body: ChatCreateBody | None = None) -> dict[str, Any]:
+        return chat.create(body.title if body else None).model_dump(mode="json")
+
+    @app.get("/api/chat/{conv_id}", dependencies=[Depends(auth)])
+    def chat_view(conv_id: str) -> dict[str, Any]:
+        return chat_call(chat.view, conv_id).model_dump(mode="json")
+
+    @app.patch("/api/chat/{conv_id}", dependencies=[Depends(auth)])
+    def chat_rename(conv_id: str, body: ChatRenameBody) -> dict[str, Any]:
+        return chat_call(chat.rename, conv_id, body.title).model_dump(mode="json")
+
+    @app.delete("/api/chat/{conv_id}", dependencies=[Depends(auth)])
+    def chat_delete(conv_id: str) -> dict[str, Any]:
+        chat_call(chat.delete, conv_id)
+        return {"id": conv_id, "deleted": True}
+
+    @app.post("/api/chat/{conv_id}/messages", status_code=202, dependencies=[Depends(auth)])
+    def chat_send(conv_id: str, body: ChatSendBody) -> dict[str, Any]:
+        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments)
+        submit(runner)
+        return {"user": user.model_dump(mode="json"), "reply": reply.model_dump(mode="json")}
+
+    @app.post("/api/chat/{conv_id}/messages/{message_id}/handoff", status_code=202, dependencies=[Depends(auth)])
+    def chat_handoff(conv_id: str, message_id: str) -> dict[str, Any]:
+        reply, runner = chat_call(chat.handoff, conv_id, message_id)
+        submit(runner)
+        return {"reply": reply.model_dump(mode="json")}
+
+    @app.post("/api/attachments", status_code=201, dependencies=[Depends(auth)])
+    def attachment_upload(body: AttachmentBody) -> dict[str, Any]:
+        return chat_call(chat.upload, body.name, body.text).model_dump(mode="json")
+
+    @app.post("/api/attachments/from-path", status_code=201, dependencies=[Depends(auth)])
+    def attachment_from_path(body: AttachPathBody) -> dict[str, Any]:
+        from ..tools.files import PathNotAllowed
+
+        try:
+            return chat_call(chat.attach_path, body.path).model_dump(mode="json")
+        except PathNotAllowed as exc:
+            raise HTTPException(403, str(exc)) from exc
 
     # ---------------------------------------------------------------- anlaşmazlıklar (Adım 7)
 

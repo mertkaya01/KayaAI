@@ -28,6 +28,8 @@ class InboxItem(BaseModel):
     # Adım 7: ajanlar anlaşamadıysa yerel taslak cevap ve iki görüş (karar Claude'da)
     local_draft: str = ""
     disputes: list[dict[str, str]] = Field(default_factory=list)
+    # Adım 8: sohbetten devredildiyse konuşma geçmişi ve ekler (sahip devretmeyi açıkça onayladı)
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class InboxView(BaseModel):
@@ -51,6 +53,7 @@ class ClaudeInbox:
             ]
             out.append(InboxItem(
                 local_draft=str(res.get("answer", ""))[:MAX_ANSWER_CHARS] if disputes else "",
+                context=dict(job.input.get("context") or {}),
                 disputes=disputes,
                 job_id=job.id,
                 request=job.objective,

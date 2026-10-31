@@ -106,7 +106,7 @@ class FileTools:
         if not path.is_file():
             raise FileNotFoundError(f"Dosya yok: {path}")
         if path.suffix.lower() not in TEXT_SUFFIXES:
-            raise ValueError(f"Bu dosya türü henüz okunamıyor ({path.suffix or 'uzantısız'}); PDF/Excel desteği Adım 9'da")
+            raise ValueError(f"Bu dosya türü henüz okunamıyor ({path.suffix or 'uzantısız'}); PDF/Excel desteği Adım 10'da")
         size = path.stat().st_size
         limit = int(self.settings.files.max_read_mb * 1024 * 1024)
         if size > limit:

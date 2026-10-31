@@ -1,0 +1,301 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView } from "../api";
+import { ago } from "../format";
+import { usePolling } from "../hooks";
+import { Markdown } from "../markdown";
+
+const STATUS_TEXT: Record<string, string> = {
+  pending: "sırada…",
+  running: "düşünüyor…",
+  waiting_claude: "Claude kutusunda — Claude Code oturumunda işlenecek",
+  failed: "başarısız",
+  cancelled: "iptal edildi",
+};
+
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function MessageView({ m, claude, onHandoff, busy }: { m: ChatMessage; claude: ClaudeStatus | null; onHandoff: (m: ChatMessage) => void; busy: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const waiting = m.status === "pending" || m.status === "running" || m.status === "waiting_claude";
+  const agents = m.meta.agents?.length ? m.meta.agents.join(" → ") : m.agent === "auto" ? "" : m.agent;
+  return (
+    <article className={`msg msg-${m.role} status-${m.status}${m.handoff ? " handoff" : ""}`}>
+      <header>
+        <strong>{m.role === "user" ? "Sen" : m.agent === "claude" || m.handoff ? "Claude" : "kayaAI"}</strong>
+        {m.role === "assistant" && agents && <span className="muted"> · {agents}</span>}
+        {m.role === "user" && m.agent !== "auto" && <span className="muted"> · → {m.agent}</span>}
+        <span className="muted when"> · {ago(m.created_at)}</span>
+      </header>
+      {m.attachments.length > 0 && (
+        <div className="chips">{m.attachments.map((a) => <span key={a.id} className="chip">📎 {a.name}</span>)}</div>
+      )}
+      {waiting ? (
+        <p className="thinking"><span className="dot" />{STATUS_TEXT[m.status]}</p>
+      ) : m.role === "assistant" ? (
+        <Markdown text={m.content} />
+      ) : (
+        <p className="user-text">{m.content}</p>
+      )}
+      {m.role === "assistant" && m.status === "done" && (
+        <div className="msg-meta">
+          {!!m.meta.reviewed && <span className="badge state-completed">gözden geçirildi</span>}
+          {!!m.meta.revised && <span className="badge state-waiting">düzeltildi</span>}
+          {!!m.meta.disputes && <span className="badge state-failed">{m.meta.disputes} anlaşmazlık</span>}
+          {m.meta.duration_s != null && <span className="muted">{m.meta.duration_s} sn</span>}
+          <span className="spacer" />
+          <button className="ghost small" onClick={() => { void navigator.clipboard?.writeText(m.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
+            {copied ? "Kopyalandı" : "Kopyala"}
+          </button>
+          {!m.handoff && m.agent !== "claude" && (
+            <button
+              className="ghost small"
+              disabled={!claude?.enabled || busy}
+              title={claude?.enabled ? "Bu soruyu Claude kutusuna devret" : "Claude modu kapalı — yerel ekip cevaplıyor"}
+              onClick={() => onHandoff(m)}
+            >
+              Claude'a devret
+            </button>
+          )}
+        </div>
+      )}
+      {m.warnings.length > 0 && (
+        <ul className="warnings">{m.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+      )}
+    </article>
+  );
+}
+
+export function ChatView({
+  convId,
+  onSelect,
+  refreshKey,
+  claude,
+}: {
+  convId: string | null;
+  onSelect: (id: string | null) => void;
+  refreshKey: number;
+  claude: ClaudeStatus | null;
+}) {
+  const [listKey, setListKey] = useState(0);
+  const [viewKey, setViewKey] = useState(0);
+  const list = usePolling<Conversation[]>("/api/chat", 20000, `${listKey}-${refreshKey}`);
+  const agents = usePolling<Agent[]>("/api/agents", 30000);
+  const [view, setView] = useState<ConversationView | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [agent, setAgent] = useState("auto");
+  const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
+  const [busy, setBusy] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const bottom = useRef<HTMLDivElement>(null);
+
+  const pending = view?.messages.some((m) => ["pending", "running", "waiting_claude"].includes(m.status)) ?? false;
+
+  useEffect(() => {
+    if (!convId) { setView(null); return; }
+    let stop = false;
+    api<ConversationView>(`/api/chat/${convId}`)
+      .then((v) => { if (!stop) { setView(v); setError(null); } })
+      .catch((e) => { if (!stop) { setError(e instanceof ApiError && e.status === 404 ? "Sohbet bulunamadı." : errText(e)); setView(null); } });
+    return () => { stop = true; };
+  }, [convId, viewKey, refreshKey]);
+
+  // bekleyen cevap varken olay gelmese de seyrek yokla (başka süreçte biten işler, ör. Claude kutusu)
+  useEffect(() => {
+    if (!pending) return;
+    const id = window.setInterval(() => setViewKey((k) => k + 1), 4000);
+    return () => window.clearInterval(id);
+  }, [pending]);
+
+  useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [view?.messages.length, pending]);
+
+  const choices = useMemo(
+    () => (agents.data ?? []).filter((a) => a.output === "GeneralAnswer"),
+    [agents.data],
+  );
+
+  async function newChat() {
+    const c = await post<Conversation>("/api/chat", {});
+    setListKey((k) => k + 1);
+    onSelect(c.id);
+  }
+
+  async function send() {
+    const body = text.trim();
+    if (!body || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let id = convId;
+      if (!id) {
+        id = (await post<Conversation>("/api/chat", {})).id;
+        onSelect(id);
+      }
+      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id) });
+      setText("");
+      setAttachments([]);
+      setListKey((k) => k + 1);
+      setViewKey((k) => k + 1);
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addFiles(files: FileList | null) {
+    if (!files) return;
+    setError(null);
+    for (const f of Array.from(files)) {
+      try {
+        const a = await post<AttachmentRef>("/api/attachments", { name: f.name, text: await f.text() });
+        setAttachments((prev) => [...prev, a]);
+      } catch (e) {
+        setError(`${f.name}: ${errText(e)}`);
+      }
+    }
+    if (fileInput.current) fileInput.current.value = "";
+  }
+
+  async function addFromFolder() {
+    const path = window.prompt("İzinli klasördeki dosyanın yolu (ör. notlar.md ya da tam yol):");
+    if (!path?.trim()) return;
+    try {
+      const a = await post<AttachmentRef>("/api/attachments/from-path", { path: path.trim() });
+      setAttachments((prev) => [...prev, a]);
+    } catch (e) {
+      setError(errText(e));
+    }
+  }
+
+  async function handoff(m: ChatMessage) {
+    if (!convId) return;
+    const ok = window.confirm(
+      "Bu soru Claude kutusuna devredilecek. Sohbetin son mesajları ve bu sorunun ekleri Claude Code oturumunda " +
+        "Claude'a gönderilecek. Devam edilsin mi?",
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await post(`/api/chat/${convId}/messages/${m.id}/handoff`, {});
+      setViewKey((k) => k + 1);
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rename(c: Conversation) {
+    const title = window.prompt("Sohbetin yeni adı:", c.title);
+    if (!title?.trim()) return;
+    await api(`/api/chat/${c.id}`, { method: "PATCH", body: JSON.stringify({ title: title.trim() }) });
+    setListKey((k) => k + 1);
+    setViewKey((k) => k + 1);
+  }
+
+  async function remove(c: Conversation) {
+    if (!window.confirm(`"${c.title}" sohbeti ve tüm mesajları silinsin mi? Bu geri alınamaz.`)) return;
+    await api(`/api/chat/${c.id}`, { method: "DELETE" });
+    setListKey((k) => k + 1);
+    if (c.id === convId) onSelect(null);
+  }
+
+  return (
+    <main className="chat">
+      <aside className="chat-list panel">
+        <button className="toggle new-chat" onClick={() => void newChat()}>+ Yeni sohbet</button>
+        {list.data?.length === 0 && <p className="muted">Henüz sohbet yok.</p>}
+        <ul>
+          {list.data?.map((c) => (
+            <li key={c.id} className={c.id === convId ? "active" : ""}>
+              <button className="conv" onClick={() => onSelect(c.id)} title={c.title}>
+                <span className="conv-title">{c.title}</span>
+                <span className="muted when">{ago(c.updated_at)}</span>
+              </button>
+              {c.id === convId && (
+                <span className="conv-actions">
+                  <button className="ghost small" onClick={() => void rename(c)}>Adlandır</button>
+                  <button className="ghost small danger" onClick={() => void remove(c)}>Sil</button>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <section className="chat-main panel">
+        <div className="messages" aria-live="polite">
+          {!view && !error && (
+            <div className="empty">
+              <h2>Merhaba, ben kayaAI.</h2>
+              <p className="muted">
+                Yerel modellerle, bilgisayarında çalışırım. Bir şey sor ya da bir metin/CSV dosyası ekle. "Otomatik" seçiliyse
+                şef isteği uygun ajana (coder, data, document…) verir ve uzman cevaplarını gözden geçirtir.
+              </p>
+            </div>
+          )}
+          {view?.messages.length === 0 && <p className="muted">Bu sohbette henüz mesaj yok.</p>}
+          {view?.messages.map((m) => <MessageView key={m.id} m={m} claude={claude} onHandoff={(x) => void handoff(x)} busy={busy} />)}
+          <div ref={bottom} />
+        </div>
+        {error && <p className="error">{error}</p>}
+        <div className="composer">
+          {attachments.length > 0 && (
+            <div className="chips">
+              {attachments.map((a) => (
+                <span key={a.id} className="chip">
+                  📎 {a.name}
+                  <button className="chip-x" aria-label={`${a.name} ekini kaldır`} onClick={() => setAttachments((p) => p.filter((x) => x.id !== a.id))}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+          <textarea
+            value={text}
+            placeholder="Mesajını yaz… (Enter gönderir, Shift+Enter yeni satır)"
+            rows={3}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            aria-label="Mesaj"
+          />
+          <div className="composer-bar">
+            <label className="muted">
+              Ajan{" "}
+              <select value={agent} onChange={(e) => setAgent(e.target.value)} aria-label="Ajan">
+                <option value="auto">Otomatik (şef seçer)</option>
+                {choices.map((a) => (
+                  <option key={a.name} value={a.name}>{a.name}{a.lifecycle === "temporary" ? " (geçici)" : ""}</option>
+                ))}
+              </select>
+            </label>
+            <input ref={fileInput} type="file" multiple hidden onChange={(e) => void addFiles(e.target.files)} />
+            <button className="ghost" onClick={() => fileInput.current?.click()}>Dosya ekle</button>
+            <button className="ghost" onClick={() => void addFromFolder()}>Klasörden ekle</button>
+            <span className="muted hint">Metin dosyaları · PDF/Excel Adım 10 · ses sonra</span>
+            <span className="spacer" />
+            <button className="toggle" disabled={busy || !text.trim()} onClick={() => void send()}>Gönder</button>
+          </div>
+        </div>
+      </section>
+
+      <aside className="chat-side panel">
+        <h2>Hafıza</h2>
+        <p className="muted">Konuşmalarından öğrenilen bilgiler burada görünecek (Adım 9 — henüz yok).</p>
+        <h2>Claude</h2>
+        <p className="muted">
+          {claude?.enabled
+            ? "Claude modu açık. Bir cevabın altındaki \"Claude'a devret\" ile soruyu Claude kutusuna bırakabilirsin; cevap buraya gelir."
+            : "Claude modu kapalı. Tüm cevaplar yerel ekipten gelir."}
+        </p>
+      </aside>
+    </main>
+  );
+}
