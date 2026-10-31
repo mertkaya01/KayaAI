@@ -122,6 +122,7 @@ kayaai audit                          # Python ile ortam denetimi
 kayaai mcp                            # MCP sunucusu (stdio; Claude Code kendisi başlatır)
 kayaai claude [on|off]                # Claude modu: durum / aç / kapat (varsayılan kapalı)
 kayaai agents                         # tanımlı ajanlar (config/agents/*.yaml)
+kayaai do "istek"                     # şef: planla → ajanlara dağıt → birleştir → gözden geçir
 kayaai ask --worker coder "..."       # belirli bir ajana sor (general / coder / reviewer)
 ```
 

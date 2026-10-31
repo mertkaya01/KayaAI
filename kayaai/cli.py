@@ -6,6 +6,7 @@
     kayaai task <id>         Görev ayrıntısı ve olayları
     kayaai models            Model kayıt defteri ve kurulu modeller
     kayaai audit             Ortam denetimi (data/audit_report.json)
+    kayaai do "istek"        Şef: planla → ajanlara dağıt → birleştir → gözden geçir
     kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
     kayaai claude [on|off]   Claude modu durumu / aç / kapat
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
@@ -239,6 +240,39 @@ def cmd_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_do(args: argparse.Namespace) -> int:
+    from .conductor import Conductor
+    from .logging_setup import setup_logging
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    setup_logging(settings, console=True)
+    request = " ".join(args.request).strip()
+    if not request:
+        _print("İstek boş olamaz.")
+        return 2
+    force = "local" if args.local else ("claude" if args.claude else None)
+    with build_runtime(settings, approver=interactive_approver) as rt:
+        _print("[şef] planlıyor... (yerel modeller)")
+        res = Conductor(rt).run(request, force=force)
+    if args.json:
+        _print(res.model_dump_json(indent=2))
+        return 0 if res.status == "succeeded" else 1
+    if res.status == "succeeded":
+        _print("\n" + res.answer)
+    elif res.status == "waiting_claude":
+        _print(f"\nİş Claude kutusunda bekliyor (iş {res.job_id}). Sebep: {res.routing.reason}")
+        _print("Yerelde yaptırmak için:  kayaai do --local \"...\"")
+    else:
+        _print(f"\nİş başarısız: {res.error}")
+    for w in res.warnings:
+        _print(f"[UYARI] {w}")
+    steps = " → ".join(f"{s.agent}({s.status})" for s in res.steps)
+    review = f" | gözden geçirme: {res.review.verdict}{' (düzeltildi)' if res.review.revised else ''}" if res.review.performed else ""
+    _print(f"\n— iş {res.job_id} | {res.mode} | {steps}{review} | {res.duration_s} sn | yönlendirme: {res.routing.decision}")
+    return 0 if res.status in ("succeeded", "waiting_claude") else 1
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from .agents.definitions import AgentDefinitionError
     from .workers import default_workers
@@ -336,6 +370,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("models", help="model kayıt defteri").set_defaults(func=cmd_models)
     sub.add_parser("audit", help="ortam denetimi raporu").set_defaults(func=cmd_audit)
+    do = sub.add_parser("do", help="şef: isteği planlayıp ajanlara dağıtır")
+    do.add_argument("request", nargs="+")
+    g = do.add_mutually_exclusive_group()
+    g.add_argument("--local", action="store_true", help="Claude gerekse bile yerelde yap")
+    g.add_argument("--claude", action="store_true", help="Claude modu açıksa Claude kutusuna bırak")
+    do.add_argument("--json", action="store_true")
+    do.set_defaults(func=cmd_do)
+
     sub.add_parser("agents", help="tanımlı ajanlar (config/agents)").set_defaults(func=cmd_agents)
 
     c = sub.add_parser("claude", help="Claude modu: durum / aç / kapat")

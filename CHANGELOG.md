@@ -11,6 +11,19 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 - `waiting_claude` görev durumu (Claude kutusu için; yeniden başlatmada korunur, iptal edilebilir)
 - Onaylanan Adım 3 planı: `docs/STEP3_PLAN.md`
 
+### Eklendi (Adım 3c — yerel şef)
+- `kayaai do "istek" [--local|--claude] [--json]` ve MCP `kayaai_do`: planla → yürüt → birleştir → gözden geçir
+- `planner` ajanı (`RoutePlan`: direct/plan, adımlar, needs_claude); plan geçerliliği kodla kontrol edilir,
+  geçersizse geri bildirimle tekrar, yine geçersizse genel ajana düşer
+- Claude yönlendirmesi: gerekmiyorsa yerel; gerekli + kapalı → yerelde + uyarı (D16); gerekli + açık →
+  `waiting_claude` (Claude kutusu); yerel başarısız + açık → kutuya; her karar `routing.decision` olayıyla kayıtlı
+- `reviewer` ile gözden geçirme (`conductor.review: never|plan|always`) ve en fazla `max_revisions` düzeltme
+- İşler `conductor` üst görevi + alt görevler (`parent_id`) olarak görev geçmişinde
+- `scripts/conductor_check.py`: gerçek modellerle 6 örnek istek
+
+### Değişti
+- `coder` ajanı → `qwen2.5-coder:7b` (kod benchmark'ı 4/5, qwen3:8b 3/5)
+
 ### Eklendi (Adım 3b — ajan tanımları)
 - `config/agents/*.yaml` tek kaynak ajan tanımları: `general`, `reviewer`, `coder`; kod yazmadan yeni ajan
 - `kayaai/agents/definitions.py`: doğrulamalı yükleyici (dosya adı, bilinmeyen/aday model, izinler, çıktı türü)

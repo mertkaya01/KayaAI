@@ -24,18 +24,20 @@ models:
     approx_vram_gb: 6.5
     license: Apache-2.0
 
-  # --- Adaylar: kullanıcının PC'sinde zaten kurulu, Faz 3'te benchmark edilecek.
-  # status: candidate olan model worker'a atanamaz (registry reddeder).
+  # coder ajanının modeli. scripts/coder_bench.py --execute (2026-10-31, RTX 5070 Ti):
+  # qwen2.5-coder:7b 4/5, qwen3:8b 3/5; ~152 tok/s. Düşünme modu yok (think ayarı gönderilmez).
   coder-7b:
     name: qwen2.5-coder:7b
-    purpose: Yazılım worker'ı adayı (kod yazma, inceleme, hata ayıklama)
+    purpose: Kod yazma, inceleme, hata ayıklama (coder ajanı)
     context_length: 8192
     keep_alive: 10m
     options:
       temperature: 0.2
-    approx_vram_gb: 5.5
+    approx_vram_gb: 4.7
     license: Apache-2.0
-    status: candidate
+    status: active
+
+  # --- Adaylar: kurulu, benchmark bekliyor. status: candidate olan model ajana atanamaz.
 
   llama31-8b:
     name: llama3.1:8b

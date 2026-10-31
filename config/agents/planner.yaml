@@ -1,0 +1,11 @@
+# Planlayıcı: yerel şefin (`kayaai do`) ilk adımı. İsteği tek ajana verir ya da 2-4 adımlık plana böler.
+# Claude modunda planlamayı Opus yapar; bu yüzden Claude karşılığı yok (none).
+name: planner
+description: İsteği tek ajana yönlendirir ya da kısa bir plana böler (yalnızca şef kullanır)
+output: plan
+local_model: general-8b
+claude_tier: none
+permissions: [llm.inference]
+limits:
+  timeout_s: 120
+status: permanent

@@ -17,12 +17,14 @@ from ..core.task import Permission
 from ..llm.registry import ModelRegistry, ModelSpec
 from ..workers.base import LLMWorker
 from ..workers.general import GeneralWorker
+from ..workers.planner import PlannerWorker
 from ..workers.reviewer import ReviewerWorker
 
 # Çıktı türü -> temel worker sınıfı (şema + anlamsal doğrulama oradan gelir)
 OUTPUT_TYPES: dict[str, type[LLMWorker]] = {
     "answer": GeneralWorker,
     "review": ReviewerWorker,
+    "plan": PlannerWorker,
 }
 _VALID_PERMISSIONS = {p.value for p in Permission}
 
@@ -38,7 +40,7 @@ class AgentLimits(BaseModel):
 class AgentDefinition(BaseModel):
     name: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,31}$")
     description: str
-    output: Literal["answer", "review"] = "answer"
+    output: Literal["answer", "review", "plan"] = "answer"
     # Rol talimatı (sistem promptu). Boşsa çıktı türünün varsayılan talimatı kullanılır.
     role: str = ""
     local_model: str = Field(description="config/models.yaml içindeki model anahtarı")

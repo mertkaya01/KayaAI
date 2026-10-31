@@ -39,6 +39,12 @@ claude:
   # Claude Code bu kadar dakika içinde kayaAI'yi kullandıysa "yakın temas" gösterilir.
   contact_window_min: 15
 
+conductor:
+  # Yerel şef (`kayaai do`): en fazla adım, gözden geçirme (never | plan | always), düzeltme turu
+  max_steps: 4
+  review: plan
+  max_revisions: 1
+
 logging:
   level: INFO
   file: logs/kayaai.log

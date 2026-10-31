@@ -7,7 +7,7 @@ Kaynak gerçek: [`config/models.yaml`](config/models.yaml). Bu dosya gerekçeler
 | Anahtar | Ollama etiketi | Worker'lar | Bağlam | think | Lisans | Durum |
 |---|---|---|---|---|---|---|
 | `general-8b` | `qwen3:8b` | general | 8192 | false | Apache-2.0 | **Aktif** — RTX 5070 Ti'de doğrulandı |
-| `coder-7b` | `qwen2.5-coder:7b` | — | 8192 | — | Apache-2.0 | Aday (kurulu), Faz 3'te benchmark |
+| `coder-7b` | `qwen2.5-coder:7b` | coder (config/agents) | 8192 | — | Apache-2.0 | **Aktif** — kod benchmark'ında 4/5 |
 | `llama31-8b` | `llama3.1:8b` | — | 8192 | — | Llama 3.1 Community License | Aday (kurulu), karşılaştırma için |
 
 ## Seçim gerekçesi — qwen3:8b
@@ -59,6 +59,16 @@ Faz 10'da genişletilecek: kodlama, uzun bağlam, Türkçe-İngilizce çeviri ka
 4. `confidence` her cevapta 0.9–1.0: modelin öz-güven değeri kalibre değil, karar verirken kullanılmamalı.
 
 | 2026-10-31 | qwen3:8b (v0.2.1 kodu) | RTX 5070 Ti | **~137** | 6/6 | **6/6** | 5.86 GB, %100 GPU | Dil düzeltmesi doğrulandı; doğrulama tekrarı gerekmedi |
+
+### Kod modeli karşılaştırması (`scripts/coder_bench.py --execute`, 2026-10-31)
+
+| Model | Geçen test | tok/sn | Not |
+|---|---|---|---|
+| qwen2.5-coder:7b | **4/5** | ~152 | `parse_duration` başarısız |
+| qwen3:8b | 3/5 | ~137 | `word_count` (Türkçe karakter/noktalama) ve `parse_duration` başarısız |
+
+Karar: `coder` ajanı → `coder-7b`. Örneklem küçük (5 görev); ajanın JSON çıktı uyumu `scripts/conductor_check.py`
+ile ayrıca doğrulanacak. VRAM: iki model birlikte ~10.6 GB (+ masaüstü) — 16 GB'a sığar.
 
 ## Model değiştirme
 

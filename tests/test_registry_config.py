@@ -51,5 +51,6 @@ def test_candidate_model_cannot_be_assigned():
 
 def test_project_candidates_present():
     reg = ModelRegistry.load(PROJECT_ROOT / "config" / "models.yaml")
-    assert reg.get("coder-7b").status == "candidate"
+    assert reg.get("coder-7b").status == "active"
+    assert reg.get("llama31-8b").status == "candidate"
     assert reg.model_for_worker("general").status == "active"

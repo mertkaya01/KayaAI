@@ -98,6 +98,20 @@ Claude isteğe bağlıdır (MASTER_PROMPT v2 D2). `kayaai/core/claude_mode.py`:
 `limits.timeout_s`, `status`. Şema ve anlamsal doğrulama çıktı türünün worker sınıfından gelir.
 Tanım klasörü yoksa yerleşik `general` worker kullanılır.
 
+## Yerel şef (Adım 3c)
+
+`kayaai/conductor/conductor.py` — `kayaai do` ve MCP `kayaai_do`:
+
+```
+istek → planner (RoutePlan: direct | 2-4 adım, needs_claude)  ── geçersiz plan: geri bildirim → yine geçersiz: general
+      → yönlendirme (D15/D16): local | local_with_warning | claude_inbox(waiting_claude)
+      → adımlar sırayla (önceki sonuçlar <input_data> olarak) → çok adımlıysa general birleştirir
+      → reviewer (review=plan: yalnızca çok adımlı) → sorun varsa ≤ max_revisions düzeltme → hâlâ sorun: uyarı
+```
+- İş kaydı: `worker="conductor"` üst görev; tüm adımlar `parent_id` ile alt görev.
+- `origin="claude"` (MCP): Claude zaten şef olduğu için kutuya gönderilmez; planlayıcının görüşü uyarı olur.
+- Yerel sonuç üretilemezse: Claude açık → kutu, kapalı → `failed` (asla sahte başarı).
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

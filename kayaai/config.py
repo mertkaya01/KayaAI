@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 import yaml
@@ -52,6 +52,15 @@ class ClaudeSettings(BaseModel):
     contact_window_min: int = Field(15, ge=1, le=24 * 60)
 
 
+class ConductorSettings(BaseModel):
+    """Yerel şef (`kayaai do`)."""
+
+    max_steps: int = Field(4, ge=1, le=8)
+    # Gözden geçirme: never | plan (yalnızca çok adımlı işlerde) | always
+    review: Literal["never", "plan", "always"] = "plan"
+    max_revisions: int = Field(1, ge=0, le=3)
+
+
 class LoggingSettings(BaseModel):
     level: str = "INFO"
     file: str = "logs/kayaai.log"
@@ -67,6 +76,7 @@ class Settings(BaseModel):
     orchestrator: OrchestratorSettings = Field(default_factory=OrchestratorSettings)
     permissions: PermissionSettings = Field(default_factory=PermissionSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
+    conductor: ConductorSettings = Field(default_factory=ConductorSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property

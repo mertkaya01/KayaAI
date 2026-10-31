@@ -39,7 +39,7 @@ def test_project_agents_load():
     assert {"general", "reviewer", "coder"} <= set(defs)
     assert defs["reviewer"].output == "review"
     workers = default_workers(reg, PROJECT_ROOT / "config" / "agents")
-    assert workers.get("coder").model_spec(reg).name == "qwen3:8b"
+    assert workers.get("coder").model_spec(reg).name == "qwen2.5-coder:7b"
 
 
 @pytest.mark.parametrize(

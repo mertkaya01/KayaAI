@@ -21,6 +21,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
 from . import APP_NAME, __version__
+from .conductor import Conductor, ConductorResult
 from .config import Settings, load_settings
 from .core.task import Task, TaskStatus
 from .llm.ollama_client import OllamaError
@@ -288,6 +289,22 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
         limit = max(1, min(limit, 200))
         tasks = r.store.list_tasks(limit=limit, status=TaskStatus(status) if status else None)
         return TaskList(tasks=[_view(t) for t in tasks], total_in_history=r.store.count())
+
+    @server.tool(
+        name="kayaai_do",
+        description=(
+            "Hand a whole multi-part request to kayaAI's LOCAL team: the local planner splits it into steps, "
+            "local agents (general, coder, ...) do them, the results are merged and reviewed. Runs on the user's "
+            "GPU, free and private. Use for routine or bulk work you do not need to do yourself. The result may "
+            "include warnings (e.g. the local planner thinks the task needs a stronger model)."
+        ),
+    )
+    def kayaai_do(request: str) -> ConductorResult:
+        request = _check_text("request", request)
+        res = Conductor(rt()).run(request, origin="claude")
+        if res.status != TaskStatus.SUCCEEDED.value:
+            raise ToolError(f"iş {res.job_id} {res.status}: {res.error}; uyarılar: {res.warnings}")
+        return res
 
     @server.tool(
         name="kayaai_list_agents",
