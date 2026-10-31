@@ -46,6 +46,16 @@ CREATE TABLE IF NOT EXISTS events (
     data     TEXT
 );
 
+CREATE TABLE IF NOT EXISTS approvals (
+    id          TEXT PRIMARY KEY,
+    created_at  TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    risk        TEXT NOT NULL,
+    tool        TEXT NOT NULL,
+    data        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -98,6 +108,30 @@ class TaskStore:
                 "INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (key, value),
             )
+
+    # ------------------------------------------------------------------ onay kuyruğu (Adım 5)
+
+    def save_approval(self, approval_id: str, created_at: str, status: str, risk: str, tool: str,
+                      data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute(
+                """INSERT INTO approvals(id, created_at, status, risk, tool, data) VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET status=excluded.status, data=excluded.data""",
+                (approval_id, created_at, status, risk, tool, json.dumps(data, ensure_ascii=False, default=str)),
+            )
+
+    def get_approval(self, approval_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT data FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+        return json.loads(row["data"]) if row else None
+
+    def list_approvals(self, status: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        sql, args = "SELECT data FROM approvals", ()
+        if status:
+            sql, args = sql + " WHERE status = ?", (status,)
+        with self._lock:
+            rows = self._conn.execute(sql + " ORDER BY created_at DESC LIMIT ?", (*args, limit)).fetchall()
+        return [json.loads(r["data"]) for r in rows]
 
     def count_by_status(self, status: TaskStatus) -> int:
         with self._lock:

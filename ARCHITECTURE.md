@@ -149,6 +149,18 @@ API ─┘        ▲                   └─ WS  /api/events  (events tablosun
   API); bellek içi olay yolu diğer süreçleri göremez.
 - Uzun işler tek iş parçacıklı kuyrukta (tek GPU); ajan durumu görev geçmişinden türetilir (`core/agent_status.py`).
 
+## İzin motoru v2 ve dosya araçları (Adım 5)
+
+```
+araç (FileTools.write …) → ToolAction{tool, params, risk, summary, preview, undo, requested_by}
+   → PermissionEngine.submit:  R0/R1 → çalıştır → "tool.used"
+                               R2/R3 → approvals tablosu (pending) → "approval.requested" → çağırana approval_id
+   sahip: kayaai approvals approve | POST /api/approvals/{id}/approve → kayıtlı işlem çalışır → "approval.decided"
+```
+- Dosya kökleri: `files.home_dir` (rw) + `files.allowed_dirs`; yol `resolve()` sonrası köklere göre denetlenir
+  (Windows'ta `normcase`); salt-okunur köke yazma onaysız reddedilir.
+- Onay yalnızca sahipten: CLI ve anahtarlı API. MCP yalnızca bekleyenleri okuyabilir.
+
 ## MCP katmanı (Faz 2)
 
 `kayaai/mcp_server.py` — resmi `mcp` Python SDK 2.x (`MCPServer`), **yalnızca stdio**. Claude Code

@@ -88,6 +88,22 @@ Doğrulama: Claude Code'da `/mcp` → `kayaai` connected. Alt ajanlar (`kayaai-g
 `kayaai-reviewer`) `.claude/agents/` klasöründen otomatik okunur; güncel Claude Code sürümlerinde `/agents` komutu
 yok — Claude'a "hangi alt ajanların var?" diye sorabilirsin. Pro planında Opus 5.5 kullanılabildiği doğrulandı.
 
+## Dosya araçları ve onaylar
+
+Ajanlar yalnızca izinli klasörlerde çalışır: `C:\Users\<kullanıcı>\kayaAI-files` (okuma+yazma) ve
+`config/settings.yaml` → `files.allowed_dirs` içinde listelediğin klasörler (`read` ya da `read_write`).
+
+```powershell
+kayaai files roots                       # izinli klasörler
+kayaai files write notlar.md --text "..." # yeni dosya: hemen (R1)
+kayaai files write notlar.md --text "..." # var olan dosya: ONAY BEKLER (R2), önce yedek alınır
+kayaai approvals                         # bekleyen onaylar
+kayaai approvals show <id>               # önizleme (eski/yeni içerik, geri alma)
+kayaai approvals approve <id>            # ya da: reject <id>
+```
+
+Onayı yalnızca sen verirsin (CLI ya da anahtarlı API). Claude Code'un MCP üzerinden onay verme aracı yoktur.
+
 ## Yerel API (arayüzler için)
 
 ```powershell

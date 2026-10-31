@@ -68,6 +68,27 @@ class ConductorSettings(BaseModel):
     claude_threshold: int = Field(3, ge=1, le=10)
 
 
+class AllowedDir(BaseModel):
+    path: str
+    access: Literal["read", "read_write"] = "read"
+
+
+class FilesSettings(BaseModel):
+    """Dosya araçlarının erişebileceği klasörler (Adım 5; sahip kararı: kayaAI klasörü + seçilen klasörler)."""
+
+    # kayaAI'nin kendi klasörü (okuma + yazma). Boşsa ~/kayaAI-files.
+    home_dir: str | None = None
+    # Ek klasörler; listede olmayan hiçbir yere erişilmez.
+    allowed_dirs: list[AllowedDir] = Field(default_factory=list)
+    max_read_mb: float = Field(2.0, gt=0, le=50)
+    max_write_mb: float = Field(5.0, gt=0, le=50)
+
+
+class ApprovalSettings(BaseModel):
+    # Bu süreden uzun bekleyen onay talebi geçersiz sayılır (expired).
+    expire_hours: int = Field(24, ge=1, le=24 * 30)
+
+
 class ApiSettings(BaseModel):
     """Yerel API sunucusu (Adım 4). Yalnızca bu bilgisayardan erişilir."""
 
@@ -92,6 +113,8 @@ class Settings(BaseModel):
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     conductor: ConductorSettings = Field(default_factory=ConductorSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
+    files: FilesSettings = Field(default_factory=FilesSettings)
+    approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property
@@ -135,6 +158,8 @@ def load_settings(config_dir: Path | None = None) -> Settings:
         raw.setdefault("ollama", {})["base_url"] = url
     if data_dir := os.environ.get("KAYAAI_DATA_DIR"):
         raw["data_dir"] = data_dir
+    if files_dir := os.environ.get("KAYAAI_FILES_DIR"):
+        raw.setdefault("files", {})["home_dir"] = files_dir
     if level := os.environ.get("KAYAAI_LOG_LEVEL"):
         raw.setdefault("logging", {})["level"] = level
 

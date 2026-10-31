@@ -84,6 +84,15 @@ class ClaudeBody(BaseModel):
     handback: bool = True
 
 
+class WriteBody(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+    content: str = Field(max_length=5 * 1024 * 1024)
+
+
+class DecisionBody(BaseModel):
+    note: str = Field("", max_length=1000)
+
+
 class Accepted(BaseModel):
     id: str
     status: str
@@ -279,6 +288,64 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None)
     @app.post("/api/inbox/{job_id}/cancel", dependencies=[Depends(auth)])
     def inbox_cancel(job_id: str) -> dict[str, Any]:
         return {"cancelled": ClaudeInbox(rt).cancel(job_id)}
+
+    # ---------------------------------------------------------------- dosyalar ve onay kuyruğu (Adım 5)
+
+    from ..core.permissions import ApprovalError
+    from ..tools.files import PathNotAllowed, roots
+
+    def _file_call(fn: Any, *args: Any) -> dict[str, Any]:
+        try:
+            res = fn(*args, requested_by="api")
+        except PathNotAllowed as exc:
+            raise HTTPException(403, str(exc)) from exc
+        except (ValueError, OSError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if res.status == "failed":
+            raise HTTPException(400, res.error)
+        return res.model_dump(mode="json")
+
+    @app.get("/api/files/roots", dependencies=[Depends(auth)])
+    def files_roots() -> list[dict[str, Any]]:
+        return [{"path": str(r.path), "access": "read_write" if r.writable else "read"} for r in roots(settings)]
+
+    @app.get("/api/files", dependencies=[Depends(auth)])
+    def files_list(path: str = ".") -> dict[str, Any]:
+        return _file_call(rt.files.list_dir, path)
+
+    @app.get("/api/files/read", dependencies=[Depends(auth)])
+    def files_read(path: str) -> dict[str, Any]:
+        return _file_call(rt.files.read, path)
+
+    @app.post("/api/files/write", dependencies=[Depends(auth)])
+    def files_write(body: WriteBody) -> dict[str, Any]:
+        return _file_call(rt.files.write, body.path, body.content)
+
+    @app.get("/api/approvals", dependencies=[Depends(auth)])
+    def approvals(status_: str | None = Query("pending", alias="status")) -> list[dict[str, Any]]:
+        st = None if status_ in (None, "", "all") else status_
+        return [a.model_dump(mode="json") for a in rt.permissions.list_approvals(st)]  # type: ignore[arg-type]
+
+    @app.get("/api/approvals/{approval_id}", dependencies=[Depends(auth)])
+    def approval(approval_id: str) -> dict[str, Any]:
+        try:
+            return rt.permissions.get(approval_id).model_dump(mode="json")
+        except ApprovalError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
+    @app.post("/api/approvals/{approval_id}/approve", dependencies=[Depends(auth)])
+    def approval_approve(approval_id: str, body: DecisionBody | None = None) -> dict[str, Any]:
+        try:  # yalnızca anahtar sahibi (arayüz = sahip); R3 dahil her talep tek tek onaylanır
+            return rt.permissions.approve(approval_id, decided_by="api", note=(body.note if body else "")).model_dump(mode="json")
+        except ApprovalError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.post("/api/approvals/{approval_id}/reject", dependencies=[Depends(auth)])
+    def approval_reject(approval_id: str, body: DecisionBody | None = None) -> dict[str, Any]:
+        try:
+            return rt.permissions.reject(approval_id, decided_by="api", note=(body.note if body else "")).model_dump(mode="json")
+        except ApprovalError as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     # ---------------------------------------------------------------- canlı olaylar
 

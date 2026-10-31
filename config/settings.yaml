@@ -57,6 +57,21 @@ api:
   host: 127.0.0.1
   port: 8765
 
+files:
+  # Ajanların dosya araçları YALNIZCA bu klasörlerde çalışır (sahip kararı, Adım 5).
+  # kayaAI'nin kendi klasörü (okuma + yazma). Boşsa: C:\Users\<kullanıcı>\kayaAI-files
+  home_dir:
+  # Ek klasörler. access: read (yalnızca okuma) | read_write. Örnek:
+  #   - path: C:\Users\MERT\Documents\Faturalar
+  #     access: read
+  allowed_dirs: []
+  max_read_mb: 2
+  max_write_mb: 5
+
+approvals:
+  # Bu kadar saat içinde karar verilmeyen onay talebi geçersiz olur (expired).
+  expire_hours: 24
+
 logging:
   level: INFO
   file: logs/kayaai.log

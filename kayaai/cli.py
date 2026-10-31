@@ -10,6 +10,8 @@
     kayaai agents            Tanımlı ajanlar (config/agents/*.yaml)
     kayaai claude [on|off|sync]  Claude modu durumu / aç (+çalışma alanı) / kapat / alanı yeniden üret
     kayaai inbox [run|cancel] [id]  Claude kutusu
+    kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
+    kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
     kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
@@ -17,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import json
 import sys
 from typing import Any
@@ -428,6 +431,104 @@ def cmd_inbox(args: argparse.Namespace) -> int:
     return 0 if res.status == "succeeded" else 1
 
 
+def _print_submit(res) -> int:  # noqa: ANN001 - SubmitResult
+    if res.status == "done":
+        r = res.result or {}
+        if "entries" in r:
+            _print(r["path"])
+            for e in r["entries"]:
+                size = f"{e['size']:>10,}" if e["size"] is not None else f"{'<klasör>':>10}"
+                _print(f"  {size}  {e['modified']}  {e['name']}")
+            if not r["entries"]:
+                _print("  (boş)")
+        elif "content" in r:
+            _print(r["content"])
+        else:
+            _print(f"[TAMAM] {r.get('path')} ({r.get('bytes')} bayt)" + (f" — yedek: {r['backup']}" if r.get("backup") else ""))
+        return 0
+    if res.status == "awaiting_approval":
+        _print(f"[ONAY BEKLİYOR] {res.risk.value}: {res.message}")
+        return 0
+    _print(f"[HATA] {res.error}")
+    return 1
+
+
+def cmd_files(args: argparse.Namespace) -> int:
+    from .core.permissions import ApprovalError
+    from .runtime import build_runtime
+    from .tools.files import PathNotAllowed, roots
+
+    settings = load_settings()
+    if args.action == "roots":
+        for r in roots(settings):
+            _print(f"  {'okuma+yazma' if r.writable else 'yalnızca okuma':<15} {r.path}")
+        return 0
+    with build_runtime(settings) as rt:
+        try:
+            if args.action == "ls":
+                return _print_submit(rt.files.list_dir(args.path or ".", requested_by="cli"))
+            if not args.path:
+                _print("Yol gerekli.")
+                return 2
+            if args.action == "read":
+                return _print_submit(rt.files.read(args.path, requested_by="cli"))
+            if args.text is None and args.from_file is None:
+                _print("İçerik gerekli: --text \"...\" ya da --from <dosya>")
+                return 2
+            content = args.text if args.text is not None else Path(args.from_file).read_text(encoding="utf-8")
+            return _print_submit(rt.files.write(args.path, content, requested_by="cli"))
+        except (PathNotAllowed, ApprovalError, ValueError, OSError) as exc:
+            _print(f"[REDDEDİLDİ] {exc}")
+            return 1
+
+
+def cmd_approvals(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from .core.permissions import RISK_LABELS, ApprovalError
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    with build_runtime(settings) as rt:
+        eng = rt.permissions
+        try:
+            if args.action == "list":
+                items = eng.list_approvals(None if args.all else "pending")
+                if not items:
+                    _print("Bekleyen onay talebi yok." if not args.all else "Onay talebi yok.")
+                for a in items:
+                    _print(f"  {a.id}  {a.created_at:%Y-%m-%d %H:%M}  {a.status:<9} {a.action.risk.value}  {a.action.summary[:80]}")
+                return 0
+            if not args.approval_id:
+                _print("Talep numarası gerekli: kayaai approvals show <id>")
+                return 2
+            a = eng.get(args.approval_id)
+            if args.action == "show":
+                _print(f"Talep {a.id} — {a.status}")
+                _print(f"Risk    : {a.action.risk.value} — {RISK_LABELS[a.action.risk]}")
+                _print(f"İşlem   : {a.action.summary}")
+                _print(f"İsteyen : {a.action.requested_by}")
+                if a.action.reason:
+                    _print(f"Neden   : {a.action.reason}")
+                if a.action.undo:
+                    _print(f"Geri al : {a.action.undo}")
+                _print("Önizleme:")
+                _print(_json.dumps(a.action.preview, ensure_ascii=False, indent=2))
+                if a.status == "pending":
+                    _print(f"\nOnay: kayaai approvals approve {a.id}   |   Ret: kayaai approvals reject {a.id}")
+                return 0
+            if args.action == "approve":
+                a = eng.approve(args.approval_id, decided_by="cli", note=args.note or "")
+                _print(f"[{a.status.upper()}] {a.action.summary}" + (f" — {a.error}" if a.error else ""))
+                return 0 if a.status == "approved" else 1
+            a = eng.reject(args.approval_id, decided_by="cli", note=args.note or "")
+            _print(f"[REDDEDİLDİ] {a.action.summary}")
+            return 0
+        except ApprovalError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+
+
 def cmd_api(args: argparse.Namespace) -> int:
     from .api.app import load_or_create_token, token_path
     from .config import LOCAL_HOSTS
@@ -517,6 +618,20 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--json", action="store_true")
     c.add_argument("--keep", action="store_true", help="kapatırken kutudaki işleri beklet")
     c.add_argument("--yes", action="store_true", help="kapatırken kutudaki işleri sormadan yerelde yap")
+
+    fl = sub.add_parser("files", help="dosya araçları (yalnızca izinli klasörler)")
+    fl.add_argument("action", choices=["roots", "ls", "read", "write"])
+    fl.add_argument("path", nargs="?")
+    fl.add_argument("--text", default=None, help="write: yazılacak metin")
+    fl.add_argument("--from", dest="from_file", default=None, help="write: içeriği bu yerel dosyadan al")
+    fl.set_defaults(func=cmd_files)
+
+    apv = sub.add_parser("approvals", help="onay kuyruğu: listele / göster / onayla / reddet")
+    apv.add_argument("action", nargs="?", choices=["list", "show", "approve", "reject"], default="list")
+    apv.add_argument("approval_id", nargs="?")
+    apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
+    apv.add_argument("--note", default=None)
+    apv.set_defaults(func=cmd_approvals)
 
     ap = sub.add_parser("api", help="yerel API sunucusu (yalnızca 127.0.0.1)")
     ap.add_argument("action", nargs="?", choices=["serve", "token"], default="serve")

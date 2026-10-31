@@ -23,6 +23,7 @@ EXPECTED_TOOLS = {
     "kayaai_ask", "kayaai_submit_task", "kayaai_run_task", "kayaai_task_status",
     "kayaai_cancel_task", "kayaai_list_tasks", "kayaai_list_models", "kayaai_health", "kayaai_list_agents", "kayaai_do",
     "kayaai_claude_inbox", "kayaai_claude_complete", "kayaai_claude_release",
+    "kayaai_files_list", "kayaai_files_read", "kayaai_files_write", "kayaai_approvals_pending",
 }
 
 

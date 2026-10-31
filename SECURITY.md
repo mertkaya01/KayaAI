@@ -62,10 +62,19 @@
 - [x] CORS yalnızca localhost kökenleri; girdi boyutu sınırları (20.000 karakter)
 - [x] Anahtar `data/api_token` (git'e girmez); not: düz dosya — çoklu cihaz aşamasında yeniden ele alınacak
 
+## Adım 5'te uygulananlar (izin motoru + dosya araçları)
+
+- [x] Risk sınıfları R0–R3; R2/R3 sahip onayı olmadan çalışmaz; R3 tek tek onaylanır (toplu onay yok)
+- [x] Onay kuyruğu kalıcı; süresi dolan talep `expired` olur ve onaylanamaz
+- [x] Onayı yalnızca sahip verir (CLI, anahtarlı API); MCP'de onay aracı yok — ajan kendi isteğini onaylayamaz
+- [x] Dosya araçları yalnızca izinli klasörlerde; `..`/mutlak yol/sembolik bağlantı kaçışı yol çözümlendikten sonra reddedilir
+- [x] Salt-okunur klasöre yazma onay istemeden reddedilir; üzerine yazmadan önce otomatik yedek; silme aracı yok
+- [x] Her araç kullanımı ve onay kararı olay akışında (`tool.used`, `approval.*`)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
-Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod
-çalıştırma (Faz 3/7), eylem önizleme (Faz 7), hafıza hassasiyet kontrolleri (Faz 8).
+Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem
+önizlemesi (Faz 12), hafıza hassasiyet kontrolleri (Faz 9).
 
 ## Güvenlik sorunu bildirimi
 

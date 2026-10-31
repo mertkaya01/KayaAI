@@ -2,6 +2,22 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.5.0] - 2026-10-31
+
+### Eklendi (Adım 5 — izin motoru v2 + ilk gerçek araçlar)
+- `kayaai/core/permissions.py`: risk sınıfları R0 (otomatik) · R1 (otomatik + kayıt) · R2 (önizleme + sahip onayı) ·
+  R3 (her seferinde sahip onayı, toplu onay yok); kalıcı onay kuyruğu (SQLite `approvals`, yeniden başlatmada korunur,
+  `approvals.expire_hours` sonra `expired`); onaylanınca kayıtlı işlem çalıştırılır, sonucu talebe yazılır;
+  olaylar: `approval.requested`, `approval.decided`, `tool.used`, `tool.failed`
+- `kayaai/tools/files.py` (sahip kararı: kayaAI klasörü + seçilen klasörler): `files.home_dir`
+  (varsayılan `~/kayaAI-files`, okuma+yazma) + `files.allowed_dirs` (`read` | `read_write`); `..`, mutlak yol ve
+  sembolik bağlantı kaçışları yol çözümlendikten sonra reddedilir; okuma/listeleme R0, yeni dosya R1, var olan dosyanın
+  üzerine yazma R2 (önizleme + otomatik yedek `data/backups`); silme yok; metin dosyaları (PDF/Excel Adım 9)
+- CLI: `kayaai files roots|ls|read|write`, `kayaai approvals [list|show|approve|reject] [id]`
+- API: `/api/files/roots|/api/files|/api/files/read|/api/files/write`, `/api/approvals` (+ `/{id}`, `/approve`, `/reject`)
+- MCP: `kayaai_files_list|read|write`, `kayaai_approvals_pending` — **onay aracı yok** (ajan kendi isteğini onaylayamaz)
+- `KAYAAI_FILES_DIR` ortam değişkeni
+
 ## [0.4.3] - 2026-10-31
 
 ### Düzeltildi

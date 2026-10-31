@@ -23,7 +23,9 @@ from pydantic import BaseModel, Field
 from . import APP_NAME, __version__
 from .conductor import ClaudeInbox, Conductor, ConductorResult, InboxView
 from .config import Settings, load_settings
+from .core.permissions import SubmitResult
 from .core.task import Task, TaskStatus
+from .tools.files import PathNotAllowed
 from .llm.ollama_client import OllamaError
 from .runtime import Runtime, build_runtime
 
@@ -339,6 +341,50 @@ def create_server(settings: Settings | None = None, runtime: Runtime | None = No
         if res.status != TaskStatus.SUCCEEDED.value:
             raise ToolError(f"iş {res.job_id} {res.status}: {res.error}")
         return res
+
+    def _files(fn: Any, *args: Any) -> SubmitResult:
+        try:
+            res = fn(*args, requested_by="mcp")
+        except (PathNotAllowed, ValueError, OSError) as exc:
+            raise ToolError(str(exc)) from exc
+        if res.status == "failed":
+            raise ToolError(res.error or "dosya işlemi başarısız")
+        return res
+
+    @server.tool(
+        name="kayaai_files_list",
+        description="List a folder inside kayaAI's allowed folders (kayaAI-files and owner-approved folders only).",
+    )
+    def kayaai_files_list(path: str = ".") -> SubmitResult:
+        return _files(rt().files.list_dir, path)
+
+    @server.tool(name="kayaai_files_read", description="Read a text file inside kayaAI's allowed folders.")
+    def kayaai_files_read(path: str) -> SubmitResult:
+        return _files(rt().files.read, path)
+
+    @server.tool(
+        name="kayaai_files_write",
+        description=(
+            "Write a text file inside kayaAI's allowed folders. Creating a NEW file runs immediately (R1). "
+            "Overwriting an EXISTING file is risky (R2): it returns status 'awaiting_approval' with an approval_id "
+            "and does nothing until the OWNER approves it in kayaAI (you cannot approve it yourself). Tell the user."
+        ),
+    )
+    def kayaai_files_write(path: str, content: str) -> SubmitResult:
+        if len(content) > MAX_TEXT_CHARS * 50:
+            raise ToolError("İçerik çok büyük")
+        return _files(rt().files.write, path, content)
+
+    @server.tool(
+        name="kayaai_approvals_pending",
+        description="List the owner's pending approval requests (read-only; approving is only possible by the owner).",
+    )
+    def kayaai_approvals_pending() -> dict[str, Any]:
+        items = rt().permissions.list_approvals("pending")
+        return {"pending": [{"id": a.id, "risk": a.action.risk.value, "summary": a.action.summary,
+                             "requested_by": a.action.requested_by, "created_at": a.created_at.isoformat()}
+                            for a in items],
+                "note": "Onayı yalnızca sahip verir: kayaai approvals approve <id> (ya da arayüzdeki onay merkezi)."}
 
     @server.tool(
         name="kayaai_list_agents",

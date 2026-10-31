@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.3.0)
+## 12. Current state (v0.5.0)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -289,6 +289,8 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 1 | Local core: Ollama client, model registry, task store (SQLite), orchestrator (approval, timeout, cancel, dependencies, validation), general worker, CLI | [x] |
 | 2 | MCP server (8 tools) + Claude Code integration | [x] |
 | 3 | Two modes + conductor: Claude mode switch, agent definitions, local conductor (`kayaai do`), Claude inbox, Claude workspace generator | [x] Windows-verified incl. Opus 5.5 (Pro) processing the Claude inbox |
+| 4 | Local API (FastAPI, 127.0.0.1, token) + cross-process event stream | [x] Windows-verified |
+| 5 | Permission engine v2 (R0–R3, persistent approval queue) + sandboxed file tools | [~] code + tests done |
 
 Note: everything built so far already works with Claude off; Claude Code is only an MCP *client*.
 
