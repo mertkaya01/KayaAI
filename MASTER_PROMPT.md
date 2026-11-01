@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.14.0) — roadmap Steps 0–13 complete + Step 14 (reference-review improvements)
+## 12. Current state (v0.14.1) — roadmap Steps 0–13 complete + Step 14 (reference-review improvements)
 
 | Phase | Content | Status |
 |---|---|---|

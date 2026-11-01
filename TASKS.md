@@ -206,4 +206,6 @@ Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamland
   h1, landmark adları, kontrast, Escape/odak yönetimi — Playwright klavye 9 kontrol
 - [x] Windows'ta sahip doğruladı (2026-11-01): duraklat/sürdür, yasak liste, gerçek kur/tatil bağlantısı, klavye
 
-- [ ] Fine-tuning değerlendirmesi (sahip sorusu; sırada)
+- [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
+  deneme / geçersiz / zaman aşımı / kesilme → `data/quality.json`) — Python 5
+- [ ] Windows: `kayaai quality` çıktısı (sahibin gerçek görev geçmişi) → "aday" çıkan ajan varsa karar sırası

@@ -372,6 +372,15 @@ class TaskStore:
                 (parent_id, limit)).fetchall()
         return [Task.model_validate_json(r["data"]) for r in rows]
 
+    def iter_task_rows(self, since: str | None = None) -> list[dict[str, Any]]:
+        """Görev kayıtları ham JSON olarak (kalite raporu için; `since` ISO zaman, UTC)."""
+        sql, args = "SELECT data FROM tasks", ()
+        if since:
+            sql, args = sql + " WHERE created_at >= ?", (since,)
+        with self._lock:
+            rows = self._conn.execute(sql + " ORDER BY created_at", args).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
     def list_by_worker(self, worker: str, limit: int = 50) -> list[Task]:
         with self._lock:
             rows = self._conn.execute(

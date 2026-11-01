@@ -335,6 +335,12 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
 
+## Model kalitesi ve fine-tuning
+
+`kayaai quality`: bu bilgisayardaki görev kayıtlarından her ajan × model için ilk denemede geçerli çıktı oranı, geçersiz
+çıktı, zaman aşımı, kesilen cevap ve hız (`data/quality.json`; model çağrılmaz, dışarı bir şey gitmez). Fine-tuning'in
+ne zaman değdiği ve nasıl yapılacağı: [docs/FINETUNING.md](docs/FINETUNING.md).
+
 ## İş modülleri (Adım 10)
 
 Asistan'da bir **Excel/CSV** ya da **PDF** ekle (dosya seçici ya da "Klasörden ekle"; en fazla 10 MB):
