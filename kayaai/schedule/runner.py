@@ -259,6 +259,12 @@ def run_schedule(rt: "Runtime", sid: str, trigger: str = "manual", ollama_wait_s
     save(rt, s)
     rt.store.emit("schedule.run", {"id": s.id, "name": s.name, "status": run.status, "seconds": run.seconds,
                                    "trigger": trigger})
+    if trigger != "manual":  # Adım 16c: kayaAI arayüzü kapalıyken de haber ver (Windows bildirimi; tercihlere göre)
+        from ..notify import notify_windows
+
+        ok = run.status == "succeeded"
+        notify_windows(rt, "schedule" if ok else "error", f"kayaAI · {s.name}",
+                       (run.message or ("tamamlandı" if ok else "başarısız"))[:280])
     return run
 
 

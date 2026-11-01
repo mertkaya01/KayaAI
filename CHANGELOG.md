@@ -2,6 +2,24 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.16.0] - 2026-11-01
+
+### Eklendi (Adım 16 — sahip: "daha ferah, ileri seviye")
+- **Yeni tasarım**: açık / koyu / sistem teması, ferah yerleşim, yumuşak gölgeler, yeni simgeler (kendi çizimimiz)
+- **Sol menü**: simgeli, daraltılabilir (tercih saklanır), dar ekranda çekmece; altta canlı durum, Claude ve Otomasyon
+  anahtarları, tema, çıkış
+- **Bugün** (yeni açılış sayfası, `/api/today`): selamlama + tarih (+ resmi tatil), onay bekleyenler (tek tık), çalışan
+  işin canlı ofisi, zamanlanmış görevler, son sohbetler, sistem, kurlar
+- **Bildirimler**: tarayıcı (sekme arka plandayken) ve Windows (kayaAI kapalıyken çalışan zamanlanmış görevler); türler,
+  sessiz saatler, deneme düğmeleri (`/api/notifications`, Sistem → Bildirimler)
+
+### Değişti
+- Kontrol Merkezi → **Sistem** (`/sistem`); `/` artık Bugün
+- Ofis balonunda tek kelimelik alanlar (karar, mod) yarım akmıyor; masa renkleri temaya uyuyor
+
+### Düzeltildi (erişilebilirlik)
+- Açık temada yeşil/mavi metin kontrastı (axe: 9 sayfa × 2 tema, 0 ihlal); onay kutuları genel giriş stilinden ayrıldı
+
 ## [0.15.0] - 2026-11-01
 
 ### Eklendi (Adım 15 — canlı ofis; sahip tasarımı)

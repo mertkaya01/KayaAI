@@ -36,7 +36,7 @@ export function ScheduleView({ refreshKey = 0 }: { refreshKey?: number }) {
     setNote(null);
     try {
       const r = await post<SubmitResult>(path, body);
-      setNote({ ok: r.status !== "failed", text: r.status === "awaiting_approval" ? "Onay bekliyor — Kontrol Merkezi → Onay merkezi." : r.status === "failed" ? (r.error ?? "başarısız") : ok });
+      setNote({ ok: r.status !== "failed", text: r.status === "awaiting_approval" ? "Onay bekliyor — Bugün ya da Sistem → Onay merkezi." : r.status === "failed" ? (r.error ?? "başarısız") : ok });
       refresh();
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : String(e) });

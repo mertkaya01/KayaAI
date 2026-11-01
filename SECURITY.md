@@ -210,6 +210,14 @@
 - [x] **Prompt injection**: tarayıcı ajanı ve belge özeti güvenilmez metni "veri" olarak alır; riskli eylemleri kod
       sınıflandırır ve istenmeyen geri alınamaz eylemi reddeder (Adım 12d/v0.12.4)
 
+## Adım 16'da uygulananlar (bildirimler)
+
+- [x] Bildirimler yalnız bu bilgisayarda gösterilir (tarayıcı API'si / Windows bildirim merkezi); dışarı bir şey gitmez
+- [x] Windows bildirimi PowerShell'in yerleşik API'siyle; başlık ve metin **ortam değişkeniyle** geçer ve XML kaçışlıdır
+      (komut ya da işaretleme enjeksiyonu yok; testte `Remove-Item` içeren metin betiğe girmiyor)
+- [x] Tarayıcı izni yalnız sahip tıklayınca istenir; bağlantıdan önceki (geçmiş) olaylar bildirim üretmez; sessiz saatler
+- [x] Tema ve menü tercihi yalnız tarayıcıda (kişisel tercih); hiçbir gizli bilgi tarayıcı deposunda tutulmaz
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Güncelleme (2026-11-01): dosya yükleme doğrulaması (tür izin listesi, base64 ve boyut kontrolü, Adım 9/12) ve hafıza

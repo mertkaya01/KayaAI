@@ -102,7 +102,7 @@ export function MicButton({ onText, onNotice, disabled }: {
   async function download() {
     try {
       const r = await post<SubmitResult>("/api/speech/download", {});
-      onNotice(r.status === "awaiting_approval" ? "Ses modeli indirme talebi onay bekliyor — Kontrol Merkezi → Onay merkezi." : r.message);
+      onNotice(r.status === "awaiting_approval" ? "Ses modeli indirme talebi onay bekliyor — Bugün ya da Sistem → Onay merkezi." : r.message);
     } catch (e) {
       onNotice(e instanceof Error ? e.message : String(e));
     } finally {

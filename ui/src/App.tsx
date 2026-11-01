@@ -13,7 +13,12 @@ import { SubtitlesView } from "./components/SubtitlesView";
 import { BrowserView } from "./components/BrowserView";
 import { ScheduleView } from "./components/ScheduleView";
 import { SystemPanel } from "./components/SystemPanel";
-import { TopBar } from "./components/TopBar";
+import { Sidebar } from "./components/Sidebar";
+import { TodayView } from "./components/TodayView";
+import { NotificationsPanel } from "./components/NotificationsPanel";
+import { Icon } from "./icons";
+import { useBrowserNotifier } from "./notify";
+import { readPref, useTheme, writePref } from "./theme";
 import { useEvents, usePolling } from "./hooks";
 import { useRoute } from "./route";
 import { ingestProgress } from "./office/progress";
@@ -44,12 +49,14 @@ interface Keys {
 }
 
 /** Kontrol Merkezi sayfası: yalnızca açıkken veri çeker (sohbet ekranında sistem metrikleri yoklanmaz). */
-function ControlCenter({ keys, bump, events, health, onUnauthorized }: {
+function ControlCenter({ keys, bump, events, health, onUnauthorized, notifyKey, onNotifyChanged }: {
   keys: Keys;
   bump: (k: keyof Keys) => void;
   events: KEvent[];
   health: Health | null;
   onUnauthorized: () => void;
+  notifyKey: number;
+  onNotifyChanged: () => void;
 }) {
   const system = usePolling<SystemMetrics>("/api/system", 2000);
   const agents = usePolling<Agent[]>("/api/agents", 5000, keys.agents);
@@ -68,6 +75,7 @@ function ControlCenter({ keys, bump, events, health, onUnauthorized }: {
           <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => bump("approvals")} />
           <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => bump("disputes")} />
           <IntegrationsPanel refreshKey={keys.approvals} />
+          <NotificationsPanel refreshKey={notifyKey} onChanged={onNotifyChanged} />
         </div>
         <div className="col">
           <AgentsPanel agents={agents.data} error={agents.error} onChanged={() => { bump("agents"); bump("approvals"); }} />
@@ -87,6 +95,13 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   const [modelsKey, setModelsKey] = useState(0);
   const [scheduleKey, setScheduleKey] = useState(0);
   const [events, setEvents] = useState<KEvent[]>([]);
+  const [todayKey, setTodayKey] = useState(0);
+  const [notifyKey, setNotifyKey] = useState(0);
+  const [theme, setTheme] = useTheme();
+  const [collapsed, setCollapsed] = useState(() => readPref("kayaai.sidebar") === "collapsed");
+  const [drawer, setDrawer] = useState(false);
+  const notify = useBrowserNotifier(navigate, notifyKey);
+  const pendingApprovals = usePolling<Approval[]>("/api/approvals?status=pending", 20000, keys.approvals);
   const bump = useCallback((k: keyof Keys) => setKeys((p) => ({ ...p, [k]: p[k] + 1 })), []);
 
   const health = usePolling<Health>("/api/health", 5000, claudeKey);
@@ -101,6 +116,9 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   const onEvent = useCallback((e: KEvent) => {
     if (ingestProgress(e)) return;  // canlı ilerleme (Adım 15): yalnız ofis için, olay listesine girmez
     setEvents((prev) => [e, ...prev].slice(0, 50));
+    notify(e);
+    if (/^(approval|schedule|chat|automation|claude)\./.test(e.type) || (e.type === "task.status" && e.data.worker === "conductor")) setTodayKey((k) => k + 1);
+    if (e.type === "notify.prefs") setNotifyKey((k) => k + 1);
     if (e.type === "task.status" || e.type.startsWith("agent.")) bump("agents");
     if (e.type.startsWith("approval.") || e.type === "tool.used") bump("approvals");
     if (e.type.startsWith("dispute.")) bump("disputes");
@@ -111,29 +129,45 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
     if (e.type.startsWith("chat.") || (e.type === "task.status" && e.data.worker === "conductor")) setChatKey((k) => k + 1);
     if (e.type.startsWith("automation.")) setClaudeKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
-  }, [bump]);
+  }, [bump, notify]);
   const live = useEvents(token, onEvent);
+  const go = (r: Parameters<typeof navigate>[0]) => { setDrawer(false); navigate(r); };
 
   return (
     <>
       <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); document.getElementById("main")?.focus(); }}>İçeriğe atla</a>
-      <TopBar
+      <div className={`shell${collapsed ? " collapsed" : ""}${drawer ? " drawer" : ""}`}>
+      <Sidebar
         health={health.data}
         claude={claude.data}
         automation={automation.data}
         live={live}
         route={route}
-        onNavigate={navigate}
+        approvals={pendingApprovals.data?.length ?? 0}
+        theme={theme}
+        collapsed={collapsed}
+        onNavigate={go}
         onChanged={() => setClaudeKey((k) => k + 1)}
         onLogout={onLogout}
+        onTheme={setTheme}
+        onCollapse={() => setCollapsed((c) => { writePref("kayaai.sidebar", c ? "open" : "collapsed"); return !c; })}
       />
+      {drawer && <div className="scrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
+      <div className="content">
+      <div className="mobile-bar">
+        <button className="icon-btn" onClick={() => setDrawer(true)} aria-label="Menüyü aç"><Icon name="menu" /></button>
+        <strong>kayaAI</strong>
+      </div>
       <div id="main" tabIndex={-1}>
-      {route.page === "chat" ? (
+      {route.page === "today" ? (
+        <TodayView refreshKey={todayKey} flowKey={flowKey} approvalsKey={keys.approvals} onNavigate={go}
+                   onPrefsChanged={() => setNotifyKey((k) => k + 1)} />
+      ) : route.page === "chat" ? (
         <ChatView
           convId={route.convId}
           onSelect={(id) => navigate({ page: "chat", convId: id })}
-          onOpenMemory={() => navigate({ page: "memory" })}
-          onOpenFlow={(jobId) => navigate({ page: "flow", jobId })}
+          onOpenMemory={() => go({ page: "memory" })}
+          onOpenFlow={(jobId) => go({ page: "flow", jobId })}
           refreshKey={chatKey}
           flowKey={flowKey}
           approvalsKey={keys.approvals}
@@ -152,8 +186,11 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
       ) : route.page === "flow" ? (
         <FlowView jobId={route.jobId} onSelect={(id) => navigate({ page: "flow", jobId: id })} refreshKey={flowKey} approvalsKey={keys.approvals} />
       ) : (
-        <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized} />
+        <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized}
+                       notifyKey={notifyKey} onNotifyChanged={() => setNotifyKey((k) => k + 1)} />
       )}
+      </div>
+      </div>
       </div>
     </>
   );

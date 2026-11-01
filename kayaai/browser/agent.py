@@ -331,7 +331,7 @@ def start_job(rt: "Runtime", goal: str, url: str, driver_factory: DriverFactory 
     from ..automation import is_paused
 
     if is_paused(rt):
-        raise BrowserJobError("Otomasyon duraklatıldı: tarayıcı işi başlatılamaz (Kontrol Merkezi → Otomasyonu sürdür)")
+        raise BrowserJobError("Otomasyon duraklatıldı: tarayıcı işi başlatılamaz (sol menüde Otomasyon anahtarı ya da: kayaai resume)")
     if len(goal.strip()) < 5:
         raise BrowserJobError("Ne yapılacağını yaz (hedef)")
     url = url.strip()

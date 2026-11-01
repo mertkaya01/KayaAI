@@ -764,6 +764,37 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
         return set_paused(rt, False, by="api")
 
+    # ---------------------------------------------------------------- Bugün + bildirimler (Adım 16)
+
+    @app.get("/api/today", dependencies=[Depends(auth)])
+    def today() -> dict[str, Any]:
+        from ..today import summary
+
+        return summary(rt)
+
+    @app.get("/api/notifications", dependencies=[Depends(auth)])
+    def notifications_get() -> dict[str, Any]:
+        from ..notify import KINDS, get_prefs
+
+        return {**get_prefs(rt).model_dump(), "labels": KINDS}
+
+    @app.post("/api/notifications", dependencies=[Depends(auth)])
+    def notifications_set(body: dict[str, Any]) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        from ..notify import KINDS, NotifyPrefs, set_prefs
+
+        try:
+            return {**set_prefs(rt, NotifyPrefs.model_validate(body)).model_dump(), "labels": KINDS}
+        except ValidationError as exc:
+            raise HTTPException(422, "; ".join(e["msg"] for e in exc.errors())) from exc
+
+    @app.post("/api/notifications/test", dependencies=[Depends(auth)])
+    def notifications_test() -> dict[str, Any]:
+        from ..notify import windows_toast
+
+        return {"windows": windows_toast("kayaAI", "Deneme bildirimi: Windows bildirimleri çalışıyor.")}
+
     # ---------------------------------------------------------------- dış veri kaynakları (Adım 14c)
 
     @app.get("/api/integrations", dependencies=[Depends(auth)])

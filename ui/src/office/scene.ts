@@ -67,6 +67,9 @@ const FIELD_VALUES: Record<string, string> = {
   approve: "onaylıyorum", request_changes: "düzeltme istiyorum", plan: "plan yapıyorum", direct: "tek ajana veriyorum",
 };
 
+// Tek kelimelik seçim alanları: yarım değer ("a", "appr") gösterilmez
+const ENUM_FIELDS = new Set(["verdict", "mode", "language", "task_type", "severity", "agent", "category", "sensitivity"]);
+
 const RANK: Record<string, number> = { running: 5, waiting: 4, failed: 3, pending: 2, succeeded: 1, skipped: 0 };
 
 function approvalActor(a: Approval): string | null {
@@ -88,7 +91,8 @@ export function deriveActors(graph: JobGraph | null, progress: Record<string, Pr
       if (active.status === "running") {
         state = "working";
         const p = active.task_id ? progress[active.task_id] : undefined;
-        bubble = p?.tail ? (FIELD_VALUES[p.tail] ?? p.tail) : `${active.label}…`;
+        const enumField = p?.field ? ENUM_FIELDS.has(p.field) : false;
+        bubble = p?.tail && !(enumField && !FIELD_VALUES[p.tail]) ? (FIELD_VALUES[p.tail] ?? p.tail) : `${active.label}…`;
         if (p && p.attempt > 1) bubble = `(${p.attempt}. deneme) ${bubble}`;
       } else if (active.status === "waiting") { state = "waiting"; bubble = "bekliyor…"; }
       else if (active.status === "failed") { state = "error"; bubble = active.error ? `Hata: ${active.error}` : "Hata"; }

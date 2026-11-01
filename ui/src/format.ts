@@ -158,3 +158,17 @@ export function pushSample(series: number[], value: number, max = 60): number[] 
   const next = [...series, value];
   return next.length > max ? next.slice(next.length - max) : next;
 }
+
+/** Gelecek zaman: "bugün 09:00", "yarın 09:00", "Pzt 09:00", "3 Ara 09:00" (Adım 16b). */
+export function when(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(d) - day(now)) / 86400000);
+  if (diff === 0) return `bugün ${hm}`;
+  if (diff === 1) return `yarın ${hm}`;
+  if (diff === -1) return `dün ${hm}`;
+  if (diff > 1 && diff < 7) return `${["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"][d.getDay()]} ${hm}`;
+  return `${d.getDate()} ${["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"][d.getMonth()]} ${hm}`;
+}

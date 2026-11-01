@@ -36,10 +36,10 @@ describe("Markdown", () => {
 
 describe("yönlendirme", () => {
   it("yolları ayrıştırır", () => {
-    expect(parseRoute("/")).toEqual({ page: "control" });
+    expect(parseRoute("/")).toEqual({ page: "today" });
     expect(parseRoute("/asistan")).toEqual({ page: "chat", convId: null });
     expect(parseRoute("/asistan/abc123")).toEqual({ page: "chat", convId: "abc123" });
-    expect(parseRoute("/asistan/../x")).toEqual({ page: "control" });
+    expect(parseRoute("/asistan/../x")).toEqual({ page: "today" });
     expect(routePath({ page: "chat", convId: "abc" })).toBe("/asistan/abc");
     expect(parseRoute("/hafiza")).toEqual({ page: "memory" });
     expect(routePath({ page: "memory" })).toBe("/hafiza");

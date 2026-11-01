@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, describeEvent, gb, pct, pushSample } from "../format";
+import { ago, describeEvent, gb, pct, pushSample, when } from "../format";
 
 describe("biçimlendirme", () => {
   it("yüzde ve GB", () => {
@@ -46,5 +46,16 @@ describe("biçimlendirme", () => {
     expect(s).toHaveLength(60);
     expect(s[0]).toBe(10);
     expect(s[59]).toBe(69);
+  });
+});
+
+describe("when", () => {
+  const now = new Date(2026, 10, 1, 10, 0);
+  it("relative day words", () => {
+    expect(when(new Date(2026, 10, 1, 21, 5).toISOString(), now)).toBe("bugün 21:05");
+    expect(when(new Date(2026, 10, 2, 9, 0).toISOString(), now)).toBe("yarın 09:00");
+    expect(when(new Date(2026, 10, 4, 9, 0).toISOString(), now)).toBe("Çar 09:00");
+    expect(when(new Date(2026, 11, 3, 9, 0).toISOString(), now)).toBe("3 Ara 09:00");
+    expect(when(null, now)).toBe("—");
   });
 });

@@ -14,7 +14,7 @@ function useAction(onDone: () => void) {
     setNote(null);
     try {
       const r = await post<SubmitResult>(path, body);
-      if (r.status === "awaiting_approval") setNote({ ok: true, text: "Onay bekliyor — Kontrol Merkezi → Onay merkezinden onayla." });
+      if (r.status === "awaiting_approval") setNote({ ok: true, text: "Onay bekliyor — Bugün ya da Sistem → Onay merkezinden onayla." });
       else if (r.status === "failed") setNote({ ok: false, text: r.error ?? "Başarısız" });
       else setNote({ ok: true, text: doneText });
       onDone();

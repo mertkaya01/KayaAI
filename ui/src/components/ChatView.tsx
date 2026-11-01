@@ -311,7 +311,7 @@ export function ChatView({
     try {
       const r = await post<SubmitResult>(`/api/chat/${convId}/messages/${m.id}/report`, { format });
       if (r.status === "done" && r.result?.path) setNotice(`Rapor kaydedildi: ${r.result.path}`);
-      else if (r.status === "awaiting_approval") setNotice(`Aynı adda dosya var; üzerine yazmak için onay gerekiyor (Kontrol Merkezi → Onay merkezi).`);
+      else if (r.status === "awaiting_approval") setNotice(`Aynı adda dosya var; üzerine yazmak için onay gerekiyor (Bugün ya da Sistem → Onay merkezi).`);
       else setError(r.error ?? r.message);
     } catch (e) {
       setError(errText(e));

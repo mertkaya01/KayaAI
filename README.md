@@ -24,7 +24,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), VRAM bekçisi + `kayaai bench`, kurulum belgeleri | **Tamamlandı** (Windows'ta doğrulandı) — yol haritası tamam |
 | 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | **Tamamlandı** (Windows'ta doğrulandı) |
 | 15 | Canlı ofis: ajanlar 2B izometrik ofiste çalışır, canlı yazar, birbirine iş teslim eder; Asistan'ın yanında + tam ekran | Kodlandı (Windows kontrolü bekliyor) |
-| 16 | "Bugün" giriş ekranı, sol menü, bildirimler | Planlandı |
+| 16 | Yeni tasarım (açık/koyu tema), sol menü, "Bugün" giriş ekranı, bildirimler (tarayıcı + Windows) | Kodlandı (Windows kontrolü bekliyor) |
 | 17 | Bulut köprüsü (OmniRoute; varsayılan kapalı, veri kapısıyla) | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
@@ -325,18 +325,29 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 
 ## Güvenlik ve kullanım iyileştirmeleri (Adım 14)
 
-- **⏸ Otomasyon** (üst çubuk) ya da `kayaai pause` / `kayaai resume`: duraklatınca zamanlanmış görevler atlanır (Windows'taki
+- **Otomasyon** anahtarı (sol menü) ya da `kayaai pause` / `kayaai resume`: duraklatınca zamanlanmış görevler atlanır (Windows'taki
   kayıtları kalır), tarayıcı işi başlamaz, süren tarayıcı işi durur. Sohbet ve elle yaptıkların etkilenmez.
 - **Dosya yazma yasak listesi**: izinli klasörde bile `.env`, `*.key`, `*.pem`, `id_rsa*`, `*secret*`, `*password*`,
   `*.exe`, `*.dll`, `*.lnk` gibi dosyalara ve `.ssh`, `.git`, `secrets` klasörlerine yazılmaz (`config\settings` →
   `files.deny_write`).
-- **Dış veri kaynakları** (Kontrol Merkezi paneli ya da `kayaai integrations`; varsayılan kapalı, açmak onaylı):
+- **Dış veri kaynakları** (Sistem sayfası ya da `kayaai integrations`; varsayılan kapalı, açmak onaylı):
   **Döviz kurları** (Frankfurter, Avrupa Merkez Bankası) — sohbette "1500 dolar kaç TL?" gibi sorularda güncel kur
   modele verilir, satış raporuna kur notu eklenir; **Resmi tatiller** (Nager.Date) — zamanlanmış görevde "resmi tatilde
   çalışma" seçeneği. Yalnız bu iki siteye, yalnız para birimi kodu / yıl+ülke gider; her istek kayda geçer.
   Bağlantı denemesi: `kayaai integrations test`.
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
+
+## Bugün, sol menü ve bildirimler (Adım 16)
+
+- **Bugün** (açılış sayfası): selamlama ve tarih (açıksa resmi tatil), onay bekleyenler (tek tıkla Onayla/Reddet),
+  şu an çalışan işin canlı ofisi, zamanlanmış görevler (sıradaki çalışma, son sonuç), son sohbetler, sistem, açıksa kurlar.
+- **Sol menü**: Bugün · Asistan · Ofis · Hafıza · Zamanlama · Tarayıcı · Altyazı · Modeller · Sistem (eski Kontrol Merkezi).
+  Altta canlı durum, **Claude** ve **Otomasyon** anahtarları, tema (sistem / açık / koyu), menüyü daralt, çıkış. Dar
+  ekranda ☰ ile açılır.
+- **Bildirimler** (Sistem → Bildirimler): sekme arka plandayken tarayıcı bildirimi (onay bekliyor, cevap hazır, görev
+  sonucu, hata); kayaAI kapalıyken çalışan zamanlanmış görevler için **Windows bildirimi**. Türler ve sessiz saatler
+  seçilebilir; "Windows'u dene" ile denenir. Bildirimler yalnız bu bilgisayarda görünür.
 
 ## Canlı ofis (Adım 15)
 

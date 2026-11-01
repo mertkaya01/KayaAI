@@ -75,6 +75,12 @@ describe("deriveActors", () => {
     expect(a.find((x) => x.id === "reviewer")!.bubble).toBe("onaylıyorum");
   });
 
+  it("hides half-streamed enum values", () => {
+    const r = graph([node("check-s1", "check", "running", null, "t9")], []);
+    const a = deriveActors(r, { t9: { task_id: "t9", worker: "reviewer.check", chars: 3, field: "verdict", tail: "app", attempt: 1, at: 0 } }, []);
+    expect(a.find((x) => x.id === "reviewer")!.bubble).toBe("check-s1…");
+  });
+
   it("clips long bubbles", () => {
     const a = deriveActors(g, { t2: { task_id: "t2", worker: "document", chars: 1, field: null, tail: "y".repeat(300), attempt: 1, at: 0 } }, []);
     expect(a.find((x) => x.id === "document")!.bubble!.length).toBe(120);

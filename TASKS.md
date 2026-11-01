@@ -217,7 +217,14 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   (Ofis | Akış grafiği; eski `/akis` açılır) — Vitest 10, Playwright (canlı akış, teslim yürüyüşü, inceleme), axe 0 ihlal
   (+ eski iki ihlal: olay listesi klavye, mesaj başlık sırası), klavye, hareketi azalt
 - [ ] Windows: Asistan'da "Otomatik" ile çok adımlı bir iş → ofiste izle; karaktere tıkla; Büyüt
-- [ ] 16 — Bugün giriş ekranı + sol menü + bildirimler (tarayıcı + Windows)
+- [x] 16a — Tasarım: açık/koyu/sistem tema (tüm renkler tek yerde), ferah boşluklar, yumuşak gölgeler; sol menü
+  (daraltılabilir, dar ekranda çekmece); Kontrol Merkezi → Sistem (`/sistem`); eski üst çubuk kaldırıldı
+- [x] 16b — Bugün (`/`, `/api/today`): onaylar (tek tık), çalışan işin ofisi, zamanlanmış görevler, son sohbetler,
+  sistem, açıksa kur/tatil — Python 13
+- [x] 16c — Bildirimler: tercihler + sessiz saatler (`/api/notifications`), tarayıcı (arka plandayken), Windows
+  bildirimi (zamanlanmış görev; PowerShell, metin ortam değişkeniyle) — Vitest 33, Playwright (bildirim arka planda
+  geliyor / önde gelmiyor, menü, tema, klavye), axe 9 sayfa × 2 tema 0 ihlal
+- [ ] Windows: Sistem → Bildirimler → "Windows'u dene"; zamanlanmış görev kayaAI kapalıyken bildirim; açık tema
 - [ ] 17 — Bulut köprüsü (OmniRoute)
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk

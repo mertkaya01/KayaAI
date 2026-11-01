@@ -424,3 +424,30 @@ export interface ModelAdmin {
   pulls: PullState[];
   compares: CompareRecord[];
 }
+
+// ---------------------------------------------------------------- Bugün + bildirimler (Adım 16)
+
+export interface NotifyPrefs {
+  browser: boolean;
+  windows: boolean;
+  kinds: Record<string, boolean>;
+  quiet_start: string | null;
+  quiet_end: string | null;
+  labels?: Record<string, string>;
+}
+
+export interface TodaySummary {
+  greeting: string;
+  date: string;
+  now: string;
+  approvals: { count: number; items: { id: string; risk: string; summary: string; requested_by: string; created_at: string }[] };
+  jobs: JobSummary[];
+  running: number;
+  schedules: { id: string; name: string; enabled: boolean; cadence: string; next_run: string | null; last_run: string | null;
+               last_status: string | null; last_message: string }[];
+  chats: { id: string; title: string; updated_at: string }[];
+  system: { ollama: boolean; loaded: { name: string; vram_gb: number }[]; claude: ClaudeStatus | null; automation: AutomationState };
+  holiday: { today: string | null; next: { date: string; name: string } | null; days_left: number | null; error?: string } | null;
+  rates: { date: string; per_try: Record<string, number>; error?: string } | null;
+  notifications: NotifyPrefs;
+}

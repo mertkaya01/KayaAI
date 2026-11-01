@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kayaai"
-version = "0.15.0"
+version = "0.16.0"
 description = "kayaAI - yerel, çok-ajanlı kişisel yapay zeka sistemi"
 readme = "README.md"
 requires-python = ">=3.11"

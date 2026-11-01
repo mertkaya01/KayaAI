@@ -162,7 +162,7 @@ kayaAI sistemde başka iz bırakmaz: hizmet kurmaz, kayıt defterine yazmaz, yö
 | Kurulumda test düştü | çıktıyı geliştirme oturumuna yapıştır; kurulum o adımda güvenle durur |
 | Arayüz "anahtar geçersiz" | `kayaai ui` ile aç (anahtarı kendisi verir) ya da `kayaai api token` |
 
-Kayıtlar: `logs\kayaai.log`. Olaylar: Kontrol Merkezi → Olay akışı.
+Kayıtlar: `logs\kayaai.log`. Olaylar: Sistem → Son olaylar.
 
 ## 7. Güvenlik özeti ve çok cihaz
 
