@@ -181,6 +181,9 @@
       `javascript:`, yerel ağ ve bu bilgisayarın adresleri (ağ katmanında da engellenir)
 - [x] Önizleme: hedef öğe kırmızı çerçeveli ekran görüntüsü + açıklama + ajanın gerekçesi; reddedilirse iş durur;
       onay 10 dk içinde verilmezse reddedilir; Durdur her an
+- [x] R3 eylemi yalnızca hedef açıkça istiyorsa önerilebilir; hedefte olumsuzluk ("satın alma", "gönderme", "don't")
+      varsa ya da hedef böyle bir eylem istemiyorsa kod sormadan reddeder (Windows gözlemi: model "Satın alma." hedefinde
+      "Satın Al"a tıklamayı önermişti)
 - [x] Döngü korumaları: en fazla 20 adım, aynı eylem tekrarı ve üst üste kural dışı adımlarda durur
 - [x] Playwright (Apache-2.0); tarayıcı indirmez, kurulu Edge'i kullanır
 

@@ -2,6 +2,26 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.12.4] - 2026-11-01
+
+### Güvenlik (Windows doğrulaması bulgusu)
+- Tarayıcı: hedef "… fiyatlarını söyle. Satın alma." iken model "Satın Al"a tıklamayı önerdi (R3 olduğu için sahibe
+  soruldu). Artık geri alınamaz (R3) eylem yalnızca hedef açıkça istiyorsa önerilebilir; hedefte olumsuzluk
+  ("satın alma", "gönderme", "sakın", "don't") varsa ya da hedef istemiyorsa kod **sormadan reddeder**
+- Tarayıcı: az önce yapılmış adımın aynısı (ör. "Python" iki kez yazdırma) yapılmaz ve sorulmaz ("atlandı")
+
+### Düzeltildi
+- Ses ölçümü: ilk çağrıda modelin GPU'ya yüklenmesi tanıma süresine sayılıyordu (4,4 sn ses → "23 sn"); yükleme
+  süresi ayrı (`load_seconds`)
+- OCR: küçük görüntüler 2 kat büyütülerek okunur (hata penceresinde `C:\` → `C:X`, l → I karışıyordu); görsel ajana
+  OCR'ın kod benzeri metinde hata yapabileceği söylenir (sayı uydurma yasağı aynı)
+- `perception_check`: taranmış PDF örneği sayfa dışına taşıyordu (üretim kodu değil test); Türkçe cümleler için
+  OneCore (WinRT) sesleri; canlı altyazı en → tr çevirisini de ölçer
+
+### Doğrulandı (Windows, v0.12.3)
+- Görsel 3/3 OCR doğrulamalı, gerçek ekran özetlendi; Whisper large-v3-turbo CUDA'da WER 0.0; canlı altyazı 0,55 sn;
+  tarayıcı görevi tamamlandı (Edge, ayrı profil, R2/R3 onaylı)
+
 ## [0.12.3] - 2026-11-01
 
 ### Eklendi (Adım 12d — tarayıcı otomasyonu; kabul #11)

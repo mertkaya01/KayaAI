@@ -3,7 +3,7 @@ import { api, post } from "../api";
 
 interface Step {
   n: number; action: string; description: string; thought: string; risk: string; reason: string;
-  status: "yapıldı" | "onay bekliyor" | "reddedildi" | "kural dışı" | "hata" | "bitti"; approval_id: string | null; url: string; error: string | null;
+  status: "yapıldı" | "onay bekliyor" | "reddedildi" | "kural dışı" | "atlandı" | "hata" | "bitti"; approval_id: string | null; url: string; error: string | null;
 }
 interface Job {
   id: string; goal: string; start_url: string; status: "running" | "waiting" | "done" | "failed" | "stopped";

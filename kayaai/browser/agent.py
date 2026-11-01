@@ -20,7 +20,7 @@ from ..core.permissions import Risk, ToolAction
 from ..core.task import Permission, Task, TaskStatus, ValidationResult, utcnow
 from ..workers.base import LLMWorker
 from .driver import BrowserDriver, BrowserError, Driver, PageState, thumbnail
-from .risk import classify, describe
+from .risk import Decision, classify, describe, goal_permits_irreversible
 
 if TYPE_CHECKING:
     from ..config import Settings
@@ -55,7 +55,9 @@ class BrowserStepWorker(LLMWorker):
         "- done: when the goal is reached (or impossible); write the final answer for the user in 'answer'.\n"
         "- click / type / select: use an element number from the list ONLY. type = fill a form field with 'value'.\n"
         "- goto: open a full https URL. scroll: 'down' or 'up' to see more.\n"
-        "Rules: prefer reading over acting; never invent element numbers; never type passwords, card numbers or ID "
+        "Rules: NEVER propose sending, paying, buying, ordering, deleting, publishing or signing up unless the goal "
+        "explicitly asks for exactly that (the program refuses it otherwise); when the goal says not to do something, "
+        "do not do it; prefer reading over acting; never invent element numbers; never type passwords, card numbers or ID "
         "numbers (the program refuses them); do not repeat an action that already failed or was refused; if a step "
         "was refused, choose another way or finish with done. Risky steps (forms, sending, paying) need the owner's "
         "approval — that is normal, still propose them when the goal requires it."
@@ -91,7 +93,7 @@ class Step(BaseModel):
     thought: str = ""
     risk: str = ""
     reason: str = ""
-    status: Literal["yapıldı", "onay bekliyor", "reddedildi", "kural dışı", "hata", "bitti"] = "yapıldı"
+    status: Literal["yapıldı", "onay bekliyor", "reddedildi", "kural dışı", "atlandı", "hata", "bitti"] = "yapıldı"
     approval_id: str | None = None
     url: str = ""
     error: str | None = None
@@ -215,6 +217,7 @@ class BrowserJob:
         st = self.state
         b = self.rt.settings.browser
         refused, last_sig, repeats = 0, None, 0
+        done_sig: tuple | None = None
         history: list[str] = []
         for n in range(1, b.max_steps + 1):
             if self.stop_event.is_set():
@@ -255,7 +258,17 @@ class BrowserJob:
             if repeats >= 2:
                 st.status, st.error = "failed", "Aynı adım tekrarlanıyor; iş durduruldu"
                 return
+            # Aynı sayfada az önce YAPILMIŞ eylemin aynısı → yapılmaz, sorulmaz (gözlem: "Python" iki kez yazdırıldı)
+            if done_sig == (act.action, act.element_id, act.value, self.page.url):
+                step.status, step.risk, step.reason = "atlandı", "R0", "az önce yapıldı"
+                history.append(f"{n}. {desc} → ATLANDI (az önce yapıldı; tekrar etme, sonraki adıma geç)")
+                self._log(step)
+                continue
             d = classify(act.action, self.page.url, el, act.value, allow_local=b.allow_local)
+            if d.verdict == "R3":
+                ok, why = goal_permits_irreversible(st.goal)
+                if not ok:
+                    d = Decision(verdict="refuse", reason=f"geri alınamaz eylem ({d.reason}) ama {why}")
             step.risk, step.reason = d.verdict, d.reason
             if d.verdict == "refuse":
                 step.status = "kural dışı"
@@ -303,6 +316,7 @@ class BrowserJob:
                 self._log(step)
                 continue
             history.append(f"{n}. {desc} → yapıldı")
+            done_sig = (act.action, act.element_id, act.value, step.url)
             self._log(step)
         st.status, st.error = "failed", f"{b.max_steps} adımda bitmedi"
 

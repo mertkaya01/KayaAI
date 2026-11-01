@@ -21,6 +21,11 @@ R3_WORDS = re.compile(
     r"bağış|transfer|havale|eft|send|submit|pay|payment|buy|purchase|order|checkout|place\s*order|delete|remove|"
     r"publish|post|tweet|share|subscribe|donate|confirm\s*payment|sign\s*up|register|kaydol|üye\s*ol)\b",
     re.IGNORECASE)
+# Hedefte olumsuzluk: "satın alma", "gönderme", "sakın", "don't buy"… (Türkçede "satın alma" hem isim hem olumsuz emir
+# olabilir — belirsizlikte geri alınamaz eyleme İZİN VERİLMEZ; sahip "satın al" diye açıkça yazarsa verilir).
+NEGATION = re.compile(
+    r"(\b(sakın|asla|kesinlikle\s+\w+ma|almayın|alma|gönderme|gonderme|silme|ödeme\s+yapma|yapma|etme|tıklama|basma|"
+    r"onaylama|paylaşma|yayınlama)\b|\b(don'?t|do\s+not|never|without|no\s+purchase|not\s+buy)\b)", re.IGNORECASE)
 SENSITIVE_FIELD = re.compile(r"(pass(word)?|parola|şifre|sifre|card|kart|cvv|cvc|iban|ssn|tckn|tc\s*kimlik|"
                              r"kimlik\s*no|otp|2fa|pin\b|security\s*code|güvenlik\s*kodu)", re.IGNORECASE)
 DOWNLOAD_EXT = re.compile(r"\.(exe|msi|bat|cmd|ps1|zip|rar|7z|dmg|apk|scr|jar|vbs)(\?|$)", re.IGNORECASE)
@@ -119,6 +124,17 @@ def classify(action: str, current_url: str, el: Element | None = None, value: st
             return Decision(verdict="R2", reason="form gönderme düğmesi")
         return Decision(verdict="R1", reason="düğmeye tıklama")
     return Decision(verdict="refuse", reason=f"bilinmeyen eylem: {action}")
+
+
+def goal_permits_irreversible(goal: str) -> tuple[bool, str]:
+    """R3 (gönder/öde/satın al/sil…) yalnızca hedef bunu AÇIKÇA istiyorsa ve olumsuzluk yoksa önerilebilir.
+
+    Gerçek gözlem (Windows, 2026-11-01): hedef "… fiyatlarını söyle. Satın alma." iken model "Satın Al"a tıklamayı önerdi."""
+    if NEGATION.search(goal):
+        return False, "hedefte olumsuzluk/yasak var (ör. \"satın alma\", \"gönderme\")"
+    if not R3_WORDS.search(goal):
+        return False, "hedef böyle geri alınamaz bir eylem istemiyor"
+    return True, ""
 
 
 def describe(action: str, el: Element | None, value: str) -> str:

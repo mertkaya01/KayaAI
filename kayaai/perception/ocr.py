@@ -41,8 +41,9 @@ def set_engine(fn: EngineFn | None) -> None:
     _ENGINE = fn
 
 
-def normalize_image(data: bytes, max_side: int | None = None) -> tuple[bytes, int, int]:
-    """Görüntüyü doğrular ve PNG'ye çevirir (isteğe bağlı küçültme). Bozuk/dev görüntüde ValueError."""
+def normalize_image(data: bytes, max_side: int | None = None, min_side: int | None = None) -> tuple[bytes, int, int]:
+    """Görüntüyü doğrular ve PNG'ye çevirir (isteğe bağlı küçültme; `min_side`: uzun kenarı bundan küçükse en çok 2 kat
+    büyütür — OCR küçük yazıda l/I ve \\/X karıştırıyordu). Bozuk/dev görüntüde ValueError."""
     from PIL import Image, UnidentifiedImageError
 
     try:
@@ -56,6 +57,10 @@ def normalize_image(data: bytes, max_side: int | None = None) -> tuple[bytes, in
         img = img.convert("RGB")
     if max_side and max(img.size) > max_side:
         img.thumbnail((max_side, max_side))
+    elif min_side and max(img.size) < min_side:
+        f = min(2.0, min_side / max(img.size), (max_side or 10_000) / max(img.size))
+        if f > 1.05:
+            img = img.resize((round(img.width * f), round(img.height * f)), Image.LANCZOS)
     out = io.BytesIO()
     img.save(out, format="PNG")
     return out.getvalue(), img.width, img.height
@@ -74,7 +79,7 @@ def _windows_engine(data: bytes) -> OcrResult:
         raise OcrUnavailable("Windows OCR paketleri kurulu değil (setup.ps1 yeniden çalıştırılmalı)") from exc
 
     limit = int(OcrEngine.max_image_dimension or 2600)
-    png, _, _ = normalize_image(data, max_side=limit)
+    png, _, _ = normalize_image(data, max_side=limit, min_side=min(2200, limit))
 
     async def run() -> OcrResult:
         engine = None

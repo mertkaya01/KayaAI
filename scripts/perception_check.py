@@ -73,7 +73,11 @@ def scanned_pdf(png: bytes) -> bytes:
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
-    c.drawImage(ImageReader(io.BytesIO(png)), 30, 400, width=535, preserveAspectRatio=True)
+    img = ImageReader(io.BytesIO(png))
+    w, h = img.getSize()
+    width = 535
+    height = width * h / w  # görüntü sayfanın içinde, üstten 40 pt aşağıda (önceden çoğu sayfa dışında kalıyordu)
+    c.drawImage(img, 30, A4[1] - 40 - height, width=width, height=height)
     c.showPage()
     c.save()
     return buf.getvalue()
@@ -86,8 +90,43 @@ SPEECH = [
 ]
 
 
+def synth_wav_onecore(text: str, culture: str, out: Path) -> str | None:
+    """Windows OneCore sesleri (WinRT, çevrim dışı; Türkçe "Tolga" burada olur). Ses yoksa None."""
+    import asyncio
+
+    try:
+        from winrt.windows.media.speechsynthesis import SpeechSynthesizer
+        from winrt.windows.storage.streams import DataReader
+    except ImportError:
+        return None
+
+    async def run() -> str | None:
+        voices = [v for v in SpeechSynthesizer.all_voices if v.language.lower() == culture.lower()]
+        if not voices:
+            return None
+        synth = SpeechSynthesizer()
+        synth.voice = voices[0]
+        stream = await synth.synthesize_text_to_stream_async(text)
+        size = int(stream.size)
+        reader = DataReader(stream.get_input_stream_at(0))
+        await reader.load_async(size)
+        buf = bytearray(size)
+        reader.read_bytes(buf)
+        out.write_bytes(bytes(buf))
+        return voices[0].display_name
+
+    try:
+        return asyncio.run(run())
+    except Exception as exc:  # noqa: BLE001
+        print(f"  (OneCore ses hatası: {exc})")
+        return None
+
+
 def synth_wav(text: str, culture: str, out: Path) -> str | None:
-    """Windows System.Speech ile WAV (çevrim dışı). Ses yoksa None."""
+    """Önce OneCore (WinRT), yoksa System.Speech (SAPI) ile WAV (çevrim dışı). Ses yoksa None."""
+    name = synth_wav_onecore(text, culture, out)
+    if name:
+        return name
     import subprocess
 
     ps = (
@@ -129,12 +168,13 @@ def check_speech(settings, work: Path, work_settings) -> tuple[list[dict], dict]
         f = work / f"ses{i}.wav"
         voice = synth_wav(text, "tr-TR" if lang == "tr" else "en-US", f)
         if not voice:
-            rows.append({"lang": lang, "skipped": f"Windows'ta {lang} sesi yok"})
+            rows.append({"lang": lang, "skipped": f"Windows'ta {lang} sesi yok (Ayarlar → Saat ve dil → Konuşma → "
+                                                  "Ses ekle → Türkçe)"})
             continue
         try:
             t = transcribe(settings, f.read_bytes(), lang)
             rows.append({"lang": lang, "voice": voice, "wer": wer(text, t.text), "text": t.text,
-                         "audio_s": t.audio_seconds, "seconds": t.seconds, "device": t.device})
+                         "audio_s": t.audio_seconds, "seconds": t.seconds, "load_s": t.load_seconds, "device": t.device})
         except SpeechError as exc:
             rows.append({"lang": lang, "error": str(exc)})
         print(f"Ses [{lang}]: {rows[-1].get('text', rows[-1].get('error', rows[-1].get('skipped')))}")
@@ -153,7 +193,7 @@ def check_speech(settings, work: Path, work_settings) -> tuple[list[dict], dict]
         audio = np.concatenate([x for w in wavs for x in (decode(w.read_bytes()), gap)])
         msgs: list[dict] = []
         with build_runtime(work_settings) as rt:  # ayrı veri klasörü; ses modeli asıl yerinden
-            live = LiveSession(rt, msgs.append, "auto", "en", partials=False, settings=settings)
+            live = LiveSession(rt, msgs.append, "auto", "tr", partials=False, settings=settings)  # en → tr çevirisi
             for i in range(0, len(audio), 1600):  # gerçek zamanlı akış gibi 100 ms parçalar
                 live.feed(audio[i:i + 1600])
                 time.sleep(0.1)
@@ -298,6 +338,7 @@ def main() -> int:
                       "speech_device": sp_info.get("device"), "speech_gpu_error": sp_info.get("gpu_error"),
                       "speech_error": sp_info.get("error"),
                       "speech_wer": {r["lang"]: r["wer"] for r in measured} or None,
+                      "speech_load_s": max((r.get("load_s", 0) for r in measured), default=None),
                       "speech_rtf": round(sum(r["seconds"] for r in measured) / max(0.01, sum(r["audio_s"] for r in measured)), 3)
                       if measured else None}
     summary = {

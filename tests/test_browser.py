@@ -337,3 +337,37 @@ def test_api_browser(rt, fake_ollama, tmp_path, monkeypatch):
         assert c.get("/api/browser/jobs", headers=h).json()[0]["id"] == job["id"]
         assert c.post("/api/browser/jobs/yok/stop", headers=h).status_code == 404
         assert ba.get_job(job["id"]).finished.wait(10)
+
+
+# ---------------------------------------------------------------- Windows gözlemi (2026-11-01): satın alma + çift adım
+
+@pytest.mark.parametrize("goal,ok", [
+    ("Python kitaplarını ara ve fiyatlarını söyle. Satın alma.", False),   # sahibin hedefi
+    ("Python kitaplarını ara ve fiyatlarını listele", False),               # R3 istenmemiş
+    ("Python kitabını satın al", True),
+    ("İletişim formunu doldur ve gönder", True),
+    ("Formu doldur ama gönderme", False),
+    ("Find the price, don't buy anything", False),
+    ("Sepetteki ürünü sakın silme", False),
+])
+def test_goal_permits_irreversible(goal, ok):
+    from kayaai.browser.risk import goal_permits_irreversible
+
+    assert goal_permits_irreversible(goal)[0] is ok
+
+
+def test_unrequested_purchase_is_refused_without_asking(rt, fake_ollama):
+    fake_ollama.chat_replies = [act("type", 1, "Python"), act("type", 1, "Python"), act("click", 2),
+                                act("click", 1, thought="Satın Al'a tıklıyorum"),
+                                act("done", answer="Python ile Programlama 250 TL.")]
+    drv = FakeDriver(None)
+    job = start_job(rt, "Python kitaplarını ara ve fiyatlarını söyle. Satın alma.", "https://kitap.example.com/ara",
+                    driver_factory=lambda s: drv, background=True)
+    decided = _drive(rt, ["approve", "approve"])
+    st = _wait(job)
+    assert st.status == "done" and len(decided) == 2  # yalnız yazma + Ara soruldu
+    assert [s.status for s in st.steps] == ["yapıldı", "atlandı", "yapıldı", "kural dışı", "bitti"]
+    assert "satın alma" in st.steps[3].reason and st.steps[3].risk == "refuse"
+    assert drv.acts == [("type", 1, "Python"), ("click", 2, "")]  # çift yazma ve satın alma YAPILMADI
+    hist = [b for (_, p, b) in fake_ollama.requests if p == "/api/chat"][-1]["messages"][-1]["content"]
+    assert "ATLANDI" in hist and "YAPILMADI" in hist

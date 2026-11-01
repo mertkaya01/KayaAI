@@ -47,7 +47,8 @@ class Transcript(BaseModel):
     text: str
     language: str | None = None
     audio_seconds: float = 0.0
-    seconds: float = 0.0          # işlem süresi
+    seconds: float = 0.0          # tanıma süresi (model yükleme hariç)
+    load_seconds: float = 0.0     # bu çağrıda model belleğe yüklendiyse süresi
     device: str | None = None     # cuda | cpu | test
     segments: list[Segment] = Field(default_factory=list)
 
@@ -174,10 +175,13 @@ def transcribe_samples(settings: "Settings", samples: Any, language: str | None 
                           seconds=round(time.monotonic() - t0, 2), device="test", segments=segs)
     if audio_s < 0.3:
         return Transcript(text="", language=lang, audio_seconds=audio_s, device=_STATE["device"])
+    load_s = 0.0
     with _LOCK:
         key = (str(model_dir(settings)), settings.speech.device)
         if _STATE["model"] is None or _STATE["key"] != key:
             _STATE.update(model=_load(settings), key=key)
+            load_s = time.monotonic() - t0
+            t0 = time.monotonic()  # tanıma süresi yüklemeden ayrı (Windows ölçümü: ilk çağrı 23 sn görünüyordu)
 
         def run(model: Any) -> tuple[str, str | None, list[Segment]]:
             segments, info = model.transcribe(samples, language=lang, beam_size=settings.speech.beam_size,
@@ -197,7 +201,7 @@ def transcribe_samples(settings: "Settings", samples: Any, language: str | None 
         _STATE["last_used"] = time.monotonic()
     _schedule_unload(settings)
     return Transcript(text=text, language=detected, audio_seconds=audio_s, seconds=round(time.monotonic() - t0, 2),
-                      device=_STATE["device"], segments=segs)
+                      load_seconds=round(load_s, 2), device=_STATE["device"], segments=segs)
 
 
 def transcribe(settings: "Settings", audio: bytes, language: str | None = None) -> Transcript:
