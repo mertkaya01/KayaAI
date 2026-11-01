@@ -164,6 +164,15 @@ kayaAI sistemde başka iz bırakmaz: hizmet kurmaz, kayıt defterine yazmaz, yö
 
 Kayıtlar: `logs\kayaai.log`. Olaylar: Sistem → Son olaylar.
 
+## 7. Güvenlik özeti ve çok cihaz
+
+- API ve arayüz yalnız **bu bilgisayardan** erişilir (`127.0.0.1`); ağa açmak sahibin kararıdır ve şu an desteklenmez.
+- Riskli her işlem onay merkezinden geçer (dosya üzerine yazma, ajan modeli değiştirme, model indirme, tarayıcıda form/
+  gönderme, zamanlanmış görev ekleme/silme). Ayrıntı: [`SECURITY.md`](../SECURITY.md).
+- Ekran görüntüleri, ses ve özel hafıza Claude'a gönderilmez.
+- Birden çok cihaz: şimdilik tek PC. Başka bir bilgisayara geçmek için §4'teki taşıma yeterli; aynı anda iki
+  bilgisayarda aynı `data\` klasörünü (ör. bulut eşitleme) kullanma — SQLite veritabanı bozulabilir.
+
 ## 8. Bulut köprüsü (isteğe bağlı, Adım 17)
 
 kayaAI tek başına yerel çalışır; bu bölüm yalnız ücretsiz bulut modellerini de kullanmak istersen.
@@ -185,12 +194,3 @@ kayaAI tek başına yerel çalışır; bu bölüm yalnız ücretsiz bulut modell
    kayaai cloud enable --model auto --agents general,coder,document,planner,reviewer --limit 200
    ```
 5. Kullanım: Asistan'da **☁ Bulut** düğmesi ya da `kayaai do --cloud "..."`. Kapatmak: `kayaai cloud disable`.
-
-## 7. Güvenlik özeti ve çok cihaz
-
-- API ve arayüz yalnız **bu bilgisayardan** erişilir (`127.0.0.1`); ağa açmak sahibin kararıdır ve şu an desteklenmez.
-- Riskli her işlem onay merkezinden geçer (dosya üzerine yazma, ajan modeli değiştirme, model indirme, tarayıcıda form/
-  gönderme, zamanlanmış görev ekleme/silme). Ayrıntı: [`SECURITY.md`](../SECURITY.md).
-- Ekran görüntüleri, ses ve özel hafıza Claude'a gönderilmez.
-- Birden çok cihaz: şimdilik tek PC. Başka bir bilgisayara geçmek için §4'teki taşıma yeterli; aynı anda iki
-  bilgisayarda aynı `data\` klasörünü (ör. bulut eşitleme) kullanma — SQLite veritabanı bozulabilir.
