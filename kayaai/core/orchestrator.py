@@ -60,7 +60,6 @@ class Orchestrator:
         self.approver = approver
         self._cancel_events: dict[str, threading.Event] = {}
         self._lock = threading.Lock()
-        self.cloud: Any = None  # Adım 17: CloudBridge (runtime kurar); yoksa her şey yerel
 
     # ------------------------------------------------------------------ oluşturma
 
@@ -136,7 +135,6 @@ class Orchestrator:
             registry=self.registry,
             cancel_event=cancel_event,
             max_output_attempts=self.settings.max_output_attempts,
-            cloud=self.cloud,
         )
         if self.settings.live_progress:
             from .progress import ProgressSink

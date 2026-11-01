@@ -101,7 +101,7 @@ function Bubble({ a, at, note, scale, bounds }: { a: Actor; at: Pt; note: string
 
 function Person({ a, at, selected, onSelect, scale }: { a: Actor; at: Pt; selected: boolean; onSelect: () => void; scale: number }) {
   const p = iso(at);
-  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.cloud ? " (bulutta)" : ""}${a.bubble ? ` — ${a.bubble}` : ""}`;
+  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.bubble ? ` — ${a.bubble}` : ""}`;
   return (
     <g
       className={`person ${a.state}${selected ? " selected" : ""}`}
@@ -121,7 +121,6 @@ function Person({ a, at, selected, onSelect, scale }: { a: Actor; at: Pt; select
       </g>
       {a.state === "waiting" && <text x={12} y={-40} className="mark" aria-hidden="true">🔔</text>}
       {a.state === "error" && <text x={12} y={-40} className="mark" aria-hidden="true">!</text>}
-      {a.cloud && <text x={-24} y={-38} className="cloud-mark" aria-hidden="true">☁</text>}
     </g>
   );
 }

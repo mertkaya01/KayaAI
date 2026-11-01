@@ -25,7 +25,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | **Tamamlandı** (Windows'ta doğrulandı) |
 | 15 | Canlı ofis: ajanlar 2B izometrik ofiste çalışır, canlı yazar, birbirine iş teslim eder; Asistan'ın yanında + tam ekran | Kodlandı (Windows kontrolü bekliyor) |
 | 16 | Yeni tasarım (açık/koyu tema), sol menü, "Bugün" giriş ekranı, bildirimler (tarayıcı + Windows) | Kodlandı (Windows kontrolü bekliyor) |
-| 17 | Bulut köprüsü (OmniRoute; varsayılan kapalı, istek başına izin, veri kapısı) | Kodlandı (Windows kontrolü bekliyor) |
+| 17 | Bulut köprüsü (OmniRoute) | Denendi, **kaldırıldı** (Adım 18; sahip kurmayacak) |
+| 18 | Asistan yenileme, `kayaai watch`, ofis ayrı sayfa + çizim yapısı, arayüz cilası | Sürüyor |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -338,17 +339,17 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
 
-## Bulut köprüsü (Adım 17, isteğe bağlı)
+## Olayları terminalde izle (Adım 18)
 
-[OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) gibi **bu bilgisayarda çalışan** bir ağ geçidi üzerinden ücretsiz
-bulut modelleri. Kurulum ve ayarlar: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) §8.
+```powershell
+kayaai watch              # önemli olaylar: işler, onaylar, sohbet, zamanlanmış görevler
+kayaai watch --canli      # ajanların canlı yazdıkları da (en çok 2 sn'de bir)
+kayaai watch --onay       # yalnız onay talepleri (komutuyla birlikte)
+kayaai watch --hepsi      # bütün olaylar
+```
 
-- Varsayılan **kapalı**; açmak onaylı (Sistem → Bulut köprüsü ya da `kayaai cloud enable`).
-- Yalnız sen bir istekte **☁ Bulut** dersen (sohbet düğmesi, `kayaai do --cloud`, serbest zamanlanmış görevde kutu) ve ajan
-  izinliyse kullanılır. Ofiste buluttan çalışan ajanın üstünde ☁ görünür.
-- **Gitmez**: hafıza, yerel belge parçaları, ekran görüntüleri (bulut izinli istekte hafıza/belge araması hiç yapılmaz).
-  Parola/anahtar/kart/IBAN görülen istek gönderilmez, yerelde yapılır. Hata, kota, sınır → yerel model.
-- Her çağrı olay kaydında (ajan, model, karakter sayısı, süre — metin yok); günlük sınır.
+Yalnız okur, hiçbir şeyi değiştirmez; arayüz kapalıyken de (zamanlanmış görev, Claude Code) olanları gösterir. Teknik
+kayıt için: `Get-Content logs\kayaai.log -Wait -Tail 30`.
 
 ## Bugün, sol menü ve bildirimler (Adım 16)
 

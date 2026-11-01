@@ -130,8 +130,7 @@ def reindex(rt: "Runtime", s: Schedule) -> tuple[str, list[str]]:
 def free(rt: "Runtime", s: Schedule) -> tuple[str, list[str]]:
     from ..conductor import Conductor
 
-    # Claude kutusuna düşmez (force=local); sahip izin verdiyse (Adım 17) izinli ajanlar buluttan yararlanabilir
-    res = Conductor(rt).run(str(s.params["request"]), force="local", context={"_cloud": True} if s.cloud else None)
+    res = Conductor(rt).run(str(s.params["request"]), force="local")  # zamanlanmış görev her zaman yerelde
     if res.status != "succeeded":
         raise ScheduleError(f"Şef işi tamamlanamadı: {res.error or res.status}")
     return res.answer, []

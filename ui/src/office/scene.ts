@@ -20,7 +20,6 @@ export interface Actor extends ActorDef {
   nodes: FlowNode[];          // bu karakterin bu işteki düğümleri (inceleme paneli için)
   active: FlowNode | null;    // şu an çalışan / son düğüm
   approval: Approval | null;  // bu karakterin beklettiği onay
-  cloud: boolean;             // Adım 17: bu iş buluttan yapılıyor/yapıldı
 }
 
 /** Bir karakterin başka bir masaya gidip dönmesi (teslim, gözden geçirme, onay, Claude'a devir). */
@@ -105,8 +104,7 @@ export function deriveActors(graph: JobGraph | null, progress: Record<string, Pr
     }
     if (approval) { state = "waiting"; bubble = `Onay bekliyor: ${approval.action.summary}`; }
     if (d.id === "owner" && approvals.length && !approval) { state = "waiting"; bubble = `${approvals.length} onay bekliyor`; }
-    const cloud = !!active?.model?.startsWith("☁");
-    return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval, cloud };
+    return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval };
   });
 }
 

@@ -451,17 +451,3 @@ export interface TodaySummary {
   rates: { date: string; per_try: Record<string, number>; error?: string } | null;
   notifications: NotifyPrefs;
 }
-
-// ---------------------------------------------------------------- bulut köprüsü (Adım 17)
-
-export interface CloudStatus {
-  enabled: boolean;
-  base_url: string;
-  model: string;
-  agents: string[];
-  daily_limit: number;
-  timeout_s: number;
-  has_key: boolean;
-  key_source: "env" | "file" | null;
-  used_today: number;
-}

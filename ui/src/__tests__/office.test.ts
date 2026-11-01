@@ -81,12 +81,6 @@ describe("deriveActors", () => {
     expect(a.find((x) => x.id === "reviewer")!.bubble).toBe("check-s1…");
   });
 
-  it("marks agents working through the cloud bridge", () => {
-    const c = graph([{ ...node("step-s1", "step", "running", "general", "t1"), model: "☁ groq/llama-3.3-70b" }], []);
-    expect(deriveActors(c, {}, []).find((x) => x.id === "general")!.cloud).toBe(true);
-    expect(deriveActors(c, {}, []).find((x) => x.id === "data")!.cloud).toBe(false);
-  });
-
   it("clips long bubbles", () => {
     const a = deriveActors(g, { t2: { task_id: "t2", worker: "document", chars: 1, field: null, tail: "y".repeat(300), attempt: 1, at: 0 } }, []);
     expect(a.find((x) => x.id === "document")!.bubble!.length).toBe(120);
@@ -117,11 +111,10 @@ describe("diffVisits", () => {
 });
 
 it("single-agent task as an office graph", () => {
-  const g = taskGraph({ id: "t1", worker: "coder", objective: "Kod yaz", status: "running", model: "☁ auto", error: null,
+  const g = taskGraph({ id: "t1", worker: "coder", objective: "Kod yaz", status: "running", model: "qwen3:8b", error: null,
                         metrics: { tokens_per_second: 50 }, started_at: null, finished_at: null });
   const a = deriveActors(g, {}, []);
   expect(a.find((x) => x.id === "coder")!.state).toBe("working");
-  expect(a.find((x) => x.id === "coder")!.cloud).toBe(true);
   const done = taskGraph({ id: "t1", worker: "coder", objective: "Kod yaz", status: "succeeded", model: "qwen", error: null,
                            started_at: "2026-11-01T10:00:00Z", finished_at: "2026-11-01T10:00:03.5Z" });
   expect(diffVisits(g, done).map((v) => v.kind)).toEqual(["deliver"]);

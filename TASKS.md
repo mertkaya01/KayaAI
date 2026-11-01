@@ -230,7 +230,17 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   sohbet `cloud`, `kayaai do --cloud`, serbest zamanlanmış görev `cloud`, `kayaai cloud status|enable|disable|key|test`,
   `/api/cloud*`, Sistem → Bulut köprüsü paneli, sohbette ☁ Bulut, ofiste ☁ işareti; ofis tek ajanlı işleri de gösterir —
   Python 14, Vitest 35, Playwright (sahte OmniRoute: dene → aç → onay → ☁ ile cevap, hafıza gitmedi)
-- [ ] Windows: OmniRoute kur → `kayaai cloud key` → `kayaai cloud test` → `kayaai cloud enable` → Asistan'da ☁ Bulut
+- [x] 17 kaldırıldı (Adım 18c, sahip: OmniRoute kurulmayacak; önce büyük yerel model / Claude modu)
+
+## Adım 18 — Sahip planı (2026-11-01): sohbet yenileme → watch → bulutu kaldır → ofis ayrı + çizim → cila
+- [x] 18a — Asistan: iki sütun, ortalı okuma alanı, balon/düz metin mesajlar, araçlar üzerine gelince, tek ajanlı cevap
+  akarak (ilerleme olayında okunur metin ≤4000), şef işinde tek satır durum + Ofiste izle, tek parça mesaj kutusu,
+  öneri kartları, aranabilir ve tarihe göre gruplu liste — Vitest 36, Playwright (akış, durum satırı, arama), axe 0
+- [x] 18b — `kayaai watch` (önemliler / --onay / --isler / --hepsi / --canli / --gecmis / --renksiz) — Python 14
+- [x] 18c — Bulut köprüsü tamamen kaldırıldı (kod, API, CLI, arayüz, testler, belgeler); ofisin tek ajanlı iş görünümü kaldı
+- [ ] 18d — Ofis ayrı sayfa + sahibin çizimleri için yükleme yapısı
+- [ ] 18e — Genel arayüz cilası
+- [ ] Sahip: `qwen3:14b` indir → Modeller'de zor işlerdeki ajanlarla karşılaştır
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
   deneme / geçersiz / zaman aşımı / kesilme → `data/quality.json`) — Python 5
