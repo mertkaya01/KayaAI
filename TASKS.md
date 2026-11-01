@@ -32,8 +32,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 6 | PDF okunup özetleniyor | [x] 2026-10-31 — 3 sayfalık rapor, 4/4 anahtar bilgi, sayfa kaynaklı |
 | 7 | Excel analiz ediliyor | [x] 2026-10-31 — sayıları program hesaplar, uydurma sayı 0 (v0.10.2: toplam/maks yorumu düzeltildi) |
 | 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [~] 12a kodlandı (v0.12.0), Windows doğrulaması bekliyor |
-| 9 | Seçilen ses kaynağı yazıya dökülüyor | [~] mikrofon: 12b kodlandı (v0.12.1); sistem sesi 12c |
-| 10 | Çeviri altyazı olarak gösteriliyor | [ ] Faz 6 |
+| 9 | Seçilen ses kaynağı yazıya dökülüyor | [~] mikrofon (12b) + sistem sesi (12c) kodlandı, Windows doğrulaması bekliyor |
+| 10 | Çeviri altyazı olarak gösteriliyor | [~] 12c kodlandı (v0.12.2), Windows doğrulaması bekliyor |
 | 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [ ] Faz 7 |
 | 12 | İş raporu üretiliyor | [x] 2026-10-31 — xlsx / md / docx / pdf |
 | 13 | Yeniden başlatmada görev geçmişi geri yükleniyor | [x] |
@@ -154,7 +154,11 @@ tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
 - [x] 12b — Bas-konuş (🎤 basılı tut / tıkla, MediaRecorder → yerel faster-whisper, GPU → işlemci, model indirme R2,
   ses saklanmaz) + 🔊 Oku (yalnız yerel Windows sesleri); CLI `kayaai speech`; setup.ps1 model + GPU kütüphaneleri
 - Testler: Python (ses 15; webm/wav gerçek çözme), Vitest 18, Playwright (bas-konuş 9 kontrol); Windows `perception_check` bekliyor
-- [ ] 12c — Canlı çeviri altyazı · [ ] 12d — Tarayıcı otomasyonu
+- [x] 12c — Canlı çeviri altyazı: sistem sesi / mikrofon → AudioWorklet → WS → bölütleyici + Whisper + yerel çeviri;
+  küçük pencere (Document PiP); döküm .txt/.srt yalnız istenince; görsel model boşaltılır
+- Testler: Python (canlı 12: bölütleyici sentetik ses, oturum, WS), Playwright (altyazı 13 kontrol; sahte mikrofon dosyası
+  + sesli paylaşım); Windows `perception_check` (canlı altyazı gecikmesi) bekliyor
+- [ ] 12d — Tarayıcı otomasyonu
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 sürüyor (12a kodlandı).

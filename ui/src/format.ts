@@ -122,6 +122,12 @@ export function describeEvent(e: KEvent): string {
     case "model.compare":
       return d.status ? `Model karşılaştırma ${d.status === "done" ? "bitti" : d.status === "failed" ? "başarısız" : "başladı"}`
         : `Model karşılaştırma: ${d.done}/${d.total}`;
+    case "speech.live":
+      return d.status === "started" ? "Canlı altyazı başladı" : `Canlı altyazı bitti (${d.lines} satır, ${d.reason})`;
+    case "speech.download":
+      return `Ses modeli indirme · ${d.model}: ${d.status}${d.percent != null ? ` (%${d.percent})` : ""}${d.error ? ` — ${d.error}` : ""}`;
+    case "speech.transcribed":
+      return `Konuşma yazıya çevrildi (${d.audio_seconds} sn ses, ${d.device})`;
     case "agent.model_changed":
       return `Ajanın modeli değişti: ${d.name} → ${d.model_key}`;
     default:

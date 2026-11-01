@@ -163,6 +163,14 @@
 - [x] Bağımlılıklar: faster-whisper, ctranslate2 (MIT), PyAV (BSD-3; <19 — 19 faster-whisper'ı bozuyor);
       isteğe bağlı NVIDIA cuBLAS/cuDNN (NVIDIA lisansı, yalnız yerel çalıştırma için, yeniden dağıtılmaz)
 
+## Adım 12c'de uygulananlar (canlı altyazı)
+
+- [x] Sistem sesi / mikrofon yalnız "Başlat" ile, tarayıcının izin/paylaşım penceresiyle açılır; sürekli görünür
+      "Dinleniyor" göstergesi; Durdur, paylaşımı durdurma ve 2 saat sınırı (sunucu da uygular) ile kapanır
+- [x] Ses saklanmaz; altyazı metni olay kaydına yazılmaz; döküm yalnız sahip "Kaydet" derse izinli klasöre (yeni dosya R1)
+- [x] WebSocket erişim anahtarıyla; ilk mesaj doğrulanır (dil/hedef beyaz liste); model yoksa anlaşılır hata ile kapanır
+- [x] AudioWorklet aynı kökenden (`/pcm-worklet.js`), CSP değişmedi
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

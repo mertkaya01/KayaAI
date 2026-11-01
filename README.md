@@ -20,7 +20,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
-| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı altyazı, tarayıcı otomasyonu | 12a–b kodlandı (Windows doğrulaması bekliyor); 12c–d sırada |
+| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu | 12a–c kodlandı (Windows doğrulaması bekliyor); 12d sırada |
 | 13 | Zamanlama, optimizasyon | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
@@ -267,6 +267,17 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   çevrim içi sesler kullanılmaz. Türkçe ses yoksa düğme nasıl ekleneceğini söyler (Ayarlar → Saat ve dil → Konuşma).
 - CLI: `kayaai speech status|download|transcribe kayit.wav [--lang tr]`. Ölçüm: `python scripts\perception_check.py`
   (Windows sesiyle sentezlenen Türkçe/İngilizce cümleler → kelime hata oranı).
+
+## Canlı çeviri altyazı (Adım 12c)
+
+- **Altyazı** sekmesi (`/altyazi`): kaynak **Sistem sesi** (izlediğin video, toplantı — tarayıcı ne paylaşılacağını sorar,
+  "Sistem sesini paylaş" kutusunu işaretle; görüntü kullanılmaz) ya da **Mikrofon**; konuşulan dil (otomatik/tr/en) ve
+  altyazı dili (Türkçe / İngilizce / çevirme). **▶ Başlat** → konuşma ifade ifade yazıya dökülür (yerel Whisper), gerekirse
+  yerel qwen3:8b ile çevrilir; ara sonuçlar italik, kesinleşen satır büyük. Gecikme ekranda gösterilir.
+- **Küçük pencere**: her zaman üstte duran altyazı penceresi (Edge/Chrome Document Picture-in-Picture) — videonun üstüne koy.
+- Dinleme yalnız Başlat ile açılır; kırmızı "Dinleniyor" sayacı, **■ Durdur**, tarayıcıdan "Paylaşımı durdur" ya da 2 saat
+  ile kapanır. **Ses kaydedilmez**; döküm yalnız bu sayfada tutulur, istersen **Kaydet .txt / .srt** →
+  `~\kayaAI-files\altyazilar\`. Altyazı sürerken görsel model GPU'dan boşaltılır.
 
 ## İş modülleri (Adım 10)
 

@@ -254,6 +254,19 @@ UI 🎤 (basılı tut / tıkla) → getUserMedia + MediaRecorder (webm/opus, kay
 🔊 Oku → speechSynthesis, yalnız voice.localService (Markdown → düz metin, kod okunmaz)
 ```
 
+## Canlı altyazı (Adım 12c)
+
+```
+UI /altyazi → getDisplayMedia(ses) | getUserMedia → AudioContext → AudioWorklet (public/pcm-worklet.js: karıştır +
+   16 kHz'e yeniden örnekle → 100 ms PCM16) → WS /api/speech/live (?token; ilk mesaj {start, source_lang, target})
+sunucu: LiveSession (iş parçacığı + kuyruk) ← feed_pcm16
+   Segmenter: 30 ms çerçeve RMS; gürültü tabanı = son 10 sn'nin 10. yüzdeliği ×3; 0,6 sn sessizlik ya da 8 sn → final,
+   1,5 sn'de bir partial (gerçek zamandan yavaşsa ya da kuyruk doluysa partial atlanır)
+   final → stt.transcribe_samples → (dil ≠ hedef) rt.llm.chat genel model, son 2 satır bağlam, yabancı yazı denetimi
+   → {type: partial|final|status|error} → UI; Document PiP penceresine React portal
+olay kaydı: speech.live başladı/bitti (satır sayısı) — metin yok; döküm yalnız POST /api/speech/transcript ile (R1)
+```
+
 ## İş modülleri (Adım 10)
 
 ```

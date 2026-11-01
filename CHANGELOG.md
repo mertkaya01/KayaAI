@@ -2,6 +2,15 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.12.2] - 2026-11-01
+
+### Eklendi (Adım 12c — canlı çeviri altyazı; kabul #9, #10)
+- **Altyazı** sekmesi: sistem sesi (paylaşımla) ya da mikrofon → AudioWorklet 16 kHz PCM → `WS /api/speech/live` →
+  enerji tabanlı bölütleyici (uyarlanır gürültü tabanı) → Whisper → gerekirse yerel qwen3:8b çevirisi; ara/kesin
+  altyazı, gecikme göstergesi, her zaman üstte **küçük pencere** (Document PiP)
+- Döküm yalnız istenince `POST /api/speech/transcript` → `~/kayaAI-files/altyazilar/*.txt|srt`
+- Altyazı başlarken görsel model GPU'dan boşaltılır; `perception_check` canlı altyazı gecikmesini ölçer
+
 ## [0.12.1] - 2026-11-01
 
 ### Eklendi (Adım 12b — bas-konuş ve sesli okuma)

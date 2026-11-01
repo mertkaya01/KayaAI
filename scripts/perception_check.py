@@ -115,7 +115,7 @@ def wer(ref: str, hyp: str) -> float:
     return round(d[len(h)] / max(1, len(r)), 3)
 
 
-def check_speech(settings, work: Path) -> tuple[list[dict], dict]:
+def check_speech(settings, work: Path, work_settings) -> tuple[list[dict], dict]:
     from kayaai.speech.stt import SpeechError, is_installed, status, transcribe
 
     if not is_installed(settings):
@@ -137,7 +137,32 @@ def check_speech(settings, work: Path) -> tuple[list[dict], dict]:
             rows.append({"lang": lang, "error": str(exc)})
         print(f"Ses [{lang}]: {rows[-1].get('text', rows[-1].get('error', rows[-1].get('skipped')))}")
     st = status(settings)
-    return rows, {"device": st["device"], "gpu_error": st["gpu_error"]}
+    info = {"device": st["device"], "gpu_error": st["gpu_error"]}
+    # 12c: aynı cümleler arka arkaya (aralarında 1,5 sn sessizlik) canlı altyazı motorundan geçer → gecikme + çeviri
+    wavs = [work / f"ses{i}.wav" for i in range(len(SPEECH)) if (work / f"ses{i}.wav").is_file()]
+    if wavs:
+        import numpy as np
+
+        from kayaai.runtime import build_runtime
+        from kayaai.speech.live import LiveSession
+        from kayaai.speech.stt import decode
+
+        gap = np.zeros(int(1.5 * 16000), dtype=np.float32)
+        audio = np.concatenate([x for w in wavs for x in (decode(w.read_bytes()), gap)])
+        msgs: list[dict] = []
+        with build_runtime(work_settings) as rt:  # ayrı veri klasörü; ses modeli asıl yerinden
+            live = LiveSession(rt, msgs.append, "auto", "en", partials=False, settings=settings)
+            for i in range(0, len(audio), 1600):  # gerçek zamanlı akış gibi 100 ms parçalar
+                live.feed(audio[i:i + 1600])
+                time.sleep(0.1)
+            live.stop()
+        finals = [m for m in msgs if m["type"] == "final"]
+        info["live"] = {"lines": len(finals), "expected": len(wavs),
+                        "avg_latency_s": round(sum(f["latency_s"] for f in finals) / max(1, len(finals)), 2),
+                        "translated": sum(1 for f in finals if f.get("translation")),
+                        "samples": [{"text": f["text"], "translation": f.get("translation")} for f in finals[:4]]}
+        print(f"Canlı altyazı: {len(finals)} satır, ort. gecikme {info['live']['avg_latency_s']} sn")
+    return rows, info
 
 
 def main() -> int:
@@ -209,9 +234,10 @@ def main() -> int:
             except (VisionError, OSError, ValueError) as exc:
                 screen_row = {"error": str(exc)}
 
-    sp_rows, sp_info = check_speech(real, work)
+    sp_rows, sp_info = check_speech(real, work, settings)
     measured = [r for r in sp_rows if "wer" in r]
-    summary_speech = {"speech_device": sp_info.get("device"), "speech_gpu_error": sp_info.get("gpu_error"),
+    summary_speech = {"live_subtitles": {k: v for k, v in (sp_info.get("live") or {}).items() if k != "samples"} or None,
+                      "speech_device": sp_info.get("device"), "speech_gpu_error": sp_info.get("gpu_error"),
                       "speech_error": sp_info.get("error"),
                       "speech_wer": {r["lang"]: r["wer"] for r in measured} or None,
                       "speech_rtf": round(sum(r["seconds"] for r in measured) / max(0.01, sum(r["audio_s"] for r in measured)), 3)
@@ -224,7 +250,8 @@ def main() -> int:
         "total_s": round(time.monotonic() - t_all, 1),
     }
     report_path.write_text(json.dumps({"summary": summary, "vision": rows, "ocr": ocr_rows, "scanned_pdf": pdf_row,
-                                       "screen": screen_row, "speech": sp_rows}, ensure_ascii=False, indent=2), encoding="utf-8")
+                                       "screen": screen_row, "speech": sp_rows,
+                                       "live": sp_info.get("live")}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     print(f"Rapor: {report_path}")
     return 0
