@@ -118,8 +118,16 @@ if (Test-Path $VenvPython) {
 Write-Step "3/8 kayaAI ve bağımlılıklar kuruluyor"
 & $VenvPython -m pip install --upgrade pip --quiet
 if ($LASTEXITCODE -ne 0) { Fail "pip güncellenemedi" }
-& $VenvPython -m pip install -e ".[dev]" --quiet
-if ($LASTEXITCODE -ne 0) { Fail "pip install başarısız" }
+# Bilinen iyi sürümler (sahibin çalışan kurulumundan; docs/DEPLOYMENT.md). Yoksa pyproject aralıkları kullanılır.
+$Constraints = Join-Path $ProjectRoot "constraints\windows.txt"
+if (Test-Path $Constraints) {
+    & $VenvPython -m pip install -e ".[dev]" -c $Constraints --quiet
+    if ($LASTEXITCODE -ne 0) { Fail "pip install başarısız (constraints\windows.txt ile)" }
+    Write-Ok "Bilinen iyi sürümler kullanıldı (constraints\windows.txt)"
+} else {
+    & $VenvPython -m pip install -e ".[dev]" --quiet
+    if ($LASTEXITCODE -ne 0) { Fail "pip install başarısız" }
+}
 & $VenvPython -c "import kayaai, httpx, pydantic, yaml; print(kayaai.__version__)"
 if ($LASTEXITCODE -ne 0) { Fail "kayaai içe aktarılamadı" }
 Write-Ok "Paketler kuruldu ve doğrulandı"
