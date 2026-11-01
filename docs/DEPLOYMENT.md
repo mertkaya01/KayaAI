@@ -88,6 +88,14 @@ powershell -ExecutionPolicy Bypass -File scripts\windows\setup.ps1
 Zamanlanmış görevler aynı klasörü gösterdiği için yeniden kayıt gerekmez. Klasörü taşıdıysan `kayaai schedule sync`
 eksikleri gösterir (bkz. §5).
 
+**Bilinen iyi sürümler.** `constraints\windows.txt` varsa `setup.ps1` paketleri o sürümlerle kurar (sahibin çalışan
+Windows kurulumundan alınmış liste). Böylece aylar sonra temiz kurulumda yeni bir paket sürümü bir şeyi bozamaz
+(ör. PyAV 19 ses tanımayı bozmuştu). Listeyi yenilemek için, her şey çalışırken:
+
+```powershell
+.\.venv\Scripts\python -m pip freeze --exclude-editable > constraints\windows.txt
+```
+
 ## 4. Yedekleme ve geri yükleme
 
 **Neyin nerede olduğu:**

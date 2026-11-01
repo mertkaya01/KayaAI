@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kayaai"
-version = "0.14.2"
+version = "0.14.3"
 description = "kayaAI - yerel, çok-ajanlı kişisel yapay zeka sistemi"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,22 +23,22 @@ dependencies = [
     "python-docx>=1.1,<2",
     "reportlab>=4,<5",
     # Adım 12a — ekranı okuma
-    "pillow>=10",
+    "pillow>=10,<14",
     "pypdfium2>=4.30,<6",
     "mss>=9,<11",
     # Adım 12b — ses tanıma (yerel)
     "faster-whisper>=1.1,<2",
-    "av>=11,<19",
+    "av>=11,<19",   # PyAV 19 faster-whisper 1.2.1'i bozuyor (decode_audio: metadata_errors kaldırıldı)
     # Adım 12d — tarayıcı otomasyonu (kurulu Edge'i sürer; tarayıcı indirmez)
-    "playwright>=1.45,<2",   # PyAV 19 faster-whisper 1.2.1'i bozuyor (decode_audio: metadata_errors kaldırıldı)
+    "playwright>=1.45,<2",
     "winrt-runtime>=2.3,<5; sys_platform == 'win32'",
-    "winrt-Windows.Foundation; sys_platform == 'win32'",
-    "winrt-Windows.Foundation.Collections; sys_platform == 'win32'",
-    "winrt-Windows.Globalization; sys_platform == 'win32'",
-    "winrt-Windows.Graphics.Imaging; sys_platform == 'win32'",
-    "winrt-Windows.Media.Ocr; sys_platform == 'win32'",
-    "winrt-Windows.Storage.Streams; sys_platform == 'win32'",
-    "winrt-Windows.Media.SpeechSynthesis; sys_platform == 'win32'",  # perception_check: Türkçe OneCore sesi
+    "winrt-Windows.Foundation>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Foundation.Collections>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Globalization>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Graphics.Imaging>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Media.Ocr>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Storage.Streams>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Media.SpeechSynthesis>=2.3,<5; sys_platform == 'win32'",  # perception_check: Türkçe OneCore sesi
 ]
 
 [project.optional-dependencies]
