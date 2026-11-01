@@ -955,6 +955,26 @@ def cmd_cloud(args: argparse.Namespace) -> int:
             return 1
 
 
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Olayları terminalde canlı izle (Adım 18b). Yalnız okur. Ctrl+C ile çık."""
+    from . import watch
+    from .core.store import TaskStore
+
+    s = load_settings()
+    mode = "approvals" if args.onay else "jobs" if args.isler else "all" if args.hepsi else "important"
+    color = watch.color_on(sys.stdout) and not args.renksiz
+    _print(f"kayaAI olayları izleniyor ({ {'approvals': 'yalnız onaylar', 'jobs': 'yalnız işler', 'all': 'hepsi', 'important': 'önemliler'}[mode] }"
+           f"{', canlı yazım dahil' if args.canli else ''}). Çıkmak için Ctrl+C.\n")
+    store = TaskStore(s.db_path)
+    try:
+        watch.run(store, _print, mode=mode, live=args.canli, backlog=args.gecmis, color=color)
+    except KeyboardInterrupt:
+        _print("\nİzleme bitti.")
+    finally:
+        store.close()
+    return 0
+
+
 def cmd_bench(args: argparse.Namespace) -> int:
     from .bench import run_bench
 
@@ -1455,6 +1475,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("bench", help="donanımda ölçüm: sohbet, embedding, görsel, Whisper, VRAM tepe → data/bench.json"
                    ).set_defaults(func=cmd_bench)
+
+    wp = sub.add_parser("watch", help="olayları terminalde canlı izle (işler, onaylar, sohbet, zamanlanmış görevler)")
+    wp.add_argument("--onay", action="store_true", help="yalnız onay talepleri ve kararları")
+    wp.add_argument("--isler", action="store_true", help="yalnız görevler ve zamanlanmış görevler")
+    wp.add_argument("--hepsi", action="store_true", help="bütün olaylar")
+    wp.add_argument("--canli", action="store_true", help="ajanların canlı yazımını da göster (en çok 2 sn'de bir)")
+    wp.add_argument("--gecmis", type=int, default=15, help="başta gösterilecek son olay sayısı (0: yok)")
+    wp.add_argument("--renksiz", action="store_true", help="renk kullanma")
+    wp.set_defaults(func=cmd_watch)
 
     qp = sub.add_parser("quality", help="ajan çıktı kalitesi (ilk denemede geçerli, geçersiz, zaman aşımı) → data/quality.json")
     qp.add_argument("--days", type=int, default=None, help="yalnız son N gün")
