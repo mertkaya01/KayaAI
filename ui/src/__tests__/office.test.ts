@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Approval, FlowNode, JobGraph } from "../api";
-import { actorOf, deriveActors, diffVisits, iso, layout, taskGraph } from "../office/scene";
+import { actorOf, deriveActors, diffVisits, iso, layout, pickArt, taskGraph, type OfficeAssets } from "../office/scene";
 
 function node(id: string, kind: FlowNode["kind"], status: FlowNode["status"], agent: string | null = null, task_id: string | null = null): FlowNode {
   return { id, kind, label: id, status, agent, model: "qwen3:8b", task_id, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null };
@@ -119,6 +119,16 @@ it("single-agent task as an office graph", () => {
                            started_at: "2026-11-01T10:00:00Z", finished_at: "2026-11-01T10:00:03.5Z" });
   expect(diffVisits(g, done).map((v) => v.kind)).toEqual(["deliver"]);
   expect(done.nodes[1].duration_s).toBe(3.5);
+});
+
+it("picks owner-drawn art by state with fallbacks", () => {
+  const assets: OfficeAssets = { folder: "", exists: true, desk: null, floor: null, unknown: [], skipped: [],
+    actors: { data: { base: "/ofis/veri.png", working: "/ofis/veri-calisiyor.png" }, default: { base: "/ofis/ajan.png", walking: "/ofis/ajan-yuruyor.png" } } };
+  expect(pickArt(assets, { id: "data", kind: "agent", state: "working" })).toBe("/ofis/veri-calisiyor.png");
+  expect(pickArt(assets, { id: "data", kind: "agent", state: "error" })).toBe("/ofis/veri.png");
+  expect(pickArt(assets, { id: "coder", kind: "agent", state: "idle" }, true)).toBe("/ofis/ajan-yuruyor.png");
+  expect(pickArt(assets, { id: "chef", kind: "chef", state: "idle" })).toBeNull();  // "ajan" resmi yalnız ajanlar için
+  expect(pickArt(null, { id: "data", kind: "agent", state: "idle" })).toBeNull();
 });
 
 it("iso projection", () => {

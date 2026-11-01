@@ -4,6 +4,7 @@ import { NODE_H, NODE_W, layout } from "../dag";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { OfficeView } from "./OfficeView";
+import { OfficeArtPanel } from "./OfficeArtPanel";
 
 const STATUS_TEXT: Record<string, string> = {
   pending: "bekliyor", running: "çalışıyor", succeeded: "tamamlandı", failed: "başarısız", waiting: "bekletiliyor", skipped: "atlandı",
@@ -65,6 +66,7 @@ function readPref(key: string): string | null {
 
 export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId: string | null; onSelect: (id: string | null) => void; refreshKey: number; approvalsKey: number }) {
   const [mode, setMode] = useState<"office" | "graph">(() => (readPref("kayaai.flowMode") === "graph" ? "graph" : "office"));
+  const [art, setArt] = useState(false);
   const pick = (m: "office" | "graph") => { setMode(m); try { localStorage.setItem("kayaai.flowMode", m); } catch { /* özel pencere */ } };
   const jobs = usePolling<JobSummary[]>("/api/jobs?limit=40", 15000, refreshKey);
   const [graph, setGraph] = useState<JobGraph | null>(null);
@@ -107,10 +109,14 @@ export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId:
         </ul>
       </aside>
       <section className="panel flow-main">
-        <div className="seg" role="group" aria-label="Görünüm">
-          <button aria-pressed={mode === "office"} onClick={() => pick("office")}>Ofis</button>
-          <button aria-pressed={mode === "graph"} onClick={() => pick("graph")}>Akış grafiği</button>
+        <div className="flow-top">
+          <div className="seg" role="group" aria-label="Görünüm">
+            <button aria-pressed={mode === "office"} onClick={() => pick("office")}>Ofis</button>
+            <button aria-pressed={mode === "graph"} onClick={() => pick("graph")}>Akış grafiği</button>
+          </div>
+          {mode === "office" && <button className="ghost small" aria-expanded={art} onClick={() => setArt((v) => !v)}>🎨 Çizimler</button>}
         </div>
+        {mode === "office" && art && <OfficeArtPanel onClose={() => setArt(false)} />}
         {mode === "office" ? <OfficeView jobId={active} refreshKey={refreshKey} approvalsKey={approvalsKey} /> : <>
         {error && <p className="error">{error}</p>}
         {!graph && !error && <p className="muted">Bir iş seç.</p>}

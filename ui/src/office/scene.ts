@@ -162,6 +162,21 @@ export function taskGraph(t: TaskLite): JobGraph {
   };
 }
 
+/** Sahibin çizimleri (Adım 18d; /api/office/assets): karakter → durum → adres. */
+export interface OfficeAssets {
+  folder: string; exists: boolean; desk: string | null; floor: string | null;
+  actors: Record<string, Record<string, string>>; unknown: string[]; skipped: string[];
+}
+
+/** Karakter çizimi: önce o durumun resmi, sonra genel resmi; adı olmayan ajanlar için "ajan" resmi. Yoksa null (şekil). */
+export function pickArt(assets: OfficeAssets | null | undefined, a: Pick<Actor, "id" | "kind" | "state">, walking = false): string | null {
+  if (!assets) return null;
+  const state = walking ? "walking" : a.state;
+  const own = assets.actors[a.id];
+  const dflt = a.kind === "agent" ? assets.actors["default"] : undefined;
+  return own?.[state] ?? own?.base ?? dflt?.[state] ?? dflt?.base ?? null;
+}
+
 /** Izgara → ekran (izometrik). */
 export const TILE = { w: 96, h: 48 };
 export function iso(p: Pt): Pt {

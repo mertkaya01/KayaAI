@@ -1170,10 +1170,24 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     # En sona kaydedilir: /api/* ve /docs önce eşleşir. Arayüz dosyaları anahtarsızdır (gizli bilgi içermez);
     # veriye erişim yine /api/* üzerinden anahtarla olur.
 
+    @app.get("/api/office/assets", dependencies=[Depends(auth)])
+    def office_assets() -> dict[str, Any]:
+        from ..office_assets import scan
+
+        return scan(settings.data_dir)
+
     @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def ui(path: str) -> Response:
         if path == "api" or path.startswith("api/"):
             raise HTTPException(404, "Bilinmeyen API yolu")
+        if path.startswith("ofis/"):  # Adım 18d: sahibin ofis çizimleri (data/ofis), yalnız resim
+            from ..office_assets import SUFFIXES, safe_file
+
+            f = safe_file(settings.data_dir, path[len("ofis/"):])
+            if f is None:
+                raise HTTPException(404, "Çizim bulunamadı")
+            return FileResponse(f, media_type=SUFFIXES[f.suffix.lower()],
+                                headers={"Cache-Control": "no-cache", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"})
         index = ui_root / "index.html"
         if not index.is_file():
             return HTMLResponse(UI_MISSING_HTML)

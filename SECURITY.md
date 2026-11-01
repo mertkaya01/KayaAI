@@ -218,6 +218,12 @@
 - [x] Tarayıcı izni yalnız sahip tıklayınca istenir; bağlantıdan önceki (geçmiş) olaylar bildirim üretmez; sessiz saatler
 - [x] Tema ve menü tercihi yalnız tarayıcıda (kişisel tercih); hiçbir gizli bilgi tarayıcı deposunda tutulmaz
 
+## Adım 18'de uygulananlar
+
+- [x] `kayaai watch` yalnız okur (olay tablosu); hiçbir şeyi değiştirmez
+- [x] Ofis çizimleri: yalnız `data/ofis` içindeki PNG/SVG/WEBP, ad kalıbı, ≤5 MB, alt klasör ve yol kaçışı yok;
+      `default-src 'none'` başlığıyla sunulur (SVG içinde betik çalışmaz)
+
 ## Adım 17 — bulut köprüsü: kaldırıldı
 
 OmniRoute üzerinden bulut modelleri Adım 17'de yapıldı, Adım 18'de sahip kararıyla **tamamen kaldırıldı** (kod, API,

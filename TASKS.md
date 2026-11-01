@@ -238,7 +238,7 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   öneri kartları, aranabilir ve tarihe göre gruplu liste — Vitest 36, Playwright (akış, durum satırı, arama), axe 0
 - [x] 18b — `kayaai watch` (önemliler / --onay / --isler / --hepsi / --canli / --gecmis / --renksiz) — Python 14
 - [x] 18c — Bulut köprüsü tamamen kaldırıldı (kod, API, CLI, arayüz, testler, belgeler); ofisin tek ajanlı iş görünümü kaldı
-- [ ] 18d — Ofis ayrı sayfa + sahibin çizimleri için yükleme yapısı
+- [x] 18d — Ofis ayrı sayfa; `data/ofis` çizimleri (Türkçe adlar, durum resimleri, masa, zemin; yoksa şekil), `/api/office/assets`, `/ofis/<dosya>` (yalnız resim, kaçış/boyut kontrolü), 🎨 Çizimler paneli, `docs/OFIS_CIZIM.md` — Python 4, Vitest 37, Playwright (örnek çizimler sahnede)
 - [ ] 18e — Genel arayüz cilası
 - [ ] Sahip: `qwen3:14b` indir → Modeller'de zor işlerdeki ajanlarla karşılaştır
 

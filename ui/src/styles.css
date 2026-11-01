@@ -432,7 +432,11 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--bg-2); align-self: flex-start; }
 .seg button { border: 0; border-radius: 8px; background: transparent; padding: 4px 12px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
-.flow-main > .seg { margin-bottom: 8px; }
+.flow-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.art-panel { margin-bottom: 14px; box-shadow: none; }
+.art-table td, .art-table th { text-align: center; }
+.art-table td:first-child, .art-table th:first-child { text-align: left; }
+.art-thumb { width: 36px; height: 48px; object-fit: contain; image-rendering: auto; }
 .office { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .office-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .office-head .ghost { margin-left: auto; }
@@ -456,6 +460,7 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .office-scene .board-leg { stroke: #9aa7b6; stroke-width: 2; }
 .office-scene .mailbox { fill: #8a5a3c; stroke: #3b2618; }
 .office-scene .slot { fill: #2b1a10; }
+.office-scene .desk-glow { opacity: .35; filter: blur(6px); }
 .person { cursor: pointer; outline: none; }
 .person .shadow { fill: rgba(0, 0, 0, .35); }
 .person .head { fill: var(--ink-head); }

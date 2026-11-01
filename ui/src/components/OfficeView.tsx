@@ -3,8 +3,8 @@ import { api, ApiError, post, type Approval, type FlowNode, type JobGraph } from
 import { usePolling } from "../hooks";
 import { useProgress } from "../office/progress";
 import {
-  deriveActors, diffVisits, GRID, iso, seat, STATE_TEXT, taskGraph, TILE, visitorSpot,
-  type Actor, type Pt, type TaskLite, type Visit,
+  deriveActors, diffVisits, GRID, iso, pickArt, seat, STATE_TEXT, taskGraph, TILE, visitorSpot,
+  type Actor, type OfficeAssets, type Pt, type TaskLite, type Visit,
 } from "../office/scene";
 
 /**
@@ -49,9 +49,18 @@ function legsFor(v: Visit, actors: Actor[], start: number, still: boolean): Leg[
   ];
 }
 
-function Desk({ a, lit }: { a: Actor; lit: boolean }) {
+function Desk({ a, lit, art }: { a: Actor; lit: boolean; art?: string | null }) {
   const c = iso({ x: a.desk.x + 0.3, y: a.desk.y + 0.3 });  // karakter masanın arkasında oturur (seat: +0.2)
   const w = TILE.w * 0.36, h = TILE.h * 0.36, z = 14;
+  if (art && a.kind !== "claude") {  // sahibin masa çizimi (data/ofis/masa.png)
+    return (
+      <g className="desk" aria-hidden="true">
+        {lit && <ellipse cx={c.x} cy={c.y + h - z} rx={w * 0.9} ry={h * 0.8} className="desk-glow" style={{ fill: a.color }} />}
+        <image href={art} x={c.x - w * 1.15} y={c.y - z - 30} width={w * 2.3} height={2 * h + z + 30} preserveAspectRatio="xMidYMax meet" />
+        {a.kind === "chef" && <rect x={c.x + 14} y={c.y - z - 30} width={40} height={26} rx={3} className="board" />}
+      </g>
+    );
+  }
   const top = `${c.x},${c.y - z} ${c.x + w},${c.y + h - z} ${c.x},${c.y + 2 * h - z} ${c.x - w},${c.y + h - z}`;
   const left = `${c.x - w},${c.y + h - z} ${c.x},${c.y + 2 * h - z} ${c.x},${c.y + 2 * h} ${c.x - w},${c.y + h}`;
   const right = `${c.x + w},${c.y + h - z} ${c.x},${c.y + 2 * h - z} ${c.x},${c.y + 2 * h} ${c.x + w},${c.y + h}`;
@@ -99,7 +108,7 @@ function Bubble({ a, at, note, scale, bounds }: { a: Actor; at: Pt; note: string
   );
 }
 
-function Person({ a, at, selected, onSelect, scale }: { a: Actor; at: Pt; selected: boolean; onSelect: () => void; scale: number }) {
+function Person({ a, at, selected, onSelect, scale, art }: { a: Actor; at: Pt; selected: boolean; onSelect: () => void; scale: number; art?: string | null }) {
   const p = iso(at);
   const label = `${a.label}: ${STATE_TEXT[a.state]}${a.bubble ? ` — ${a.bubble}` : ""}`;
   return (
@@ -114,11 +123,15 @@ function Person({ a, at, selected, onSelect, scale }: { a: Actor; at: Pt; select
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
     >
       <ellipse cx={0} cy={2} rx={13} ry={6} className="shadow" />
-      <g className="body">
-        <path d="M -10 0 Q -11 -24 0 -26 Q 11 -24 10 0 Z" style={{ fill: a.color }} />
-        <circle cx={0} cy={-34} r={9} className="head" />
-        {a.kind === "chef" && <rect x={-7} y={-48} width={14} height={6} rx={2} className="hat" />}
-      </g>
+      {art ? (  // sahibin çizimi (data/ofis): 3:4 kutu, ayak noktası alt orta
+        <image className="body art" href={art} x={-24} y={-60} width={48} height={64} preserveAspectRatio="xMidYMax meet" />
+      ) : (
+        <g className="body">
+          <path d="M -10 0 Q -11 -24 0 -26 Q 11 -24 10 0 Z" style={{ fill: a.color }} />
+          <circle cx={0} cy={-34} r={9} className="head" />
+          {a.kind === "chef" && <rect x={-7} y={-48} width={14} height={6} rx={2} className="hat" />}
+        </g>
+      )}
       {a.state === "waiting" && <text x={12} y={-40} className="mark" aria-hidden="true">🔔</text>}
       {a.state === "error" && <text x={12} y={-40} className="mark" aria-hidden="true">!</text>}
     </g>
@@ -182,6 +195,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
   onExpand?: () => void;
 }) {
   const progress = useProgress();
+  const assets = usePolling<OfficeAssets>("/api/office/assets", 60000);
   const approvals = usePolling<Approval[]>("/api/approvals?status=pending", 10000, approvalsKey);
   const [graph, setGraph] = useState<JobGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -248,15 +262,18 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
     return () => cancelAnimationFrame(raf);
   }, [animating, now]);
 
-  function where(a: Actor): { at: Pt; note: string | null } {
+  function where(a: Actor): { at: Pt; note: string | null; walking: boolean } {
     const legs = plans.current.get(a.id);
     if (legs) {
       for (const l of legs) {
-        if (now >= l.start && now <= l.start + l.dur) return { at: lerp(l.from, l.to, l.dur ? (now - l.start) / l.dur : 1), note: l.note ?? null };
+        if (now >= l.start && now <= l.start + l.dur) {
+          return { at: lerp(l.from, l.to, l.dur ? (now - l.start) / l.dur : 1), note: l.note ?? null,
+                   walking: l.from.x !== l.to.x || l.from.y !== l.to.y };
+        }
       }
-      if (now < legs[0].start) return { at: legs[0].from, note: null };
+      if (now < legs[0].start) return { at: legs[0].from, note: null, walking: false };
     }
-    return { at: seat(a.desk), note: null };
+    return { at: seat(a.desk), note: null, walking: false };
   }
 
   const sel = actors.find((a) => a.id === selected) ?? null;
@@ -264,7 +281,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
   // Derinlik sırası: masa (orta noktası) ve karakter (ayak noktası) birlikte; arkadaki önce çizilir
   const layers = [
     ...actors.map((a) => ({ kind: "desk" as const, a, at: a.desk, depth: a.desk.x + a.desk.y + 0.66 })),
-    ...placed.map((p) => ({ kind: "person" as const, a: p.a, at: p.at, depth: p.at.x + p.at.y })),
+    ...placed.map((p) => ({ kind: "person" as const, a: p.a, at: p.at, depth: p.at.x + p.at.y, walking: p.walking })),
   ].sort((p, q) => p.depth - q.depth);
   const scale = compact ? 1.45 : 1;
   const minX = -GRID.h * (TILE.w / 2) - (compact ? 10 : 40), maxX = GRID.w * (TILE.w / 2) + (compact ? 10 : 40);
@@ -289,15 +306,18 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
             {Array.from({ length: GRID.w * GRID.h }, (_, i) => {
               const x = i % GRID.w, y = Math.floor(i / GRID.w);
               const c = iso({ x, y });
-              return <polygon key={i} className={`tile${(x + y) % 2 ? " alt" : ""}`}
-                              points={`${c.x},${c.y} ${c.x + TILE.w / 2},${c.y + TILE.h / 2} ${c.x},${c.y + TILE.h} ${c.x - TILE.w / 2},${c.y + TILE.h / 2}`} />;
+              return assets.data?.floor
+                ? <image key={i} href={assets.data.floor} x={c.x - TILE.w / 2} y={c.y} width={TILE.w} height={TILE.h} preserveAspectRatio="none" />
+                : <polygon key={i} className={`tile${(x + y) % 2 ? " alt" : ""}`}
+                           points={`${c.x},${c.y} ${c.x + TILE.w / 2},${c.y + TILE.h / 2} ${c.x},${c.y + TILE.h} ${c.x - TILE.w / 2},${c.y + TILE.h / 2}`} />;
             })}
             <polygon className="wall" points={`${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y} ${iso({ x: GRID.w, y: 0 }).x},${iso({ x: GRID.w, y: 0 }).y} ${iso({ x: GRID.w, y: 0 }).x},${iso({ x: GRID.w, y: 0 }).y - 60} ${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y - 60}`} />
             <polygon className="wall dark" points={`${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y} ${iso({ x: 0, y: GRID.h }).x},${iso({ x: 0, y: GRID.h }).y} ${iso({ x: 0, y: GRID.h }).x},${iso({ x: 0, y: GRID.h }).y - 60} ${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y - 60}`} />
           </g>
           {layers.map((l) => l.kind === "desk"
-            ? <Desk key={`d-${l.a.id}`} a={l.a} lit={l.a.state === "working"} />
+            ? <Desk key={`d-${l.a.id}`} a={l.a} lit={l.a.state === "working"} art={assets.data?.desk} />
             : <Person key={l.a.id} a={l.a} at={l.at} scale={scale} selected={l.a.id === selected}
+                      art={pickArt(assets.data, l.a, "walking" in l && !!l.walking)}
                       onSelect={() => setSelected(l.a.id === selected ? null : l.a.id)} />)}
           {placed.map(({ a, at }) => {  // isimler masaların önünde (masa ayağı örtmesin)
             const p = iso(at);

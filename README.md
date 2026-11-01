@@ -339,6 +339,11 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
 
+## Ofis çizimleri (Adım 18)
+
+Ofisteki karakterleri, masayı ve zemini kendi çizimlerinle değiştirebilirsin: resimleri `data\ofis\` klasörüne koy
+(`veri.png`, `veri-calisiyor.png`, `masa.png`…), Ofis → **🎨 Çizimler → Yenile**. Ayrıntı: [docs/OFIS_CIZIM.md](docs/OFIS_CIZIM.md).
+
 ## Olayları terminalde izle (Adım 18)
 
 ```powershell
