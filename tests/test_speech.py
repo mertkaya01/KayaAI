@@ -34,7 +34,10 @@ def webm(seconds: float = 2.0) -> bytes:
 
     buf = io.BytesIO()
     out = av.open(buf, mode="w", format="webm")
-    st = out.add_stream("libopus", rate=48000)
+    try:
+        st = out.add_stream("libopus", rate=48000)
+    except Exception as exc:  # noqa: BLE001 - kodlayıcısız PyAV derlemesi
+        pytest.skip(f"PyAV'da opus kodlayıcı yok: {exc}")
     st.layout = "mono"
     s = (0.3 * np.sin(2 * np.pi * 440 * np.arange(int(48000 * seconds)) / 48000)).astype(np.float32)
     for i in range(0, len(s), 960):

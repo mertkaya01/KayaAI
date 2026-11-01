@@ -15,6 +15,9 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 - Bağımlılık: playwright (Edge'i kullanır, tarayıcı indirmez)
 
 ### Düzeltildi
+- Windows kurulumunda 2 birim testi düşüyordu: testler OCR olmayan ortamı varsayıyordu, sahibin bilgisayarında Windows OCR
+  çalıştı ve boş taranmış sayfada doğru biçimde "yazı bulamadı" dedi. Hata mesajları tutarlı ("metin içermiyor …"),
+  testler OCR'dan bağımsız; "OCR yazı bulamadı" durumu için ayrı test; tüm paket "OCR var" koşulunda da doğrulandı
 - Tarayıcı işinde `file:///…` gibi şemalı adreslerin önüne `https://` eklenip kabul edilmesi (artık reddedilir)
 
 ## [0.12.2] - 2026-11-01

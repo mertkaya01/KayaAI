@@ -214,6 +214,18 @@ def test_scanned_pdf_summary_warns_about_ocr(rt, fake_ollama, fake_ocr):
     assert res.warnings[0].startswith("Taranmış PDF")
 
 
+def test_scanned_pdf_ocr_finds_nothing():
+    """Windows'ta gerçek OCR boş sayfada yazı bulamaz (sahibin kurulumunda görüldü): anlaşılır hata."""
+    from kayaai.business.readers import ReadError, read_pdf
+
+    ocr.set_engine(lambda b: OcrResult(text="", engine="fake"))
+    try:
+        with pytest.raises(ReadError, match="metin içermiyor.*okunabilir yazı bulamadı"):
+            read_pdf(make_pdf(["x"], text=False), "tarama.pdf")
+    finally:
+        ocr.set_engine(None)
+
+
 def test_scanned_pdf_without_ocr_explains(no_ocr):
     from kayaai.business.readers import ReadError, read_pdf
 

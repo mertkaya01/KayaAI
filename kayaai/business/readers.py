@@ -91,13 +91,14 @@ def _read_scanned_pdf(data: bytes, name: str) -> PdfDoc:
     try:
         pages = ocr_pdf(data)
     except OcrUnavailable as exc:
-        raise ReadError(f"{name} taranmış PDF; OCR çalışmadı: {exc}") from exc
+        raise ReadError(f"{name} metin içermiyor (taranmış PDF); OCR çalışmadı: {exc}") from exc
     except ValueError as exc:
         raise ReadError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - pypdfium2 hataları çeşitli
         raise ReadError(f"{name} sayfaları görüntüye çevrilemedi: {exc}") from exc
     if not any(len(p) > 20 for p in pages):
-        raise ReadError(f"{name} taranmış PDF; OCR okunabilir yazı bulamadı (çözünürlük düşük olabilir)")
+        raise ReadError(f"{name} metin içermiyor (taranmış PDF); OCR da okunabilir yazı bulamadı "
+                        "(boş sayfa ya da çözünürlük düşük olabilir)")
     return PdfDoc(name=name, pages=pages, ocr=True)
 
 
