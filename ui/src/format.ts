@@ -172,3 +172,25 @@ export function when(iso: string | null | undefined, now: Date = new Date()): st
   if (diff > 1 && diff < 7) return `${["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"][d.getDay()]} ${hm}`;
   return `${d.getDate()} ${["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"][d.getMonth()]} ${hm}`;
 }
+
+/** Sohbet listesi grupları: Bugün, Dün, Bu hafta, Bu ay, Daha eski (Adım 18a). Sıra korunur. */
+export function groupByDate<T extends { updated_at: string }>(items: T[], now: Date = new Date()): { label: string; items: T[] }[] {
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = day(now);
+  const label = (iso: string) => {
+    const diff = Math.round((today - day(new Date(iso))) / 86400000);
+    if (diff <= 0) return "Bugün";
+    if (diff === 1) return "Dün";
+    if (diff < 7) return "Bu hafta";
+    if (diff < 31) return "Bu ay";
+    return "Daha eski";
+  };
+  const out: { label: string; items: T[] }[] = [];
+  for (const it of items) {
+    const l = label(it.updated_at);
+    const last = out[out.length - 1];
+    if (last && last.label === l) last.items.push(it);
+    else out.push({ label: l, items: [it] });
+  }
+  return out;
+}

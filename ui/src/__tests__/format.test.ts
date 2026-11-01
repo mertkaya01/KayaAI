@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, describeEvent, gb, pct, pushSample, when } from "../format";
+import { ago, describeEvent, gb, groupByDate, pct, pushSample, when } from "../format";
 
 describe("biçimlendirme", () => {
   it("yüzde ve GB", () => {
@@ -57,5 +57,14 @@ describe("when", () => {
     expect(when(new Date(2026, 10, 4, 9, 0).toISOString(), now)).toBe("Çar 09:00");
     expect(when(new Date(2026, 11, 3, 9, 0).toISOString(), now)).toBe("3 Ara 09:00");
     expect(when(null, now)).toBe("—");
+  });
+});
+
+describe("groupByDate", () => {
+  it("groups conversations by day buckets", () => {
+    const now = new Date(2026, 10, 10, 12);
+    const at = (d: number) => ({ updated_at: new Date(2026, 10, d, 9).toISOString() });
+    const g = groupByDate([at(10), at(10), at(9), at(6), at(1), { updated_at: new Date(2026, 8, 1).toISOString() }], now);
+    expect(g.map((x) => [x.label, x.items.length])).toEqual([["Bugün", 2], ["Dün", 1], ["Bu hafta", 1], ["Bu ay", 1], ["Daha eski", 1]]);
   });
 });

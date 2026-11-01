@@ -168,11 +168,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         <ChatView
           convId={route.convId}
           onSelect={(id) => navigate({ page: "chat", convId: id })}
-          onOpenMemory={() => go({ page: "memory" })}
           onOpenFlow={(jobId) => go({ page: "flow", jobId })}
           refreshKey={chatKey}
-          flowKey={flowKey}
-          approvalsKey={keys.approvals}
           claude={claude.data}
         />
       ) : route.page === "memory" ? (

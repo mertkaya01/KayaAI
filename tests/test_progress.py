@@ -28,6 +28,14 @@ def test_readable_tail(partial, field, tail):
     assert readable_tail(partial) == (field, tail)
 
 
+def test_readable_value_keeps_full_text_and_newlines():
+    from kayaai.core.progress import readable_value
+
+    assert readable_value('{"answer": "Başlık\\n\\n- madde 1\\n- mad') == ("answer", "Başlık\n\n- madde 1\n- mad")
+    f, t = readable_value('{"answer": "' + "a" * 500)
+    assert f == "answer" and len(t) == 500
+
+
 def test_tail_is_clipped():
     f, t = readable_tail('{"answer": "' + "a" * 500)
     assert f == "answer" and len(t) == 140 and t.startswith("…")
@@ -44,7 +52,7 @@ def test_sink_throttles():
     s.flush()
     assert sent[-1]["chars"] == 22 and sent[-1]["tail"] == "x" + "y" * 9
     s.reset(2)
-    assert sent[-1] == {"chars": 0, "field": None, "tail": "", "attempt": 2}
+    assert sent[-1] == {"chars": 0, "field": None, "tail": "", "attempt": 2, "text": ""}
 
 
 def test_client_stream_joins_chunks(client, fake_ollama):

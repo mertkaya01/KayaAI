@@ -13,10 +13,16 @@ function emit(): void {
 /** task.progress → kaydet; task.status (bitti) → sil. Diğer olaylar yok sayılır. True: olay ilerleme olayıydı. */
 export function ingestProgress(e: KEvent): boolean {
   if (e.type === "task.progress" && e.task_id) {
-    const d = e.data as Partial<Progress>;
+    const d = e.data as Partial<Progress> & { text?: string };
+    const prev = state[e.task_id];
+    const field = (d.field as string | null) ?? null;
+    const attempt = Number(d.attempt ?? 1);
+    // cevap alanı yazılırken metni tut; model sonraki alana geçince son hâli kalır; yeni denemede sıfırlanır
+    const answer = field === "answer" || field === null ? String(d.text ?? d.tail ?? "")
+      : prev && prev.attempt === attempt ? prev.answer : undefined;
     state = { ...state, [e.task_id]: { task_id: e.task_id, worker: String(d.worker ?? ""), chars: Number(d.chars ?? 0),
-                                       field: (d.field as string | null) ?? null, tail: String(d.tail ?? ""),
-                                       attempt: Number(d.attempt ?? 1), at: Date.now() } };
+                                       field, tail: String(d.tail ?? ""), attempt, at: Date.now(),
+                                       parent_id: (d.parent_id as string | null | undefined) ?? null, answer } };
     emit();
     return true;
   }

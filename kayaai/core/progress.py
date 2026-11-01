@@ -16,11 +16,20 @@ _KEY_RE = re.compile(r'"([A-Za-z_][A-Za-z0-9_]*)"\s*:\s*"')
 TAIL_CHARS = 140
 
 
+TEXT_CHARS = 4000
+
+
 def readable_tail(partial: str, limit: int = TAIL_CHARS) -> tuple[str | None, str]:
     """Yarım JSON metninde yazılmakta olan son metin değeri: (alan adı, okunur kuyruk). JSON değilse metnin sonu."""
+    field, text = readable_value(partial)
+    return field, _clip(text, limit)
+
+
+def readable_value(partial: str) -> tuple[str | None, str]:
+    """Yazılmakta olan son metin değerinin tamamı (satır sonları korunur) — sohbette cevabın akması için (Adım 18)."""
     s = partial.lstrip()
     if not s.startswith(("{", "[")):
-        return None, _clip(s, limit)
+        return None, s
     last = None
     for m in _KEY_RE.finditer(s):
         last = m
@@ -45,7 +54,7 @@ def readable_tail(partial: str, limit: int = TAIL_CHARS) -> tuple[str | None, st
         text = json.loads(f'"{body}"')
     except ValueError:
         text = body.replace("\\n", "\n").replace('\\"', '"')
-    return last.group(1), _clip(text, limit)
+    return last.group(1), text
 
 
 def _clip(text: str, limit: int) -> str:
@@ -80,7 +89,8 @@ class ProgressSink:
     def flush(self, force: bool = False) -> None:
         if not force and not self._buf:
             return
-        field, tail = readable_tail("".join(self._buf))
+        field, text = readable_value("".join(self._buf))
         self._last = self._clock()
         self.sent += 1
-        self._emit({"chars": self._chars, "field": field, "tail": tail, "attempt": self.attempt})
+        self._emit({"chars": self._chars, "field": field, "tail": _clip(text, TAIL_CHARS), "attempt": self.attempt,
+                    "text": text[:TEXT_CHARS]})

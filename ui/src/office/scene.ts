@@ -4,7 +4,11 @@ import type { Approval, FlowNode, JobGraph } from "../api";
 export interface Pt { x: number; y: number }
 
 /** Canlı ilerleme (task.progress olayı): ajan yazarken okunur kuyruk. */
-export interface Progress { task_id: string; worker: string; chars: number; field: string | null; tail: string; attempt: number; at: number }
+export interface Progress {
+  task_id: string; worker: string; chars: number; field: string | null; tail: string; attempt: number; at: number;
+  parent_id?: string | null;  // şef işinin adımıysa iş numarası
+  answer?: string;            // Adım 18: "answer" alanının şimdiye kadar yazılan metni (sohbette akar)
+}
 
 export type ActorState = "idle" | "working" | "waiting" | "error" | "done";
 
