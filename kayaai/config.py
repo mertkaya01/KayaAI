@@ -36,6 +36,9 @@ class OrchestratorSettings(BaseModel):
     default_timeout_s: float = Field(240, gt=0)
     max_parallel: int = Field(1, ge=1, le=16)
     max_output_attempts: int = Field(3, ge=1, le=10)
+    # Adım 15: model çıktısı akışlı okunur, okunur kuyruk `task.progress` olayı olarak gider (canlı ofis)
+    live_progress: bool = True
+    progress_interval_s: float = Field(0.4, ge=0.05, le=10)
 
 
 class PermissionSettings(BaseModel):

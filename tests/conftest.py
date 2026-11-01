@@ -123,6 +123,14 @@ class FakeOllama:
                 reply = reply(body)
             if isinstance(reply, tuple):
                 return reply
+            if body.get("stream"):
+                n = max(1, len(reply) // 4)
+                parts = [reply[i:i + n] for i in range(0, len(reply), n)] or [""]
+                return 200, NDJSON([{"model": body["model"], "message": {"role": "assistant", "content": p}, "done": False}
+                                    for p in parts] + [{
+                    "model": body["model"], "message": {"role": "assistant", "content": ""}, "done": True,
+                    "done_reason": "stop", "prompt_eval_count": 20, "eval_count": 40, "eval_duration": 1_000_000_000,
+                    "total_duration": 1_500_000_000, "load_duration": 100_000_000}])
             return 200, {
                 "model": body["model"],
                 "message": {"role": "assistant", "content": reply},

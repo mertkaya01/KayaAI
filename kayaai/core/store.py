@@ -420,6 +420,10 @@ class TaskStore:
         with self._tx() as c:
             self._insert_event(c, type_, task_id, data)
 
+    def delete_events(self, type_: str, task_id: str) -> None:
+        with self._tx() as c:
+            c.execute("DELETE FROM events WHERE type = ? AND task_id = ?", (type_, task_id))
+
     def events_since(self, after_id: int = 0, limit: int = 200) -> list[dict[str, Any]]:
         with self._lock:
             rows = self._conn.execute(

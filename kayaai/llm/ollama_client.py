@@ -11,7 +11,7 @@ import json
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -191,12 +191,14 @@ class OllamaClient:
         keep_alive: str | int | None = None,
         timeout: float | None = None,
         cancel_event: threading.Event | None = None,
+        on_token: Callable[[str], None] | None = None,
     ) -> ChatResult:
-        """Tek seferlik (stream=false) sohbet isteği.
+        """Sohbet isteği. `on_token` verilirse akışlı (stream) çalışır ve her parça için çağrılır (Adım 15: canlı ofis);
+        dönüş yine tam `ChatResult`.
 
         format: None, "json" veya JSON Schema sözlüğü (Ollama structured outputs).
         """
-        payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
+        payload: dict[str, Any] = {"model": model, "messages": messages, "stream": on_token is not None}
         if format is not None:
             payload["format"] = format
         if options:
@@ -205,7 +207,10 @@ class OllamaClient:
             payload["think"] = think
         if keep_alive is not None:
             payload["keep_alive"] = keep_alive
-        data = self._request("POST", "/api/chat", json=payload, timeout=timeout, cancel_event=cancel_event)
+        if on_token is not None:
+            data = self._chat_stream(payload, on_token, timeout, cancel_event)
+        else:
+            data = self._request("POST", "/api/chat", json=payload, timeout=timeout, cancel_event=cancel_event)
         msg = data.get("message") or {}
         if "content" not in msg:
             raise OllamaError(f"Beklenmeyen /api/chat yanıtı: {str(data)[:300]}")
@@ -222,6 +227,77 @@ class OllamaClient:
             raw=data,
         )
 
+
+    def _chat_stream(self, payload: dict[str, Any], on_token: Callable[[str], None], timeout: float | None,
+                     cancel_event: threading.Event | None) -> dict[str, Any]:
+        """Akışlı /api/chat: parçaları birleştirip akışsız cevapla aynı biçimde döner. Bağlantı hatası ilk parçadan
+        önceyse yeniden denenir (akışsızdaki gibi); parça geldikten sonra kopma yeniden denenmez (çift metin olmasın)."""
+        attempts = self.settings.max_retries + 1
+        last_exc: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            if cancel_event is not None and cancel_event.is_set():
+                raise OllamaCancelled("istek iptal edildi")
+            content: list[str] = []
+            thinking: list[str] = []
+            got_any = False
+            try:
+                t = httpx.Timeout(timeout, connect=self.settings.connect_timeout_s) if timeout is not None else None
+                with self._http.stream("POST", "/api/chat", json=payload, **({"timeout": t} if t else {})) as resp:
+                    if resp.status_code >= 400:
+                        resp.read()
+                        message = _error_message(resp)
+                        if resp.status_code == 404 and "not found" in message.lower():
+                            raise OllamaModelNotFound(message)
+                        if resp.status_code < 500:
+                            raise OllamaError(f"HTTP {resp.status_code}: {message}")
+                        last_exc = OllamaError(f"HTTP {resp.status_code}: {message}")
+                    else:
+                        final: dict[str, Any] = {}
+                        for line in resp.iter_lines():
+                            if cancel_event is not None and cancel_event.is_set():
+                                raise OllamaCancelled("istek iptal edildi")
+                            if not line.strip():
+                                continue
+                            try:
+                                part = json.loads(line)
+                            except ValueError as exc:
+                                raise OllamaError(f"Ollama geçersiz akış satırı: {line[:200]}") from exc
+                            if part.get("error"):
+                                raise OllamaError(str(part["error"]))
+                            got_any = True
+                            m = part.get("message") or {}
+                            if m.get("thinking"):
+                                thinking.append(m["thinking"])
+                            if m.get("content"):
+                                content.append(m["content"])
+                                on_token(m["content"])
+                            if part.get("done"):
+                                final = part
+                                break
+                        if not final:
+                            raise OllamaError("Ollama akışı tamamlanmadan bitti")
+                        final = dict(final)
+                        final["message"] = {"role": "assistant", "content": "".join(content),
+                                            **({"thinking": "".join(thinking)} if thinking else {})}
+                        return final
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                    httpx.RemoteProtocolError, httpx.WriteError, httpx.ReadError) as exc:
+                if got_any:
+                    raise OllamaUnavailable(f"Ollama akışı yarıda kesildi: {exc}") from exc
+                last_exc = exc
+                log.warning("Ollama akışlı sohbet başarısız (deneme %d/%d): %s", attempt, attempts, exc)
+            if attempt < attempts:
+                delay = self.settings.retry_backoff_s * (2 ** (attempt - 1))
+                if cancel_event is not None:
+                    if cancel_event.wait(delay):
+                        raise OllamaCancelled("istek iptal edildi")
+                else:
+                    time.sleep(delay)
+        if isinstance(last_exc, OllamaError):
+            raise last_exc
+        raise OllamaUnavailable(
+            f"Ollama'ya ulaşılamadı ({self.settings.base_url}). Ollama çalışıyor mu? Ayrıntı: {last_exc}"
+        ) from last_exc
 
     def embed(self, model: str, inputs: list[str], *, keep_alive: str | int | None = None,
               timeout: float | None = None) -> list[list[float]]:

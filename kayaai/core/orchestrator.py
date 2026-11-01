@@ -136,6 +136,12 @@ class Orchestrator:
             cancel_event=cancel_event,
             max_output_attempts=self.settings.max_output_attempts,
         )
+        if self.settings.live_progress:
+            from .progress import ProgressSink
+
+            meta = {"worker": task.worker, "parent_id": task.parent_id}
+            ctx.progress = ProgressSink(lambda d: self.store.emit("task.progress", {**meta, **d}, task_id=task.id),
+                                        interval_s=self.settings.progress_interval_s)
         task.status = TaskStatus.RUNNING
         task.started_at = utcnow()
         task.attempts += 1
@@ -279,6 +285,7 @@ class Orchestrator:
             task.validation = validation
         task.finished_at = utcnow()
         self.store.save(task)
+        self.store.delete_events("task.progress", task.id)  # canlı izleme içindi; kalıcı kayıt task_events'te
         self.store.log_event(
             task.id, status.value, {"error": error, "duration_s": task.duration_s, "metrics": task.metrics}
         )

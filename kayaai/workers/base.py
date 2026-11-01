@@ -49,6 +49,8 @@ class WorkerContext:
     max_output_attempts: int = 3
     # Worker'ın gözlemlenebilir ölçümleri (model, token/sn, deneme sayısı) buraya yazılır.
     metrics: dict[str, Any] = field(default_factory=dict)
+    # Adım 15: canlı ilerleme (verilirse model çıktısı akışlı okunur, okunur kuyruk olay olarak gider)
+    progress: Any = None  # ProgressSink | None
 
     def check_cancelled(self) -> None:
         if self.cancel_event.is_set():
@@ -135,6 +137,8 @@ class LLMWorker(Worker):
         for attempt in range(1, ctx.max_output_attempts + 1):
             ctx.check_cancelled()
             ctx.metrics["output_attempts"] = attempt
+            if ctx.progress is not None and attempt > 1:
+                ctx.progress.reset(attempt)
             result = ctx.llm.chat(
                 spec.name,
                 messages,
@@ -144,7 +148,10 @@ class LLMWorker(Worker):
                 keep_alive=spec.keep_alive,
                 timeout=task.timeout_s,
                 cancel_event=ctx.cancel_event,
+                on_token=ctx.progress.feed if ctx.progress is not None else None,
             )
+            if ctx.progress is not None:
+                ctx.progress.flush()
             ctx.metrics.update(result.metrics())
             last_output = result.content
             try:
