@@ -9,6 +9,7 @@ import { FlowView } from "./components/FlowView";
 import { MemoryView } from "./components/MemoryView";
 import { ModelsView } from "./components/ModelsView";
 import { SubtitlesView } from "./components/SubtitlesView";
+import { BrowserView } from "./components/BrowserView";
 import { SystemPanel } from "./components/SystemPanel";
 import { TopBar } from "./components/TopBar";
 import { useEvents, usePolling } from "./hooks";
@@ -126,6 +127,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         />
       ) : route.page === "memory" ? (
         <MemoryView refreshKey={memoryKey} />
+      ) : route.page === "browser" ? (
+        <BrowserView />
       ) : route.page === "subtitles" ? (
         <SubtitlesView />
       ) : route.page === "models" ? (

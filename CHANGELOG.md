@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.12.3] - 2026-11-01
+
+### Eklendi (Adım 12d — tarayıcı otomasyonu; kabul #11)
+- **Tarayıcı** sekmesi ve `kayaai browse "hedef" --url`: Playwright + kurulu Edge, ayrı boş profil, görünür pencere
+- Ajan her adımda bir eylem önerir (`browser.step`, şema + kod doğrulaması); risk sınıfını kod belirler: R0 okuma,
+  R1 aynı sitede tıklama, R2 form/yeni site, R3 gönder/öde/satın al/sil/yayınla/kaydol; parola-kart-kimlik alanı,
+  indirme/yükleme, `file://` ve yerel ağ reddedilir
+- Onay talebinde hedef öğe kırmızı çerçeveli ekran görüntüsü (Onay merkezi de gösterir); sayfada satır içi onay/ret;
+  durdurma, 20 adım, tekrar ve onay zaman aşımı korumaları; her adım görev geçmişinde
+- API `/api/browser/run|jobs|jobs/{id}|jobs/{id}/stop`; `doctor` satırı; `perception_check --browser`
+- Bağımlılık: playwright (Edge'i kullanır, tarayıcı indirmez)
+
+### Düzeltildi
+- Tarayıcı işinde `file:///…` gibi şemalı adreslerin önüne `https://` eklenip kabul edilmesi (artık reddedilir)
+
 ## [0.12.2] - 2026-11-01
 
 ### Eklendi (Adım 12c — canlı çeviri altyazı; kabul #9, #10)

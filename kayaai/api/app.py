@@ -207,6 +207,11 @@ class TranscriptBody(BaseModel):
     lines: list[SubtitleLine] = Field(min_length=1, max_length=20_000)
 
 
+class BrowserRunBody(BaseModel):
+    goal: str = Field(min_length=1, max_length=2000)
+    url: str = Field(min_length=1, max_length=2000)
+
+
 class ModelName(BaseModel):
     name: str = Field(min_length=1, max_length=140)
 
@@ -721,6 +726,43 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return request_download(rt, requested_by="api").model_dump(mode="json")
         except SpeechError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- tarayıcı (Adım 12d)
+
+    @app.post("/api/browser/run", dependencies=[Depends(auth)])
+    def browser_run(body: BrowserRunBody) -> dict[str, Any]:
+        from ..browser.agent import BrowserJobError, start_job
+
+        try:
+            return start_job(rt, body.goal, body.url, background=True).state.model_dump(mode="json")
+        except BrowserJobError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/browser/jobs", dependencies=[Depends(auth)])
+    def browser_jobs() -> list[dict[str, Any]]:
+        from ..browser.agent import list_jobs
+
+        return [s.model_dump(mode="json", exclude={"screenshot"}) for s in list_jobs()]
+
+    @app.get("/api/browser/jobs/{job_id}", dependencies=[Depends(auth)])
+    def browser_job(job_id: str) -> dict[str, Any]:
+        from ..browser.agent import BrowserJobError, get_job
+
+        try:
+            return get_job(job_id).state.model_dump(mode="json")
+        except BrowserJobError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
+    @app.post("/api/browser/jobs/{job_id}/stop", dependencies=[Depends(auth)])
+    def browser_stop(job_id: str) -> dict[str, Any]:
+        from ..browser.agent import BrowserJobError, get_job
+
+        try:
+            job = get_job(job_id)
+        except BrowserJobError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        job.stop_event.set()
+        return {"id": job_id, "stopping": True}
 
     @app.post("/api/business/run", dependencies=[Depends(auth)])
     def business_run(body: BusinessRunBody) -> dict[str, Any]:

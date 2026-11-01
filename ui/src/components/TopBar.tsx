@@ -69,6 +69,9 @@ export function TopBar({
           <button aria-selected={route.page === "subtitles"} onClick={() => onNavigate({ page: "subtitles" })}>
             Altyazı
           </button>
+          <button aria-selected={route.page === "browser"} onClick={() => onNavigate({ page: "browser" })}>
+            Tarayıcı
+          </button>
           <button aria-selected={route.page === "models"} onClick={() => onNavigate({ page: "models" })}>
             Modeller
           </button>

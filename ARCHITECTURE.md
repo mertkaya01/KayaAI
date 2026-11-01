@@ -267,6 +267,20 @@ sunucu: LiveSession (iş parçacığı + kuyruk) ← feed_pcm16
 olay kaydı: speech.live başladı/bitti (satır sayısı) — metin yok; döküm yalnız POST /api/speech/transcript ile (R1)
 ```
 
+## Tarayıcı otomasyonu (Adım 12d)
+
+```
+start_job(hedef, url) → BrowserJob (tek iş; arka plan iş parçacığı) → Task(worker=browser) + olaylar
+  BrowserDriver: Playwright senkron API kendi iş parçacığında (komut kuyruğu); launch_persistent_context(
+     data/browser_profile, channel=msedge, accept_downloads=False); ağ koruması: http/https dışı + yerel ağ → abort
+  döngü: snapshot (SNAPSHOT_JS: görünür etkileşimli öğelere data-kaya-id, ad/tür/href/form ipuçları; sayfa metni)
+     → browser.step worker (BrowserAction şeması; öğe no. ve alanlar kodla doğrulanır, hatalıysa yeniden)
+     → risk.classify (kod) → refuse: yapılmaz, modele bildirilir · R0/R1: PermissionEngine.submit → hemen
+       · R2/R3: submit → onay talebi (önizleme: hedef öğe kırmızı çerçeveli JPEG data URL) → karar beklenir
+     → "browser.action" yürütücüsü sürücüde eylemi yapar (onay hangi iş parçacığından gelirse gelsin)
+  korumalar: 20 adım, aynı eylem 3 kez → dur, 3 kural dışı adım → dur, onay zaman aşımı (10 dk) → reddedilir
+```
+
 ## İş modülleri (Adım 10)
 
 ```

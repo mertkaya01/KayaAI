@@ -171,10 +171,23 @@
 - [x] WebSocket erişim anahtarıyla; ilk mesaj doğrulanır (dil/hedef beyaz liste); model yoksa anlaşılır hata ile kapanır
 - [x] AudioWorklet aynı kökenden (`/pcm-worklet.js`), CSP değişmedi
 
+## Adım 12d'de uygulananlar (tarayıcı otomasyonu)
+
+- [x] Ayrı ve boş tarayıcı profili (`data/browser_profile`): sahibin çerezleri, oturumları, şifreleri kullanılmaz;
+      görünür pencere; arka plan eşitleme/güncelleme bağlantıları kapalı bayraklarla başlatılır
+- [x] Risk sınıfını KOD belirler (model değil): okuma R0, aynı sitede tıklama R1, form girişi / yeni site R2, gönderme /
+      ödeme / satın alma / silme / yayınlama / kayıt R3 (her seferinde onay; toplu onay yok)
+- [x] Reddedilenler: parola/kart/kimlik/IBAN/OTP alanına yazma, dosya yükleme ve indirme (indirme kapalı), `file://`,
+      `javascript:`, yerel ağ ve bu bilgisayarın adresleri (ağ katmanında da engellenir)
+- [x] Önizleme: hedef öğe kırmızı çerçeveli ekran görüntüsü + açıklama + ajanın gerekçesi; reddedilirse iş durur;
+      onay 10 dk içinde verilmezse reddedilir; Durdur her an
+- [x] Döngü korumaları: en fazla 20 adım, aynı eylem tekrarı ve üst üste kural dışı adımlarda durur
+- [x] Playwright (Apache-2.0); tarayıcı indirmez, kurulu Edge'i kullanır
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
-Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem
-önizlemesi (Faz 12), hafıza hassasiyet kontrolleri (Faz 9).
+Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü (tarayıcı dışı) eylem
+önizlemesi, hafıza hassasiyet kontrolleri (Faz 9).
 
 ## Güvenlik sorunu bildirimi
 

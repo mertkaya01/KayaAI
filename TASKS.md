@@ -34,7 +34,7 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [~] 12a kodlandı (v0.12.0), Windows doğrulaması bekliyor |
 | 9 | Seçilen ses kaynağı yazıya dökülüyor | [~] mikrofon (12b) + sistem sesi (12c) kodlandı, Windows doğrulaması bekliyor |
 | 10 | Çeviri altyazı olarak gösteriliyor | [~] 12c kodlandı (v0.12.2), Windows doğrulaması bekliyor |
-| 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [ ] Faz 7 |
+| 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [~] tarayıcı otomasyonu (12d, v0.12.3) kodlandı, Windows doğrulaması bekliyor |
 | 12 | İş raporu üretiliyor | [x] 2026-10-31 — xlsx / md / docx / pdf |
 | 13 | Yeniden başlatmada görev geçmişi geri yükleniyor | [x] |
 
@@ -158,10 +158,13 @@ tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
   küçük pencere (Document PiP); döküm .txt/.srt yalnız istenince; görsel model boşaltılır
 - Testler: Python (canlı 12: bölütleyici sentetik ses, oturum, WS), Playwright (altyazı 13 kontrol; sahte mikrofon dosyası
   + sesli paylaşım); Windows `perception_check` (canlı altyazı gecikmesi) bekliyor
-- [ ] 12d — Tarayıcı otomasyonu
+- [x] 12d — Tarayıcı otomasyonu: Playwright + kurulu Edge (ayrı profil), kodla risk sınıfı (R0–R3 + reddedilenler),
+  hedef öğesi çerçeveli önizlemeyle onay, Tarayıcı sayfası (adımlar, satır içi onay, sayfa görüntüsü), CLI `kayaai browse`
+- Testler: Python (tarayıcı 42: risk tablosu, sahte sürücüyle onay/ret/kural/durdur/tekrar, gerçek Chromium sürücüsü, API),
+  Playwright (tarayıcı 10 kontrol); Windows `perception_check --browser` bekliyor
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 sürüyor (12a kodlandı).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 kodlandı (12a–d, v0.12.3), Windows doğrulaması bekliyor. Sıradaki: Adım 13 (zamanlama).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

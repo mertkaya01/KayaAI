@@ -3,6 +3,8 @@
 Kullanım (proje klasöründe, venv etkin; önce: ollama pull qwen2.5vl:7b ve kayaai speech download):
     python scripts/perception_check.py            # örnek görüntüler + taranmış PDF + ses tanıma
     python scripts/perception_check.py --screen   # + gerçek ekranından TEK kare (yalnız bu komutla, kaydedilmez)
+    python scripts/perception_check.py --browser  # + 12d: Edge ile yerel test mağazasında gerçek modelle görev
+                                                  #   (onay gereken her adımı terminalde SANA sorar)
 Ses: konuşma örnekleri Windows'un kendi sesleriyle (System.Speech, çevrim dışı) WAV'a sentezlenir → whisper → kelime hata
 oranı (WER). Türkçe ses yüklü değilse yalnız İngilizce ölçülür.
 Sonuç: data/perception_check.json
@@ -165,6 +167,61 @@ def check_speech(settings, work: Path, work_settings) -> tuple[list[dict], dict]
     return rows, info
 
 
+SHOP = """<!doctype html><html><head><meta charset="utf-8"><title>Test Kitapçı</title></head><body>
+<h1>Test Kitapçı</h1><form action="/ara" method="get"><label for="q">Kitap ara</label> <input id="q" name="q">
+<button type="submit">Ara</button></form><p><a href="/hakkinda">Hakkımızda</a></p></body></html>"""
+RESULT = """<!doctype html><html><head><meta charset="utf-8"><title>Arama sonuçları</title></head><body>
+<h1>Arama sonuçları</h1><ul><li>Python ile Programlama — 250 TL</li><li>Python Veri Bilimi — 320 TL</li></ul>
+<button>Satın Al</button></body></html>"""
+
+
+def check_browser(work_settings) -> dict:
+    """12d: yerel test mağazasında (yalnız bu kontrol için yerel adrese izin) gerçek Edge + gerçek model."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from kayaai.browser.agent import BrowserJobError, start_job
+    from kayaai.runtime import build_runtime
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            body = (RESULT if self.path.startswith("/ara") else SHOP).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    work_settings.browser.allow_local = True  # yalnız bu ayrı kontrol klasöründe
+    t0 = time.monotonic()
+    with build_runtime(work_settings) as rt:
+        try:
+            job = start_job(rt, "Python kitaplarını ara ve fiyatlarını söyle. Satın alma.",
+                            f"http://127.0.0.1:{srv.server_address[1]}/", background=True)
+        except BrowserJobError as exc:
+            srv.shutdown()
+            return {"error": str(exc)}
+        asked: set[str] = set()
+        while not job.finished.wait(0.3):
+            for a in rt.permissions.list_approvals("pending"):
+                if a.id in asked:
+                    continue
+                asked.add(a.id)
+                print(f"\n[ONAY] {a.action.risk.value} · {a.action.summary}\n  Neden: {a.action.reason}")
+                yes = input("  Onaylıyor musun? [e/H]: ").strip().lower() in ("e", "evet", "y")
+                (rt.permissions.approve if yes else rt.permissions.reject)(a.id, decided_by="owner")
+        st = job.state
+    srv.shutdown()
+    print(f"Tarayıcı: {st.status} — {st.answer[:200] or st.error}")
+    return {"ok": st.status == "done" and "250" in st.answer, "status": st.status, "answer": st.answer[:400],
+            "error": st.error, "seconds": round(time.monotonic() - t0, 1),
+            "steps": [f"{x.n}. [{x.risk}] {x.description} — {x.status}" for x in st.steps]}
+
+
 def main() -> int:
     from kayaai.llm.compare import missing_expected
     from kayaai.perception.ocr import OcrUnavailable, available, ocr_image
@@ -235,6 +292,7 @@ def main() -> int:
                 screen_row = {"error": str(exc)}
 
     sp_rows, sp_info = check_speech(real, work, settings)
+    browser_row = check_browser(settings) if "--browser" in sys.argv else {}
     measured = [r for r in sp_rows if "wer" in r]
     summary_speech = {"live_subtitles": {k: v for k, v in (sp_info.get("live") or {}).items() if k != "samples"} or None,
                       "speech_device": sp_info.get("device"), "speech_gpu_error": sp_info.get("gpu_error"),
@@ -243,6 +301,7 @@ def main() -> int:
                       "speech_rtf": round(sum(r["seconds"] for r in measured) / max(0.01, sum(r["audio_s"] for r in measured)), 3)
                       if measured else None}
     summary = {
+        "browser_ok": browser_row.get("ok") if browser_row else None,
         **summary_speech,
         "ocr": why, "vision_ok": f"{sum(1 for r in rows if r.get('ok'))}/{len(rows)}",
         "ocr_found": ", ".join(o.get("found", "hata") for o in ocr_rows) or "OCR yok",
@@ -251,7 +310,7 @@ def main() -> int:
     }
     report_path.write_text(json.dumps({"summary": summary, "vision": rows, "ocr": ocr_rows, "scanned_pdf": pdf_row,
                                        "screen": screen_row, "speech": sp_rows,
-                                       "live": sp_info.get("live")}, ensure_ascii=False, indent=2), encoding="utf-8")
+                                       "live": sp_info.get("live"), "browser": browser_row}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     print(f"Rapor: {report_path}")
     return 0

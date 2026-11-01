@@ -20,7 +20,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
-| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu | 12a–c kodlandı (Windows doğrulaması bekliyor); 12d sırada |
+| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | Kodlandı (Windows doğrulaması bekliyor) |
 | 13 | Zamanlama, optimizasyon | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
@@ -278,6 +278,20 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - Dinleme yalnız Başlat ile açılır; kırmızı "Dinleniyor" sayacı, **■ Durdur**, tarayıcıdan "Paylaşımı durdur" ya da 2 saat
   ile kapanır. **Ses kaydedilmez**; döküm yalnız bu sayfada tutulur, istersen **Kaydet .txt / .srt** →
   `~\kayaAI-files\altyazilar\`. Altyazı sürerken görsel model GPU'dan boşaltılır.
+
+## Tarayıcı otomasyonu (Adım 12d)
+
+- **Tarayıcı** sekmesi (`/tarayici`) ya da `kayaai browse "hedef" --url adres`: kurulu **Edge**, senin profilinden
+  **ayrı ve boş bir profille** (`data\browser_profile`; çerezlerin/şifrelerin yok) görünür pencerede açılır. Ajan her
+  adımda sayfayı okur, bir sonraki eylemi önerir; **riski kod belirler**:
+  - okuma / kaydırma: serbest · aynı sitede tıklama: hemen yapılır, kayda geçer
+  - forma yazma, seçim, başka siteye gitme: **onayın gerekir**
+  - gönder / öde / satın al / sipariş / sil / yayınla / kaydol: **her seferinde onayın gerekir**
+  - parola, kart, kimlik numarası alanına yazma; dosya indirme/yükleme; `file://` ve yerel ağ: **yapılmaz**
+- Onay talebinde ajanın tıklayacağı/yazacağı yer **kırmızı çerçeveli ekran görüntüsüyle** gösterilir; Tarayıcı sayfasında
+  ya da Onay merkezinde onayla/reddet. Reddedersen iş durur. **■ Durdur** her an kapatır. En fazla 20 adım.
+- Her adım görev geçmişine kaydedilir (model kararları alt görev). Ölçüm: `python scripts\perception_check.py --browser`
+  (yerel test mağazası; onayları terminalde sana sorar).
 
 ## İş modülleri (Adım 10)
 

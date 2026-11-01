@@ -80,6 +80,12 @@ def build_runtime(
     from .speech import executors as speech_executors
 
     permissions.executors.update(speech_executors(rt))
+    from .browser.agent import BrowserStepWorker
+    from .browser.agent import executors as browser_executors
+
+    permissions.executors.update(browser_executors(rt))
+    if "browser.step" not in workers:
+        workers.register(BrowserStepWorker(), internal=True)
     if load_user_agents:
         sync_user_agents(rt)  # data/agents: sonradan oluşturulan (geçici / kalıcı yapılmış) ajanlar
     from .memory import Memory

@@ -106,3 +106,11 @@ speech:
   language: auto              # auto | tr | en
   max_seconds: 120
   idle_unload_s: 600
+
+browser:
+  # Adım 12d — tarayıcı otomasyonu: kurulu Edge, AYRI boş profil (data/browser_profile), görünür pencere.
+  # Okuma serbest; aynı sitede tıklama kayda geçer; form doldurma / yeni siteye gitme sahip onayı; gönder / öde / sil
+  # her seferinde onay; parola-kart alanı, dosya yükleme/indirme ve yerel ağ reddedilir.
+  channel: msedge
+  headless: false
+  max_steps: 20

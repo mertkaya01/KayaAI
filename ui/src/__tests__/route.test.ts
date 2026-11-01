@@ -3,7 +3,7 @@ import { parseRoute, routePath } from "../route";
 
 describe("yönlendirme", () => {
   it("sayfaları ayrıştırır ve geri yazar", () => {
-    for (const path of ["/", "/asistan", "/asistan/abc123", "/hafiza", "/akis", "/akis/job42", "/modeller", "/altyazi"]) {
+    for (const path of ["/", "/asistan", "/asistan/abc123", "/hafiza", "/akis", "/akis/job42", "/modeller", "/altyazi", "/tarayici"]) {
       expect(routePath(parseRoute(path))).toBe(path);
     }
     expect(parseRoute("/modeller/")).toEqual({ page: "models" });

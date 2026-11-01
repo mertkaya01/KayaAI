@@ -12,6 +12,7 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai browse "hedef" --url ADRES  Tarayıcı ajanı (ayrı Edge profili; form/gönder/öde onaylı)
     kayaai speech [status|download|transcribe <dosya>]  Yerel ses tanıma (faster-whisper)
     kayaai screen ["soru"]   Ekran görüntüsü (tek kare) + yerel görsel model (OCR ile doğrulama)
     kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
@@ -144,6 +145,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             _print(f"[OK] Ses tanıma modeli kurulu: whisper {settings.speech.model}")
         else:
             _print(f"[UYARI] Ses tanıma modeli kurulu değil (whisper {settings.speech.model}) — kayaai speech download")
+        import importlib.util as _iu
+
+        if _iu.find_spec("playwright") is not None:
+            _print(f"[OK] Tarayıcı otomasyonu: Playwright kurulu · tarayıcı: {settings.browser.channel or settings.browser.executable_path}"
+                   " (ayrı profil)")
+        else:
+            _print("[UYARI] Tarayıcı otomasyonu: Playwright kurulu değil (setup.ps1)")
         for m in client.running_models():
             vram = (m.get("size_vram") or 0) / 1024**3
             total = (m.get("size") or 0) / 1024**3
@@ -709,6 +717,39 @@ def cmd_speech(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_browse(args: argparse.Namespace) -> int:
+    """Tarayıcı ajanı: onay gereken adımlar onay kuyruğuna düşer (başka bir terminalde: kayaai approvals approve <id>)."""
+    from .browser.agent import BrowserJobError, start_job
+    from .runtime import build_runtime
+
+    goal = " ".join(args.goal)
+    with build_runtime(load_settings()) as rt:
+        try:
+            job = start_job(rt, goal, args.url, background=True)
+        except BrowserJobError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        _print(f"Tarayıcı açıldı (ayrı profil). Hedef: {goal}")
+        seen = 0
+        while not job.finished.wait(0.5):
+            for s in job.state.steps[seen:]:
+                if s.status == "onay bekliyor":
+                    _print(f"  {s.n}. [{s.risk}] {s.description} — ONAY BEKLİYOR: kayaai approvals approve {s.approval_id}"
+                           f"  (reddet: kayaai approvals reject {s.approval_id})")
+                    if s is job.state.steps[-1]:
+                        break
+                else:
+                    _print(f"  {s.n}. [{s.risk}] {s.description} — {s.status}{' (' + s.reason + ')' if s.status == 'kural dışı' else ''}")
+                seen += 1
+        for s in job.state.steps[seen:]:
+            _print(f"  {s.n}. [{s.risk}] {s.description} — {s.status}")
+        st = job.state
+        _print(f"Sonuç: {st.status}" + (f" — {st.error}" if st.error else ""))
+        if st.answer:
+            _print(st.answer)
+    return 0 if job.state.status == "done" else 1
+
+
 def cmd_business(args: argparse.Namespace) -> int:
     """İş modülleri (Adım 10): kayaai analyze | summarize | invoice <dosya> [soru] [--report biçim]."""
     from .business import from_result, run_mode, save
@@ -1110,6 +1151,11 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    br = sub.add_parser("browse", help="tarayıcı ajanı (Edge, ayrı profil): hedefi adım adım yapar, riskli adımlar onaylı")
+    br.add_argument("goal", nargs="+", help="ne yapılacak (ör. 'python kitaplarının fiyatlarını listele')")
+    br.add_argument("--url", required=True, help="başlangıç adresi")
+    br.set_defaults(func=cmd_browse)
 
     sp = sub.add_parser("speech", help="ses tanıma: durum / modeli indir (onaylı) / dosyayı yazıya çevir")
     sp.add_argument("action", nargs="?", choices=["status", "download", "transcribe"], default="status")
