@@ -173,7 +173,7 @@ Sahip kararları (2026-11-01): Windows Görev Zamanlayıcı; hazır görevler: b
 belge dizini yenileme, serbest görev.
 - [x] 13a — Zamanlanmış görevler: kayıt + sıklık, Görev Zamanlayıcı XML'i (schtasks), R2 onay, çalıştırıcı (kilit,
   Ollama bekleme, sonuç Asistan'a), 4 işleyici, API/CLI, Zamanlama sekmesi, `scripts/schedule_check.py`
-- Testler: Python (zamanlama ), Playwright (zamanlama 8 kontrol); Windows `schedule_check` bekliyor
+- Testler: Python (zamanlama 0), Playwright (zamanlama 8 kontrol); Windows `schedule_check` bekliyor
 - [ ] 13b — VRAM bekçisi + `kayaai bench` · [ ] 13c — DEPLOYMENT.md
 
 ## Sıradaki adımlar
