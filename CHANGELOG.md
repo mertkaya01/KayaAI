@@ -2,6 +2,16 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.14.1] - 2026-11-01
+
+### Eklendi
+- **Fine-tuning değerlendirmesi** (`docs/FINETUNING.md`): ne zaman değer / değmez, bu PC'de yöntem (QLoRA, ayrı ortam,
+  GGUF → Ollama → karşılaştır → yalnız ilgili ajana ata), riskler, karar sırası. Sonuç: şimdilik hayır, önce ölç
+- **`kayaai quality`**: ajan × model ilk denemede geçerli çıktı, şema/doğrulama hataları, geçersiz çıktı, zaman aşımı,
+  kesilen cevap, token/sn; "aday / gerek yok / yetersiz veri" kararı → `data/quality.json`; yalnız yerel model
+  çıktıları sayılır (şef/tarayıcı üst görevleri ve Claude görevleri hariç)
+- Sahibin ilk ölçümü: tüm ajanlar %100 ilk denemede geçerli → fine-tuning gerekmiyor
+
 ## [0.14.0] - 2026-11-01
 
 ### Eklendi (Adım 14 — referans incelemesinden; sahip dördünü seçti)

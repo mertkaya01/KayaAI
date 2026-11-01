@@ -920,6 +920,23 @@ def cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_quality(args: argparse.Namespace) -> int:
+    """Yerel ajanların çıktı kalitesi (yalnız görev kayıtları; model çağrılmaz, dışarı bir şey gitmez)."""
+    from . import quality
+    from .core.store import TaskStore
+
+    s = load_settings()
+    store = TaskStore(s.db_path)
+    try:
+        out = quality.run(store, s.data_dir, args.days)
+    finally:
+        store.close()
+    for line in quality.format_table(out):
+        _print(line)
+    _print(f"Ayrıntı: {out['path']}")
+    return 0
+
+
 def cmd_browse(args: argparse.Namespace) -> int:
     """Tarayıcı ajanı: onay gereken adımlar onay kuyruğuna düşer (başka bir terminalde: kayaai approvals approve <id>)."""
     from .browser.agent import BrowserJobError, start_job
@@ -1368,6 +1385,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("bench", help="donanımda ölçüm: sohbet, embedding, görsel, Whisper, VRAM tepe → data/bench.json"
                    ).set_defaults(func=cmd_bench)
+
+    qp = sub.add_parser("quality", help="ajan çıktı kalitesi (ilk denemede geçerli, geçersiz, zaman aşımı) → data/quality.json")
+    qp.add_argument("--days", type=int, default=None, help="yalnız son N gün")
+    qp.set_defaults(func=cmd_quality)
 
     sh = sub.add_parser("schedule", help="zamanlanmış görevler (Windows Görev Zamanlayıcı; ekleme/silme onaylı)")
     sh.add_argument("action", nargs="?", choices=["list", "add", "run", "run-due", "enable", "disable", "rm", "sync"],
