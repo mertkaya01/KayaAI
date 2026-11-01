@@ -260,3 +260,21 @@ def test_api_perception(env, fake_ollama, fake_ocr, tmp_path):
         assert r.status_code == 200 and r.json()["result"]["verified"] is True
         assert c.post("/api/perception/image", json={"data_b64": base64.b64encode(b"degil-resim").decode()},
                       headers=h).status_code == 400
+
+
+def test_ocr_comma_misread_still_verifies(rt, fake_ollama):
+    """Windows bench (2026-11-01): OCR virgülü '1' okudu (1.680,00 → 1.680100); model doğru okudu → doğrulanmalı."""
+    from kayaai.perception.vision import ocr_comma_variants
+
+    bench_ocr = "Fatura No: KYA-2026-0042\nAra toplam: 1.400100 TL\nKDV %20: 280100 TL\nGENEL TOPLAM: 1.680100 TL"
+    assert ocr_comma_variants(bench_ocr) == [1400.0, 280.0, 1680.0]
+    assert ocr_comma_variants("Telefon 5551001, 280100 adet") == []
+    ocr.set_engine(lambda b: OcrResult(text=bench_ocr, engine="fake"))
+    try:
+        fake_ollama.chat_replies = [good_answer("Genel toplam 1.680,00 TL, KDV 280,00 TL.")]
+        res = see(rt, [png()], "Genel toplam ne kadar?")
+        assert res.verified is True and res.unverified_numbers == []
+        fake_ollama.chat_replies = [good_answer("Genel toplam 1.860,00 TL.")]  # gerçekten yanlış sayı yine yakalanır
+        assert see(rt, [png()], "Genel toplam?").unverified_numbers == [1860.0]
+    finally:
+        ocr.set_engine(None)

@@ -7,6 +7,7 @@ Ekran içeriği yereldir: Claude'a gitmez (vision ajanının Claude karşılığ
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from pathlib import Path
@@ -56,6 +57,25 @@ class SeeResult(BaseModel):
         else:
             note = "bazı sayılar ekranda okunan yazıda yok — dikkat"
         return f"{self.answer}\n\n*Görüntü yerel görsel modelle yorumlandı ({self.model or 'vision'}); {note}.*"
+
+
+_MONEY_MISREAD = re.compile(r"(?<![\d.,])(\d{1,3}(?:\.\d{3})*)\.?(\d{3})?1(\d{2})(?=\s*(?:TL|₺|EUR|€|USD|\$)\b|\s*(?:TL|₺|€|\$))")
+
+
+def ocr_comma_variants(text: str) -> list[float]:
+    """OCR'ın ondalık virgülü "1" okuduğu para tutarları için doğru okuma adayları.
+
+    Windows ölçümü (2026-11-01, bench): `1.680,00 TL` → `1.680100 TL`, `280,00 TL` → `280100 TL`. Yalnız para birimi
+    izleyen ve virgülün yerinde tam "1" olan sayılara uygulanır; yalnız İZİN VERİLEN sayıları genişletir (doğrulamayı
+    gevşetir, cevabı değiştirmez)."""
+    out = []
+    for m in _MONEY_MISREAD.finditer(text):
+        head = (m.group(1) or "") + (m.group(2) or "")
+        try:
+            out.append(float(head.replace(".", "") + "." + m.group(3)))
+        except ValueError:
+            continue
+    return out
 
 
 def run_ocr(data: bytes) -> tuple[str, OcrInfo]:
@@ -113,6 +133,16 @@ def see(rt: "Runtime", images: list[bytes], question: str = "", *, ocr_texts: li
             task_input["ocr_text"] = [t[:OCR_CHARS] for t in texts]
         if conversation:
             task_input["conversation"] = conversation[-4:]
+        from ..llm.vram import ensure_vram, model_loaded
+
+        spec = rt.registry.get(rt.workers.get("vision").definition.local_model)  # type: ignore[attr-defined]
+        if not model_loaded(rt, spec.name):  # Adım 13b: yüklemeden önce GPU'da yer aç
+            vr = ensure_vram(rt, spec.approx_vram_gb or 6.0, "görsel model", keep={spec.name})
+            if vr.unloaded:
+                res.warnings.append("GPU'da yer açmak için bellekten çıkarıldı: " + ", ".join(vr.unloaded)
+                                    + " (gerekince kendiliğinden yeniden yüklenir)")
+            if vr.warning:
+                res.warnings.append(vr.warning)
         task = rt.orchestrator.ask(question, worker="vision", input=task_input, parent_id=parent_id)
     finally:
         for p in paths:  # geçici kopyalar silinir (özgün ek, sohbet ekiyse ek klasöründe kalır)
@@ -132,7 +162,7 @@ def see(rt: "Runtime", images: list[bytes], question: str = "", *, ocr_texts: li
         raise VisionError(f"Görsel model cevap veremedi: {err}")
     res.answer = str((task.result or {}).get("answer", "")).strip()
     if has_ocr:
-        allowed = [v for t in texts for v in numbers_in_text(t)] + numbers_in_text(question)
+        allowed = [v for t in texts for v in numbers_in_text(t) + ocr_comma_variants(t)] + numbers_in_text(question)
         res.unverified_numbers = unverified_numbers(res.answer, allowed)
         res.verified = not res.unverified_numbers
         if res.unverified_numbers:

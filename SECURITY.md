@@ -187,6 +187,16 @@
 - [x] Döngü korumaları: en fazla 20 adım, aynı eylem tekrarı ve üst üste kural dışı adımlarda durur
 - [x] Playwright (Apache-2.0); tarayıcı indirmez, kurulu Edge'i kullanır
 
+## Adım 13a'da uygulananlar (zamanlanmış görevler)
+
+- [x] Görev ekleme/silme Windows'un görev kayıtlarını değiştirdiği için R2 sahip onayı (önizleme: sıklık, ilk çalışma,
+      tam komut); aç/kapat ve şimdi çalıştır R1 (kayda geçer); onaysız hiçbir `schtasks` çağrısı yapılmaz (test)
+- [x] Görevler sahibin hesabıyla, yalnız oturum açıkken (InteractiveToken), EN DÜŞÜK yetkiyle; parola saklanmaz;
+      ek paket yok (Windows'un `schtasks.exe` aracı); 2 saat süre sınırı, aynı görevin ikinci örneği başlamaz
+- [x] Zamanlanmış görevler her zaman yerelde: serbest görev Claude açık olsa da şefe `force=local` ile gider; belge özeti
+      gizli dosya kurallarına uyar (`.env`, anahtar, parola dosyaları okunmaz), içerik bilgisayardan çıkmaz
+- [x] Satış raporu ve klasör yalnız izinli klasörlerden; raporlar yeni dosya (R1)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü (tarayıcı dışı) eylem

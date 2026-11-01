@@ -212,6 +212,14 @@ class BrowserRunBody(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
 
 
+class ScheduleBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    kind: Literal["docs_digest", "sales_report", "reindex", "free"]
+    params: dict[str, Any] = Field(default_factory=dict)
+    cadence: dict[str, Any]
+    catch_up: bool = True
+
+
 class ModelName(BaseModel):
     name: str = Field(min_length=1, max_length=140)
 
@@ -610,11 +618,18 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         import binascii
 
         from ..speech.stt import SpeechError, SpeechUnavailable, transcribe
+        from ..speech.stt import is_installed as _installed
+
+        def is_speech_ready() -> bool:
+            return _installed(rt.settings)
 
         try:
             audio = base64.b64decode(body.data_b64, validate=True)
         except (binascii.Error, ValueError) as exc:
             raise HTTPException(400, "Ses verisi bozuk (base64)") from exc
+        from ..speech import prepare_gpu
+
+        vram_warning = prepare_gpu(rt) if is_speech_ready() else None
         try:
             t = transcribe(rt.settings, audio, body.language)
         except SpeechUnavailable as exc:
@@ -623,18 +638,19 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             raise HTTPException(400, str(exc)) from exc
         rt.store.emit("speech.transcribed", {"audio_seconds": t.audio_seconds, "seconds": t.seconds,
                                              "device": t.device, "chars": len(t.text)})  # metin olaya yazılmaz
-        return t.model_dump(mode="json")
+        return {**t.model_dump(mode="json"), "vram_warning": vram_warning}
 
     def _free_vision_vram() -> None:
-        """Altyazı sürerken GPU'da Whisper + çeviri modeline yer aç: görsel model yüklüyse boşalt (Adım 12c)."""
-        spec = rt.registry.models.get("vision-7b")
-        if spec is None:
-            return
+        """Altyazı sürerken GPU'da Whisper + çeviri modeline yer aç (Adım 12c → 13b VRAM bekçisi): görsel model ve
+        diğer boştaki modeller GEREKİRSE boşaltılır; genel model (çeviri) korunur."""
+        from ..llm.vram import model_loaded
+        from ..speech import prepare_gpu
+
+        general = rt.registry.model_for_worker("general")
+        extra = 0.0 if model_loaded(rt, general.name) else (general.approx_vram_gb or 6.5)
         try:
-            if any(m.get("name") == spec.name for m in rt.llm.running_models()):
-                rt.llm.unload_model(spec.name)
-                rt.store.emit("model.unloaded", {"name": spec.name, "reason": "canlı altyazı"})
-        except Exception:  # noqa: BLE001 - Ollama yoksa önemli değil
+            prepare_gpu(rt, "canlı altyazı", extra_gb=extra)
+        except Exception:  # noqa: BLE001 - Ollama/nvidia-smi yoksa önemli değil
             pass
 
     @app.websocket("/api/speech/live")
@@ -726,6 +742,70 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return request_download(rt, requested_by="api").model_dump(mode="json")
         except SpeechError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- zamanlanmış görevler (Adım 13)
+
+    from ..schedule import ScheduleError
+    from ..tools.files import PathNotAllowed as _PathNotAllowed
+
+    def _sched(fn: Any, *args: Any) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        try:
+            return fn(rt, *args, requested_by="api").model_dump(mode="json")
+        except (ScheduleError, ValidationError, ValueError, _PathNotAllowed) as exc:
+            raise HTTPException(409 if not isinstance(exc, ScheduleError) or "bulunamadı" not in str(exc) else 404,
+                                str(exc)) from exc
+
+    @app.get("/api/schedules", dependencies=[Depends(auth)])
+    def schedules_list() -> dict[str, Any]:
+        from ..schedule import list_schedules, sync_report
+        from ..schedule import windows as win
+
+        return {"schedules": list_schedules(rt), "windows": win.supported(), "sync": sync_report(rt)}
+
+    @app.post("/api/schedules", dependencies=[Depends(auth)])
+    def schedules_create(body: ScheduleBody) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        from ..schedule import Cadence, Schedule, request_create
+
+        try:
+            s = Schedule(name=body.name, kind=body.kind, params=body.params, cadence=Cadence(**body.cadence),
+                         catch_up=body.catch_up)
+        except ValidationError as exc:
+            raise HTTPException(409, "; ".join(e["msg"] for e in exc.errors())) from exc
+        return _sched(request_create, s)
+
+    @app.post("/api/schedules/{sid}/delete", dependencies=[Depends(auth)])
+    def schedules_delete(sid: str) -> dict[str, Any]:
+        from ..schedule import request_delete
+
+        return _sched(request_delete, sid)
+
+    @app.post("/api/schedules/{sid}/enable", dependencies=[Depends(auth)])
+    def schedules_enable(sid: str) -> dict[str, Any]:
+        from ..schedule import request_enable
+
+        return _sched(request_enable, sid, True)
+
+    @app.post("/api/schedules/{sid}/disable", dependencies=[Depends(auth)])
+    def schedules_disable(sid: str) -> dict[str, Any]:
+        from ..schedule import request_enable
+
+        return _sched(request_enable, sid, False)
+
+    @app.post("/api/schedules/{sid}/run", dependencies=[Depends(auth)])
+    def schedules_run(sid: str) -> dict[str, Any]:
+        from ..schedule import request_run
+
+        return _sched(request_run, sid)
+
+    @app.get("/api/schedules/runs", dependencies=[Depends(auth)])
+    def schedules_runs(sid: str | None = None, limit: int = Query(30, ge=1, le=200)) -> list[dict[str, Any]]:
+        from ..schedule.runner import history
+
+        return history(rt, sid, limit)
 
     # ---------------------------------------------------------------- tarayıcı (Adım 12d)
 

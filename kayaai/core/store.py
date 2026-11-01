@@ -94,6 +94,21 @@ CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- Adım 13: zamanlanmış görevler ve çalışmaları
+CREATE TABLE IF NOT EXISTS schedules (
+    id          TEXT PRIMARY KEY,
+    created_at  TEXT NOT NULL,
+    data        TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS schedule_runs (
+    id           TEXT PRIMARY KEY,
+    schedule_id  TEXT NOT NULL,
+    started_at   TEXT NOT NULL,
+    data         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_runs ON schedule_runs(schedule_id, started_at);
 """
 SCHEMA_VERSION = "1"
 
@@ -247,6 +262,40 @@ class TaskStore:
             rows = self._conn.execute(
                 f"SELECT data FROM messages WHERE status IN ({marks}) ORDER BY created_at LIMIT ?", (*statuses, limit)
             ).fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+    # ------------------------------------------------------------------ zamanlanmış görevler (Adım 13)
+
+    def save_schedule(self, sid: str, created_at: str, data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute("INSERT OR REPLACE INTO schedules(id, created_at, data) VALUES (?, ?, ?)",
+                      (sid, created_at, json.dumps(data, ensure_ascii=False, default=str)))
+
+    def get_schedule(self, sid: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT data FROM schedules WHERE id = ?", (sid,)).fetchone()
+        return json.loads(row["data"]) if row else None
+
+    def list_schedules(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute("SELECT data FROM schedules ORDER BY created_at").fetchall()
+        return [json.loads(r["data"]) for r in rows]
+
+    def delete_schedule(self, sid: str) -> None:
+        with self._tx() as c:
+            c.execute("DELETE FROM schedules WHERE id = ?", (sid,))
+
+    def save_schedule_run(self, run_id: str, sid: str, started_at: str, data: dict[str, Any]) -> None:
+        with self._tx() as c:
+            c.execute("INSERT OR REPLACE INTO schedule_runs(id, schedule_id, started_at, data) VALUES (?, ?, ?, ?)",
+                      (run_id, sid, started_at, json.dumps(data, ensure_ascii=False, default=str)))
+
+    def list_schedule_runs(self, sid: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        sql, args = "SELECT data FROM schedule_runs", ()
+        if sid:
+            sql, args = sql + " WHERE schedule_id = ?", (sid,)
+        with self._lock:
+            rows = self._conn.execute(sql + " ORDER BY started_at DESC LIMIT ?", (*args, limit)).fetchall()
         return [json.loads(r["data"]) for r in rows]
 
     def save_attachment(self, att_id: str, created_at: str, data: dict[str, Any]) -> None:

@@ -10,6 +10,7 @@ import { MemoryView } from "./components/MemoryView";
 import { ModelsView } from "./components/ModelsView";
 import { SubtitlesView } from "./components/SubtitlesView";
 import { BrowserView } from "./components/BrowserView";
+import { ScheduleView } from "./components/ScheduleView";
 import { SystemPanel } from "./components/SystemPanel";
 import { TopBar } from "./components/TopBar";
 import { useEvents, usePolling } from "./hooks";
@@ -81,6 +82,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   const [memoryKey, setMemoryKey] = useState(0);
   const [flowKey, setFlowKey] = useState(0);
   const [modelsKey, setModelsKey] = useState(0);
+  const [scheduleKey, setScheduleKey] = useState(0);
   const [events, setEvents] = useState<KEvent[]>([]);
   const bump = useCallback((k: keyof Keys) => setKeys((p) => ({ ...p, [k]: p[k] + 1 })), []);
 
@@ -100,6 +102,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
     if (e.type.startsWith("memory.")) setMemoryKey((k) => k + 1);
     if (e.type === "task.status" || e.type === "decision.summary") setFlowKey((k) => k + 1);
     if (e.type.startsWith("model.") || e.type === "agent.model_changed") setModelsKey((k) => k + 1);
+    if (e.type.startsWith("schedule.") || e.type === "approval.decided") setScheduleKey((k) => k + 1);
     if (e.type.startsWith("chat.") || (e.type === "task.status" && e.data.worker === "conductor")) setChatKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
   }, [bump]);
@@ -127,6 +130,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         />
       ) : route.page === "memory" ? (
         <MemoryView refreshKey={memoryKey} />
+      ) : route.page === "schedule" ? (
+        <ScheduleView refreshKey={scheduleKey} />
       ) : route.page === "browser" ? (
         <BrowserView />
       ) : route.page === "subtitles" ? (

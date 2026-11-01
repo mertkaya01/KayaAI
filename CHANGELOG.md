@@ -2,6 +2,60 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.13.4] - 2026-11-01
+
+### Düzeltildi
+- Görsel doğrulama: Windows OCR para tutarlarında ondalık virgülü "1" okuyor (`1.680,00 TL` → `1.680100 TL`); model
+  doğru okusa da cevap "doğrulanmadı" çıkıyordu. Para birimi izleyen bu kalıpta virgüllü okuma da kabul edilir
+  (yalnız izin verilen sayılar genişler; uydurma sayı yine yakalanır)
+
+### Doğrulandı (Windows) — Adım 13 ve yol haritası tamam
+- `schedule_check`: Görev Zamanlayıcı kayaAI kapalıyken görevi çalıştırdı (Last Result 0), sonuç Asistan'da
+- `kayaai bench`: VRAM bekçisi Whisper öncesi 247 MB → 7,4 GB boşalttı; Whisper turbo RTF 0,027 (CUDA)
+
+## [0.13.3] - 2026-11-01
+
+### Düzeltildi (Windows denemesi)
+- `schedule_check` ilk denemede rapor yazmadan bitti (test görevi silinmedi, yalnız `data\schedule\<id>.xml` kaldı).
+  Artık rapor Ctrl+C ve hata dahil her durumda yazılır; Görev Zamanlayıcı'nın kendi kaydı (son çalışma, son sonuç) ve
+  çalışma günlüğü rapora eklenir; test görevi her durumda silinmeye çalışılır
+- Windows'un başlattığı çalışmalar (pythonw: konsol yok) artık çıktılarını ve olası hatalarını `data\schedule\<id>.log`
+  dosyasına yazar — önceden sessizce düşen bir çalışma hiç görülmezdi
+- `kayaai bench`: Whisper öncesi API ile aynı VRAM bekçisi (ölçümde VRAM tepe 16,1/16,3 GB idi); görsel modelin
+  "doğrulanmadı" sonucu için cevap, OCR metni ve eşleşmeyen sayılar kaydedilir
+
+### Doğrulandı (Windows, `kayaai bench`)
+- qwen3:8b 139 token/sn (sıcak 0,4 sn), bge-m3 7,8 ms/metin, qwen2.5vl sıcak 0,44 sn, Whisper turbo CUDA'da gerçek
+  zamanın ~17 katı hızlı (4,4 sn ses → 0,25 sn), WER 0
+
+## [0.13.2] - 2026-11-01
+
+### Eklendi (Adım 13c — belgeler)
+- `docs/DEPLOYMENT.md`: GitHub'dan sıfırdan kurulum (gereksinimler, model boyutları, setup.ps1 adımları, ilk çalıştırma,
+  doğrulama betikleri), güncelleme, `data\` yedekleme/geri yükleme ve taşıma (neyin özel olduğu), kaldırma (Görev
+  Zamanlayıcı kayıtları dahil), sorun giderme tablosu, güvenlik özeti ve çok cihaz notları; README'de bağlantı
+
+## [0.13.1] - 2026-11-01
+
+### Eklendi (Adım 13b — optimizasyon)
+- **VRAM bekçisi** (`llm/vram.py`): görsel model ya da Whisper yüklenmeden önce boş GPU belleği ölçülür; yetmiyorsa o işe
+  gerekmeyen boştaki Ollama modelleri boşaltılır (Windows ekran görüntüsünde VRAM %97 doluydu). Canlı altyazıda genel
+  model korunur; yer yine yetmezse cevapta uyarı
+- `kayaai bench`: sohbet soğuk/sıcak + token/sn, embedding, görsel, Whisper (yükleme ayrı, gerçek zaman oranı), VRAM
+  tepe → `data/bench.json`
+- Windows ses sentezi yardımcıları pakete taşındı (`speech/tts_win.py`; kontrol betiği ve bench ortak kullanır)
+
+## [0.13.0] - 2026-11-01
+
+### Eklendi (Adım 13a — zamanlanmış görevler; kabul: Claude Code açık olmadan çalışır)
+- Windows Görev Zamanlayıcı (sahip kararı): görev XML'i + `schtasks.exe` (ek paket yok), `\kayaAI\<id>`, sahibin
+  hesabıyla en düşük yetki, kaçırılanı telafi, 2 sa sınır; ekleme/silme R2 onaylı, aç/kapat ve şimdi çalıştır R1
+- Görev türleri: belge klasörü özeti, satış raporu (xlsx/pdf), belge dizini yenileme, serbest görev (yerel şef)
+- `kayaai schedule run <id>` çalıştırıcısı: kilit, Ollama bekleme, sonuç Asistan'da "Zamanlanmış görevler" sohbetine,
+  çalışma geçmişi; tek seferlik görev çalışınca kapanır; Windows dışı için `run-due`
+- **Zamanlama** sekmesi, `/api/schedules*`, CLI `kayaai schedule list|add|run|run-due|enable|disable|rm|sync`,
+  `scripts/schedule_check.py` (Windows'un kendisinin çalıştırdığını doğrular)
+
 ## [0.12.4] - 2026-11-01
 
 ### Güvenlik (Windows doğrulaması bulgusu)

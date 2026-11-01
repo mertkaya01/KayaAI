@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.12.4)
+## 12. Current state (v0.13.4) — roadmap Steps 0–13 complete
 
 | Phase | Content | Status |
 |---|---|---|
@@ -297,6 +297,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 9 | Memory: personal memory (category + sensitivity, secrets never stored without permission, proposals need approval) + document search/RAG over allowed folders; SQLite + local bge-m3 + FTS5; private items and documents never sent to Claude | [x] Windows-verified (`memory_check` 10/10 + 10/10; per-kind thresholds 0.60 / 0.50) |
 | 11 | Visual workflow (live node graph of conductor jobs) + model management (Ollama only — owner decision: load/unload, change an agent's model with owner approval, pull new models, comparison test with code-scored cases, activate candidate) | [x] Windows-verified (CLI compare runs; v0.11.1–0.11.3 fixes from them) |
 | 12 | Perception & action — owner decisions 2026-11-01: all four parts; vision qwen2.5vl:7b; STT faster-whisper large-v3-turbo (GPU→CPU); browser = installed Edge with a separate empty profile; TTS = local Windows voices. 12a screen reading (single frame via getDisplayMedia, Windows OCR, number check, scanned PDFs; never sent to Claude); 12b push-to-talk (MediaRecorder → local faster-whisper, GPU→CPU fallback, audio never stored) + read-aloud with local Windows voices only; 12c live translated subtitles (system audio via getDisplayMedia or mic → AudioWorklet 16 kHz PCM → WebSocket → energy VAD → Whisper → local qwen3:8b translation; Document PiP window; transcript saved only on request); 12d browser automation (Playwright + installed Edge, separate empty profile; model proposes one action, CODE classifies risk: read R0, same-site click R1, form input/new site R2, send/pay/buy/delete R3 every time, password/card/ID fields, downloads/uploads, file:// and local network refused; approval preview = screenshot with the target outlined; irreversible R3 actions refused by code unless the goal explicitly asks for them) | [x] Windows-verified (`perception_check`: vision 3/3 OCR-verified, Whisper on CUDA WER 0.0, live subtitles 0.55 s, browser task done) |
+| 13 | Scheduling (owner decision: Windows Task Scheduler via schtasks XML, user context, catch-up; creating/deleting R2) with documents digest, sales report, re-index and free (local conductor) tasks; results land in the Assistant; 13b VRAM guard (frees idle Ollama models before loading the vision model / Whisper) + `kayaai bench`; 13c docs/DEPLOYMENT.md (install from GitHub, update, backup/restore, uninstall, troubleshooting) | [x] Windows-verified (`schedule_check`: Task Scheduler ran kayaAI with it closed, Last Result 0; `kayaai bench`: VRAM guard freed 247 MB → 7.4 GB before Whisper) |
 | 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [x] Windows-verified (`agents_check` 6/6); v0.7.1 fixes CJK leak, contradictory review items |
 
 Note: everything built so far already works with Claude off; Claude Code is only an MCP *client*.
@@ -336,7 +337,7 @@ work starts, and needs the owner's approval to begin.
 - ~~Vector index and embedding model~~ **Decided 2026-10-31:** SQLite (numpy search + FTS5) + Ollama `bge-m3`
 - ~~Assistant chat ↔ Claude~~ **Decided 2026-10-31:** hand-off only, through the existing Claude inbox (the owner
   confirms each hand-off; Opus answers in an interactive Claude Code session; no headless `claude -p`)
-- Scheduler technology (in-process vs Windows Task Scheduler)
+- ~~Scheduler technology~~ **Decided 2026-11-01:** Windows Task Scheduler (runs with kayaAI closed); built-in tasks: documents digest, sales report, re-index, free task
 - Desktop wrapper (none / Tauri / Electron) and when
 - ~~Which business module comes first~~ **Decided 2026-10-31:** all three in Step 10; report formats xlsx, md, docx, pdf
 - ~~LM Studio / llama.cpp adapter in Step 11~~ **Decided 2026-10-31:** not now (Ollama only); model page has agent model

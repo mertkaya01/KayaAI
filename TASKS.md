@@ -168,8 +168,27 @@ tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
   hedefinde "Satın Al" önerildi) kodla reddedilir, aynı adım tekrarı atlanır; ses ölçümünde model yükleme ayrı; OCR küçük
   görüntüyü 2 kat büyütür; test PDF'i düzeltildi; Türkçe OneCore sesi (WinRT) ile ölçüm
 
+## Adım 13 — Zamanlama, optimizasyon, kurulum belgeleri (son adım)
+Sahip kararları (2026-11-01): Windows Görev Zamanlayıcı; hazır görevler: belge klasörü özeti, haftalık satış raporu,
+belge dizini yenileme, serbest görev.
+- [x] 13a — Zamanlanmış görevler: kayıt + sıklık, Görev Zamanlayıcı XML'i (schtasks), R2 onay, çalıştırıcı (kilit,
+  Ollama bekleme, sonuç Asistan'a), 4 işleyici, API/CLI, Zamanlama sekmesi, `scripts/schedule_check.py`
+- Testler: Python (zamanlama 36), Playwright (zamanlama 8 kontrol); Windows `schedule_check` bekliyor
+- [x] 13b — VRAM bekçisi (görsel model / Whisper öncesi boştaki modelleri boşaltır) + `kayaai bench` (Windows'ta çalıştırılacak)
+- [x] 13c — [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): sıfırdan kurulum, güncelleme, yedekleme/geri yükleme, kaldırma,
+  sorun giderme, güvenlik özeti; README hızlı başlangıç bağlantısı
+- [x] Windows `kayaai bench` (2026-11-01): qwen3:8b soğuk 4,7 sn / sıcak 0,4 sn, 139 token/sn; bge-m3 7,8 ms/metin;
+  qwen2.5vl soğuk 3,7 / sıcak 0,44 sn; Whisper yükleme 3,6 sn, gerçek zaman oranı 0,057 (CUDA), WER 0; VRAM tepe 16,1/16,3 GB
+  → v0.13.3: bench de Whisper öncesi VRAM bekçisini çağırır, görsel doğrulama ayrıntısını kaydeder
+- [x] Windows `schedule_check` (2026-11-01, v0.13.3): **kabul geçti** — kayaAI kapalıyken Görev Zamanlayıcı 16:12'de
+  çalıştırdı (Last Result 0, `trigger: windows`, sonuç Asistan'da, günlük yazıldı); ilk deneme de çalışmıştı (15:54,
+  Last Result 0) ama betik rapor yazmadan bitmişti → v0.13.3
+- [x] Windows `kayaai bench` (v0.13.3): VRAM bekçisi Whisper öncesi 247 MB → 7,4 GB boşalttı; Whisper RTF 0,027.
+  Görsel "doğrulanmadı": OCR ondalık virgülü "1" okuyor (1.680,00 → 1.680100) → v0.13.4: para tutarlarında bu okuma
+  kabul edilir (yanlış sayı yine yakalanır)
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Sıradaki: Adım 13 (zamanlama).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 tamamlandı (2026-11-01). **Yol haritası (Adım 0–13) tamamlandı.**
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

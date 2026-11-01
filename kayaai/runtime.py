@@ -84,6 +84,9 @@ def build_runtime(
     from .browser.agent import executors as browser_executors
 
     permissions.executors.update(browser_executors(rt))
+    from .schedule import executors as schedule_executors
+
+    permissions.executors.update(schedule_executors(rt))
     if "browser.step" not in workers:
         workers.register(BrowserStepWorker(), internal=True)
     if load_user_agents:
