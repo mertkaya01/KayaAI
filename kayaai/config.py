@@ -90,6 +90,12 @@ class FilesSettings(BaseModel):
     allowed_dirs: list[AllowedDir] = Field(default_factory=list)
     max_read_mb: float = Field(2.0, gt=0, le=50)
     max_write_mb: float = Field(5.0, gt=0, le=50)
+    # Adım 14b — izinli klasörde bile YAZILMAYAN dosya adları (gizli bilgi taşıyabilir / çalıştırılabilir) ve klasörler.
+    deny_write: list[str] = Field(default_factory=lambda: [
+        ".env", ".env.*", "*.key", "*.pem", "*.pfx", "*.p12", "id_rsa*", "id_ed25519*", "*secret*", "*password*",
+        "*credential*", "*.kdbx", "*.exe", "*.dll", "*.msi", "*.scr", "*.com", "*.lnk", "*.sys", "desktop.ini"])
+    deny_write_dirs: list[str] = Field(default_factory=lambda: [
+        ".ssh", ".gnupg", ".aws", ".azure", ".kube", ".git", "secrets", "credentials"])
 
 
 class MemorySettings(BaseModel):

@@ -218,6 +218,7 @@ class ScheduleBody(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
     cadence: dict[str, Any]
     catch_up: bool = True
+    skip_holidays: bool = False
 
 
 class ModelName(BaseModel):
@@ -743,6 +744,62 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         except SpeechError as exc:
             raise HTTPException(409, str(exc)) from exc
 
+    # ---------------------------------------------------------------- otomasyonu duraklat (Adım 14a)
+
+    @app.get("/api/automation", dependencies=[Depends(auth)])
+    def automation_state() -> dict[str, Any]:
+        from ..automation import state
+
+        return state(rt)
+
+    @app.post("/api/automation/pause", dependencies=[Depends(auth)])
+    def automation_pause() -> dict[str, Any]:
+        from ..automation import set_paused
+
+        return set_paused(rt, True, by="api")
+
+    @app.post("/api/automation/resume", dependencies=[Depends(auth)])
+    def automation_resume() -> dict[str, Any]:
+        from ..automation import set_paused
+
+        return set_paused(rt, False, by="api")
+
+    # ---------------------------------------------------------------- dış veri kaynakları (Adım 14c)
+
+    @app.get("/api/integrations", dependencies=[Depends(auth)])
+    def integrations_list() -> list[dict[str, Any]]:
+        from ..integrations import status
+
+        return status(rt)
+
+    @app.post("/api/integrations/{name}/{action}", dependencies=[Depends(auth)])
+    def integrations_toggle(name: str, action: Literal["enable", "disable"]) -> dict[str, Any]:
+        from ..integrations import IntegrationError, request_disable, request_enable
+
+        try:
+            fn = request_enable if action == "enable" else request_disable
+            return fn(rt, name, requested_by="api").model_dump(mode="json")
+        except IntegrationError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/integrations/rates", dependencies=[Depends(auth)])
+    def integrations_rates() -> dict[str, Any]:
+        from ..integrations import IntegrationError, rates
+
+        try:
+            return rates(rt)
+        except IntegrationError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/integrations/holidays", dependencies=[Depends(auth)])
+    def integrations_holidays(year: int = Query(..., ge=2000, le=2100)) -> list[dict[str, str]]:
+        from ..integrations import IntegrationError, holidays
+
+        try:
+            return holidays(rt, year)
+        except IntegrationError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
     # ---------------------------------------------------------------- zamanlanmış görevler (Adım 13)
 
     from ..schedule import ScheduleError
@@ -772,7 +829,7 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
         try:
             s = Schedule(name=body.name, kind=body.kind, params=body.params, cadence=Cadence(**body.cadence),
-                         catch_up=body.catch_up)
+                         catch_up=body.catch_up, skip_holidays=body.skip_holidays)
         except ValidationError as exc:
             raise HTTPException(409, "; ".join(e["msg"] for e in exc.errors())) from exc
         return _sched(request_create, s)

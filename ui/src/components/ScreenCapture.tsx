@@ -37,6 +37,15 @@ export function CapturePreview({ canvas, onAdd, onCancel }: {
   const [sel, setSel] = useState<Rect | null>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const scale = Math.min(1, 900 / canvas.width, 520 / canvas.height);
+  const first = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {  // Adım 14d: açılınca odak pencerede, Escape kapatır, kapanınca odak geri döner
+    const prev = document.activeElement as HTMLElement | null;
+    first.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); prev?.focus?.(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const v = view.current!;
@@ -82,14 +91,14 @@ export function CapturePreview({ canvas, onAdd, onCancel }: {
           <span className="muted small">{canvas.width}×{canvas.height} · yalnızca bu kare alındı, paylaşım kapatıldı</span>
         </div>
         <p className="muted small">İstersen fareyle bir alan seç (yalnız o kısım gönderilir). Görüntü bu bilgisayarda yerel modelle yorumlanır; Claude'a gönderilmez.</p>
-        <canvas ref={view} className="capture-canvas"
+        <canvas ref={view} className="capture-canvas" role="img" aria-label="Yakalanan ekran; fareyle alan seçilebilir"
           onPointerDown={(e) => { const p = pos(e); drag.current = p; setSel({ x: p.x, y: p.y, w: 0, h: 0 }); (e.target as HTMLElement).setPointerCapture(e.pointerId); }}
           onPointerMove={(e) => { if (!drag.current) return; const p = pos(e); const s = drag.current; setSel({ x: Math.min(s.x, p.x), y: Math.min(s.y, p.y), w: Math.abs(p.x - s.x), h: Math.abs(p.y - s.y) }); }}
           onPointerUp={() => { drag.current = null; }} />
         <div className="row-actions">
           <button className="ghost" onClick={onCancel}>Vazgeç</button>
           {hasSel && <button className="ghost" onClick={() => setSel(null)}>Seçimi temizle</button>}
-          <button onClick={() => add(false)}>Tamamını ekle</button>
+          <button ref={first} onClick={() => add(false)}>Tamamını ekle</button>
           <button className="toggle" disabled={!hasSel} onClick={() => add(true)}>Seçili alanı ekle</button>
         </div>
       </div>

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type ClaudeStatus, type Dispute, type Health, type KEvent, type SystemMetrics } from "./api";
+import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type AutomationState, type ClaudeStatus, type Dispute, type Health, type KEvent, type SystemMetrics } from "./api";
 import { AgentsPanel } from "./components/AgentsPanel";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { ChatView } from "./components/ChatView";
 import { DisputesPanel } from "./components/DisputesPanel";
 import { EventsPanel } from "./components/EventsPanel";
+import { IntegrationsPanel } from "./components/IntegrationsPanel";
 import { FlowView } from "./components/FlowView";
 import { MemoryView } from "./components/MemoryView";
 import { ModelsView } from "./components/ModelsView";
@@ -65,6 +66,7 @@ function ControlCenter({ keys, bump, events, health, onUnauthorized }: {
           <SystemPanel metrics={system.data} health={health} />
           <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => bump("approvals")} />
           <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => bump("disputes")} />
+          <IntegrationsPanel refreshKey={keys.approvals} />
         </div>
         <div className="col">
           <AgentsPanel agents={agents.data} error={agents.error} onChanged={() => { bump("agents"); bump("approvals"); }} />
@@ -88,6 +90,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
 
   const health = usePolling<Health>("/api/health", 5000, claudeKey);
   const claude = usePolling<ClaudeStatus>("/api/claude", 5000, claudeKey);
+  const automation = usePolling<AutomationState>("/api/automation", 15000, claudeKey);
 
   const unauthorized = [health, claude].some((p) => p.unauthorized);
   useEffect(() => {
@@ -104,21 +107,25 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
     if (e.type.startsWith("model.") || e.type === "agent.model_changed") setModelsKey((k) => k + 1);
     if (e.type.startsWith("schedule.") || e.type === "approval.decided") setScheduleKey((k) => k + 1);
     if (e.type.startsWith("chat.") || (e.type === "task.status" && e.data.worker === "conductor")) setChatKey((k) => k + 1);
+    if (e.type.startsWith("automation.")) setClaudeKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
   }, [bump]);
   const live = useEvents(token, onEvent);
 
   return (
     <>
+      <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); document.getElementById("main")?.focus(); }}>İçeriğe atla</a>
       <TopBar
         health={health.data}
         claude={claude.data}
+        automation={automation.data}
         live={live}
         route={route}
         onNavigate={navigate}
         onChanged={() => setClaudeKey((k) => k + 1)}
         onLogout={onLogout}
       />
+      <div id="main" tabIndex={-1}>
       {route.page === "chat" ? (
         <ChatView
           convId={route.convId}
@@ -143,6 +150,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
       ) : (
         <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized} />
       )}
+      </div>
     </>
   );
 }

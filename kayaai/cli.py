@@ -12,6 +12,7 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai pause | resume    Otomasyonu duraklat / sürdür (zamanlanmış görevler, tarayıcı)
     kayaai schedule [list|add|run|rm|…]  Zamanlanmış görevler (Windows Görev Zamanlayıcı)
     kayaai browse "hedef" --url ADRES  Tarayıcı ajanı (ayrı Edge profili; form/gönder/öde onaylı)
     kayaai speech [status|download|transcribe <dosya>]  Yerel ses tanıma (faster-whisper)
@@ -808,7 +809,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
                 if args.formats:
                     params["formats"] = args.formats.split(",")
                 s = Schedule(name=args.name or args.kind, kind=args.kind, params=params, cadence=cad,
-                             catch_up=not args.no_catch_up)
+                             catch_up=not args.no_catch_up, skip_holidays=args.skip_holidays)
                 return submitted(request_create(rt, s, requested_by="cli"), f"Eklendi: {s.id}")
             if a == "run-due":
                 runs = run_due(rt)
@@ -833,6 +834,75 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
             if a == "rm":
                 return submitted(request_delete(rt, args.id, requested_by="cli"), "Silindi")
         except (ScheduleError, ValidationError, ValueError, KeyError, PathNotAllowed) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+    return 2
+
+
+def cmd_pause(args: argparse.Namespace) -> int:
+    from .automation import set_paused, state
+    from .runtime import build_runtime
+
+    with build_runtime(load_settings()) as rt:
+        if args.func_name == "status":
+            st = state(rt)
+            _print("Otomasyon DURAKLATILDI" + (f" ({st['at']}, {st['by']})" if st["at"] else "") if st["paused"] else "Otomasyon açık")
+            return 0
+        st = set_paused(rt, args.func_name == "pause", by="cli", reason=" ".join(getattr(args, "reason", []) or []))
+        if st["paused"]:
+            _print("[OK] Otomasyon duraklatıldı: zamanlanmış görevler atlanır, tarayıcı işi başlamaz"
+                   + (f" (durdurulan tarayıcı işi: {', '.join(st['stopped_browser_jobs'])})" if st["stopped_browser_jobs"] else ""))
+        else:
+            _print("[OK] Otomasyon sürüyor")
+    return 0
+
+
+def cmd_integrations(args: argparse.Namespace) -> int:
+    from datetime import date as _date
+
+    from .integrations import IntegrationError, holidays, rates, rates_note, request_disable, request_enable, status
+    from .runtime import build_runtime
+
+    with build_runtime(load_settings()) as rt:
+        try:
+            if args.action == "list":
+                for s in status(rt):
+                    _print(f"{s['name']:<15} {'AÇIK ' if s['enabled'] else 'kapalı'}  {s['label']} — {s['provider']} "
+                           f"(https://{s['host']}; gönderilen: {s['sends']})")
+                return 0
+            if args.action in ("enable", "disable"):
+                if not args.name:
+                    _print("Kaynak adı gerekli: exchange_rates | holidays")
+                    return 2
+                res = (request_enable if args.action == "enable" else request_disable)(rt, args.name, requested_by="cli")
+                if res.status == "awaiting_approval":
+                    _print(f"[ONAY BEKLİYOR] {res.message}\nOnayla: kayaai approvals approve {res.approval_id}")
+                else:
+                    _print(f"[OK] {args.name}: {res.status}")
+                return 0
+            if args.action == "rates":
+                _print(rates_note(rates(rt)))
+                return 0
+            if args.action == "holidays":
+                year = int(args.name or _date.today().year)
+                for h in holidays(rt, year):
+                    _print(f"{h['date']}  {h['name']}")
+                return 0
+            if args.action == "test":  # gerçek bağlantı denemesi (açık olanlar)
+                ok = True
+                for s in status(rt):
+                    if not s["enabled"]:
+                        _print(f"{s['name']}: kapalı (atlandı)")
+                        continue
+                    try:
+                        out = rates_note(rates(rt)) if s["name"] == "exchange_rates" else \
+                            f"{len(holidays(rt, _date.today().year))} tatil ({_date.today().year})"
+                        _print(f"{s['name']}: OK — {out}")
+                    except IntegrationError as exc:
+                        ok = False
+                        _print(f"{s['name']}: HATA — {exc}")
+                return 0 if ok else 1
+        except IntegrationError as exc:
             _print(f"[HATA] {exc}")
             return 1
     return 2
@@ -1285,6 +1355,17 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
 
+    pz = sub.add_parser("pause", help="otomasyonu duraklat (zamanlanmış görevler, tarayıcı işleri)")
+    pz.add_argument("reason", nargs="*")
+    pz.set_defaults(func=cmd_pause, func_name="pause")
+    sub.add_parser("resume", help="otomasyonu sürdür").set_defaults(func=cmd_pause, func_name="resume")
+    sub.add_parser("automation", help="otomasyon durumu (açık / duraklatıldı)").set_defaults(func=cmd_pause, func_name="status")
+
+    ig = sub.add_parser("integrations", help="isteğe bağlı dış veri: döviz kurları, resmi tatiller (açmak onaylı)")
+    ig.add_argument("action", nargs="?", choices=["list", "enable", "disable", "rates", "holidays", "test"], default="list")
+    ig.add_argument("name", nargs="?", help="exchange_rates | holidays (holidays komutunda: yıl)")
+    ig.set_defaults(func=cmd_integrations)
+
     sub.add_parser("bench", help="donanımda ölçüm: sohbet, embedding, görsel, Whisper, VRAM tepe → data/bench.json"
                    ).set_defaults(func=cmd_bench)
 
@@ -1303,6 +1384,7 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("--request", default=None, help="free: şefe verilecek istek")
     sh.add_argument("--formats", default=None, help="sales_report: xlsx,pdf,docx,md")
     sh.add_argument("--no-catch-up", action="store_true", help="kaçırılan çalışmayı sonradan yapma")
+    sh.add_argument("--skip-holidays", action="store_true", help="resmi tatilde çalışma (tatil takvimi açık olmalı)")
     sh.add_argument("--trigger", choices=["manual", "windows", "run-due"], default="manual", help=argparse.SUPPRESS)
     sh.set_defaults(func=cmd_schedule)
 

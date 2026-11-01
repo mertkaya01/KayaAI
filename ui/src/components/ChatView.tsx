@@ -188,7 +188,12 @@ export function ChatView({
     return () => window.clearInterval(id);
   }, [pending]);
 
-  useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [view?.messages.length, pending]);
+  // Son mesaja kay: kapsayıcının scrollTop'u ile (scrollIntoView, klavyede Tab başlangıç noktasını mesaj sonuna taşıyıp
+  // "İçeriğe atla" bağlantısını atlatıyordu — Adım 14d)
+  useEffect(() => {
+    const list = bottom.current?.parentElement;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [view?.messages.length, pending]);
 
   const choices = useMemo(
     () => (agents.data ?? []).filter((a) => a.output === "GeneralAnswer" && a.name !== "vision"),
@@ -336,7 +341,7 @@ export function ChatView({
 
   return (
     <main className="chat">
-      <aside className="chat-list panel">
+      <aside className="chat-list panel" aria-label="Sohbetler">
         <button className="toggle new-chat" onClick={() => void newChat()}>+ Yeni sohbet</button>
         {list.data?.length === 0 && <p className="muted">Henüz sohbet yok.</p>}
         <ul>
@@ -434,7 +439,7 @@ export function ChatView({
         </div>
       </section>
 
-      <aside className="chat-side panel">
+      <aside className="chat-side panel" aria-label="Hafıza ve Claude">
         <h2>Hafıza</h2>
         {lastRecall && (lastRecall.memories?.length || lastRecall.sources?.length) ? (
           <>

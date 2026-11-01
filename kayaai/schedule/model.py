@@ -91,6 +91,7 @@ class Schedule(BaseModel):
     cadence: Cadence
     enabled: bool = True
     catch_up: bool = True                 # bilgisayar kapalıyken kaçırılan çalışmayı açılınca yap
+    skip_holidays: bool = False           # Adım 14c: resmi tatilde çalışma (tatil takvimi açık olmalı)
     created_at: datetime = Field(default_factory=datetime.now)
     registered: bool = False              # Windows Görev Zamanlayıcı'da kayıtlı mı
     register_note: str | None = None
@@ -129,7 +130,7 @@ class Schedule(BaseModel):
             what += f": {str(self.params['request'])[:80]}"
         elif self.kind == "docs_digest" and self.params.get("folder"):
             what += f" ({self.params['folder']})"
-        return f"{self.name} — {what}, {self.cadence.describe()}"
+        return f"{self.name} — {what}, {self.cadence.describe()}" + (" (resmi tatilde çalışmaz)" if self.skip_holidays else "")
 
 
 class Run(BaseModel):

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { post, type ClaudeStatus, type Health } from "../api";
+import { post, type AutomationState, type ClaudeStatus, type Health } from "../api";
 import type { Route } from "../route";
 
 const CLAUDE_TEXT: Record<ClaudeStatus["state"], string> = {
@@ -12,6 +12,7 @@ const CLAUDE_TEXT: Record<ClaudeStatus["state"], string> = {
 export function TopBar({
   health,
   claude,
+  automation,
   live,
   route,
   onNavigate,
@@ -20,6 +21,7 @@ export function TopBar({
 }: {
   health: Health | null;
   claude: ClaudeStatus | null;
+  automation?: AutomationState | null;
   live: boolean;
   route: Route;
   onNavigate: (r: Route) => void;
@@ -49,36 +51,51 @@ export function TopBar({
     }
   }
 
+  async function toggleAutomation() {
+    if (!automation) return;
+    if (!automation.paused && !window.confirm("Otomasyon duraklatılsın mı?\nZamanlanmış görevler atlanır, tarayıcı işi başlamaz, süren tarayıcı işi durdurulur. Sohbet ve elle yaptıkların etkilenmez.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await post(`/api/automation/${automation.paused ? "resume" : "pause"}`, {});
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const ollamaOk = health?.ollama.reachable;
   return (
     <header className="topbar">
       <div className="brand">
         <span className="logo" aria-hidden>◆</span>
-        <strong>kayaAI</strong>
+        <h1 className="brand-name">kayaAI</h1>
         {health && <span className="muted ver">v{health.version}</span>}
         <nav className="tabs main-tabs" aria-label="Sayfalar">
-          <button aria-selected={route.page === "chat"} onClick={() => onNavigate({ page: "chat", convId: route.page === "chat" ? route.convId : null })}>
+          <button aria-current={route.page === "chat" ? "page" : undefined} onClick={() => onNavigate({ page: "chat", convId: route.page === "chat" ? route.convId : null })}>
             Asistan
           </button>
-          <button aria-selected={route.page === "memory"} onClick={() => onNavigate({ page: "memory" })}>
+          <button aria-current={route.page === "memory" ? "page" : undefined} onClick={() => onNavigate({ page: "memory" })}>
             Hafıza
           </button>
-          <button aria-selected={route.page === "flow"} onClick={() => onNavigate({ page: "flow", jobId: null })}>
+          <button aria-current={route.page === "flow" ? "page" : undefined} onClick={() => onNavigate({ page: "flow", jobId: null })}>
             Akış
           </button>
-          <button aria-selected={route.page === "subtitles"} onClick={() => onNavigate({ page: "subtitles" })}>
+          <button aria-current={route.page === "subtitles" ? "page" : undefined} onClick={() => onNavigate({ page: "subtitles" })}>
             Altyazı
           </button>
-          <button aria-selected={route.page === "browser"} onClick={() => onNavigate({ page: "browser" })}>
+          <button aria-current={route.page === "browser" ? "page" : undefined} onClick={() => onNavigate({ page: "browser" })}>
             Tarayıcı
           </button>
-          <button aria-selected={route.page === "schedule"} onClick={() => onNavigate({ page: "schedule" })}>
+          <button aria-current={route.page === "schedule" ? "page" : undefined} onClick={() => onNavigate({ page: "schedule" })}>
             Zamanlama
           </button>
-          <button aria-selected={route.page === "models"} onClick={() => onNavigate({ page: "models" })}>
+          <button aria-current={route.page === "models" ? "page" : undefined} onClick={() => onNavigate({ page: "models" })}>
             Modeller
           </button>
-          <button aria-selected={route.page === "control"} onClick={() => onNavigate({ page: "control" })}>
+          <button aria-current={route.page === "control" ? "page" : undefined} onClick={() => onNavigate({ page: "control" })}>
             Kontrol Merkezi
           </button>
         </nav>
@@ -93,6 +110,13 @@ export function TopBar({
             {CLAUDE_TEXT[claude.state]}
             {claude.waiting_tasks > 0 && ` · kutuda ${claude.waiting_tasks}`}
           </span>
+        )}
+        {automation && (
+          <button className={automation.paused ? "pill bad automation-btn" : "ghost automation-btn"} disabled={busy}
+            onClick={() => void toggleAutomation()} aria-pressed={automation.paused}
+            title={automation.paused ? `Duraklatıldı${automation.at ? ` (${automation.at})` : ""} — sürdürmek için tıkla` : "Zamanlanmış görevleri ve tarayıcı işlerini durdur"}>
+            {automation.paused ? "⏸ Otomasyon duraklatıldı · Sürdür" : "⏸ Otomasyon"}
+          </button>
         )}
         <button className="toggle" disabled={!claude || busy} onClick={() => void toggle()}>
           {claude?.enabled ? "Claude'u kapat" : "Claude'u aç"}

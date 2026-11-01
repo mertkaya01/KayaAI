@@ -88,6 +88,13 @@ export interface Health {
   problems: string[];
 }
 
+export interface AutomationState {
+  paused: boolean;
+  at: string | null;
+  by: string | null;
+  reason: string | null;
+}
+
 export interface ClaudeStatus {
   enabled: boolean;
   state: "off" | "on_no_contact" | "on_recent_contact" | "on_stale_contact";

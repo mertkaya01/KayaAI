@@ -32,7 +32,7 @@ function ModelTable({ data, act }: { data: ModelAdmin; act: ReturnType<typeof us
     <div className="table-wrap">
       <table className="mtable">
         <thead>
-          <tr><th>Model</th><th>Durum</th><th>Boyut</th><th>VRAM</th><th>Bellekte</th><th>Kullanan</th><th></th></tr>
+          <tr><th>Model</th><th>Durum</th><th>Boyut</th><th>VRAM</th><th>Bellekte</th><th>Kullanan</th><th><span className="sr-only">İşlem</span></th></tr>
         </thead>
         <tbody>
           {data.models.map((m) => (
@@ -142,7 +142,7 @@ function CompareResult({ rec, data, act }: { rec: CompareRecord; data: ModelAdmi
       {rec.status === "done" && (
         <>
           <table className="mtable">
-            <thead><tr><th></th><th>Model</th><th>Doğru</th><th>Ort. süre</th><th>Token/sn</th><th title="Isınma: vakalardan önce, ortalamaya dahil değil">Yükleme</th></tr></thead>
+            <thead><tr><th><span className="sr-only">Taraf</span></th><th>Model</th><th>Doğru</th><th>Ort. süre</th><th>Token/sn</th><th title="Isınma: vakalardan önce, ortalamaya dahil değil">Yükleme</th></tr></thead>
             <tbody>
               {(["current", "candidate"] as const).map((side) => {
                 const s = rec.summary[side];

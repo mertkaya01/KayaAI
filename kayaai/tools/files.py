@@ -80,6 +80,20 @@ class FileTools:
         allowed = ", ".join(str(r.path) for r in roots(self.settings))
         raise PathNotAllowed(f"İzin verilen klasörlerin dışında: {resolved}. İzinli: {allowed}")
 
+    def check_write_allowed(self, path: Path) -> None:
+        """Adım 14b: izinli klasörde bile yasak dosya adı/klasörüne yazılmaz (talepte VE onaydan sonra yürütmede)."""
+        import fnmatch
+
+        name = path.name.lower()
+        for pat in self.settings.files.deny_write:
+            if fnmatch.fnmatch(name, pat.lower()):
+                raise PathNotAllowed(f"Bu dosyaya yazılmaz (gizli bilgi taşıyabilir ya da çalıştırılabilir): {path.name} "
+                                     f"— kural: {pat}")
+        dirs = {d.lower() for d in self.settings.files.deny_write_dirs}
+        for part in path.parent.parts:
+            if part.lower() in dirs:
+                raise PathNotAllowed(f"Bu klasöre yazılmaz: {part} (gizli bilgi / sürüm denetimi klasörü)")
+
     def display(self, p: Path) -> str:
         return str(p)
 
@@ -115,6 +129,7 @@ class FileTools:
 
     def exec_write(self, params: dict[str, Any]) -> dict[str, Any]:
         path, _ = self.resolve(params["path"], write=True)
+        self.check_write_allowed(path)
         content: str = params["content"]
         backup = None
         if path.exists():
@@ -133,6 +148,7 @@ class FileTools:
         import base64
 
         path, _ = self.resolve(params["path"], write=True)
+        self.check_write_allowed(path)
         data = base64.b64decode(params["content_b64"])
         backup = None
         if path.exists():
@@ -164,6 +180,7 @@ class FileTools:
 
     def write(self, path: str, content: str, requested_by: str = "user") -> SubmitResult:
         resolved, _ = self.resolve(path, write=True)  # salt-okunur klasör: onay bile istenmez, reddedilir
+        self.check_write_allowed(resolved)
         size = len(content.encode("utf-8"))
         if size > self.settings.files.max_write_mb * 1024 * 1024:
             raise ValueError(f"İçerik çok büyük ({size / 1e6:.1f} MB > {self.settings.files.max_write_mb} MB)")
@@ -189,6 +206,7 @@ class FileTools:
         import base64
 
         resolved, _ = self.resolve(path, write=True)
+        self.check_write_allowed(resolved)
         if len(data) > self.settings.files.max_write_mb * 1024 * 1024:
             raise ValueError(f"Dosya çok büyük ({len(data) / 1e6:.1f} MB > {self.settings.files.max_write_mb} MB)")
         params = {"path": str(resolved), "content_b64": base64.b64encode(data).decode("ascii")}
