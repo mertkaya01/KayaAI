@@ -12,14 +12,14 @@ export function parseRoute(pathname: string): Route {
   if (/^\/altyazi\/?$/.test(pathname)) return { page: "subtitles" };
   if (/^\/tarayici\/?$/.test(pathname)) return { page: "browser" };
   if (/^\/zamanlama\/?$/.test(pathname)) return { page: "schedule" };
-  const f = /^\/akis(?:\/([A-Za-z0-9]+))?\/?$/.exec(pathname);
+  const f = /^\/(?:ofis|akis)(?:\/([A-Za-z0-9]+))?\/?$/.exec(pathname);  // Adım 15: Akış → Ofis
   if (f) return { page: "flow", jobId: f[1] ?? null };
   return { page: "control" };
 }
 
 export function routePath(r: Route): string {
   if (r.page === "chat") return `/asistan${r.convId ? `/${r.convId}` : ""}`;
-  if (r.page === "flow") return `/akis${r.jobId ? `/${r.jobId}` : ""}`;
+  if (r.page === "flow") return `/ofis${r.jobId ? `/${r.jobId}` : ""}`;
   if (r.page === "models") return "/modeller";
   if (r.page === "subtitles") return "/altyazi";
   if (r.page === "browser") return "/tarayici";

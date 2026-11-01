@@ -45,7 +45,7 @@ describe("yönlendirme", () => {
     expect(routePath({ page: "memory" })).toBe("/hafiza");
     expect(parseRoute("/akis/abc123")).toEqual({ page: "flow", jobId: "abc123" });
     expect(parseRoute("/akis")).toEqual({ page: "flow", jobId: null });
-    expect(routePath({ page: "flow", jobId: "x1" })).toBe("/akis/x1");
+    expect(routePath({ page: "flow", jobId: "x1" })).toBe("/ofis/x1"); // Adım 15: Akış → Ofis (eski /akis açılır)
     expect(parseRoute("/modeller")).toEqual({ page: "models" });
   });
 });

@@ -4,6 +4,7 @@ import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { Markdown } from "../markdown";
 import { CapturePreview, grabScreenFrame } from "./ScreenCapture";
+import { OfficeView } from "./OfficeView";
 import { MicButton, SpeakButton } from "./Voice";
 
 const STATUS_TEXT: Record<string, string> = {
@@ -144,7 +145,7 @@ export function ChatView({
   onSelect,
   onOpenMemory,
   onOpenFlow,
-  refreshKey,
+  refreshKey, flowKey, approvalsKey,
   claude,
 }: {
   convId: string | null;
@@ -152,6 +153,8 @@ export function ChatView({
   onOpenMemory: () => void;
   onOpenFlow: (jobId: string) => void;
   refreshKey: number;
+  flowKey: number;
+  approvalsKey: number;
   claude: ClaudeStatus | null;
 }) {
   const [listKey, setListKey] = useState(0);
@@ -171,6 +174,12 @@ export function ChatView({
 
   const lastRecall = [...(view?.messages ?? [])].reverse().find((m) => m.role === "assistant" && m.status === "done")?.recall;
   const pending = view?.messages.some((m) => ["pending", "running", "waiting_claude"].includes(m.status)) ?? false;
+  // Adım 15: sağdaki ofis — bu sohbetteki son şef işi (sürmekte olan önce)
+  const conductorMsgs = (view?.messages ?? []).filter((m) => m.job_kind === "conductor" && m.job_id);
+  const runningJob = [...conductorMsgs].reverse().find((m) => ["pending", "running"].includes(m.status))?.job_id ?? null;
+  const officeJob = runningJob ?? conductorMsgs[conductorMsgs.length - 1]?.job_id ?? null;
+  const [side, setSide] = useState<"office" | "memory">("office");
+  useEffect(() => { if (runningJob) setSide("office"); }, [runningJob]);
 
   useEffect(() => {
     if (!convId) { setView(null); return; }
@@ -340,7 +349,7 @@ export function ChatView({
   }
 
   return (
-    <main className="chat">
+    <main className={`chat${side === "office" ? " office-open" : ""}`}>
       <aside className="chat-list panel" aria-label="Sohbetler">
         <button className="toggle new-chat" onClick={() => void newChat()}>+ Yeni sohbet</button>
         {list.data?.length === 0 && <p className="muted">Henüz sohbet yok.</p>}
@@ -362,7 +371,8 @@ export function ChatView({
         </ul>
       </aside>
 
-      <section className="chat-main panel">
+      <section className="chat-main panel" aria-labelledby="chat-messages-title">
+        <h2 id="chat-messages-title" className="sr-only">Mesajlar</h2>
         <div className="messages" aria-live="polite">
           {!view && !error && (
             <div className="empty">
@@ -439,7 +449,15 @@ export function ChatView({
         </div>
       </section>
 
-      <aside className="chat-side panel" aria-label="Hafıza ve Claude">
+      <aside className="chat-side panel" aria-label={side === "office" ? "Ofis" : "Hafıza ve Claude"}>
+        <div className="seg" role="group" aria-label="Yan panel">
+          <button aria-pressed={side === "office"} onClick={() => setSide("office")}>Ofis</button>
+          <button aria-pressed={side === "memory"} onClick={() => setSide("memory")}>Hafıza</button>
+        </div>
+        {side === "office" ? (
+          <OfficeView jobId={officeJob} refreshKey={flowKey} approvalsKey={approvalsKey} compact
+                      onExpand={officeJob ? () => onOpenFlow(officeJob) : undefined} />
+        ) : <>
         <h2>Hafıza</h2>
         {lastRecall && (lastRecall.memories?.length || lastRecall.sources?.length) ? (
           <>
@@ -460,6 +478,7 @@ export function ChatView({
             ? "Claude modu açık. Bir cevabın altındaki \"Claude'a devret\" ile soruyu Claude kutusuna bırakabilirsin; cevap buraya gelir."
             : "Claude modu kapalı. Tüm cevaplar yerel ekipten gelir."}
         </p>
+        </>}
       </aside>
     </main>
   );

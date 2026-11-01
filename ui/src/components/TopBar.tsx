@@ -81,7 +81,7 @@ export function TopBar({
             Hafıza
           </button>
           <button aria-current={route.page === "flow" ? "page" : undefined} onClick={() => onNavigate({ page: "flow", jobId: null })}>
-            Akış
+            Ofis
           </button>
           <button aria-current={route.page === "subtitles" ? "page" : undefined} onClick={() => onNavigate({ page: "subtitles" })}>
             Altyazı

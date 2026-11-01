@@ -3,6 +3,7 @@ import { api, ApiError, type FlowNode, type JobGraph, type JobSummary } from "..
 import { NODE_H, NODE_W, layout } from "../dag";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
+import { OfficeView } from "./OfficeView";
 
 const STATUS_TEXT: Record<string, string> = {
   pending: "bekliyor", running: "çalışıyor", succeeded: "tamamlandı", failed: "başarısız", waiting: "bekletiliyor", skipped: "atlandı",
@@ -58,7 +59,13 @@ function Graph({ g, selected, onSelect }: { g: JobGraph; selected: string | null
   );
 }
 
-export function FlowView({ jobId, onSelect, refreshKey }: { jobId: string | null; onSelect: (id: string | null) => void; refreshKey: number }) {
+function readPref(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId: string | null; onSelect: (id: string | null) => void; refreshKey: number; approvalsKey: number }) {
+  const [mode, setMode] = useState<"office" | "graph">(() => (readPref("kayaai.flowMode") === "graph" ? "graph" : "office"));
+  const pick = (m: "office" | "graph") => { setMode(m); try { localStorage.setItem("kayaai.flowMode", m); } catch { /* özel pencere */ } };
   const jobs = usePolling<JobSummary[]>("/api/jobs?limit=40", 15000, refreshKey);
   const [graph, setGraph] = useState<JobGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +107,11 @@ export function FlowView({ jobId, onSelect, refreshKey }: { jobId: string | null
         </ul>
       </aside>
       <section className="panel flow-main">
+        <div className="seg" role="group" aria-label="Görünüm">
+          <button aria-pressed={mode === "office"} onClick={() => pick("office")}>Ofis</button>
+          <button aria-pressed={mode === "graph"} onClick={() => pick("graph")}>Akış grafiği</button>
+        </div>
+        {mode === "office" ? <OfficeView jobId={active} refreshKey={refreshKey} approvalsKey={approvalsKey} /> : <>
         {error && <p className="error">{error}</p>}
         {!graph && !error && <p className="muted">Bir iş seç.</p>}
         {graph && (
@@ -130,6 +142,7 @@ export function FlowView({ jobId, onSelect, refreshKey }: { jobId: string | null
             {graph.warnings.length > 0 && <ul className="warnings">{graph.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
           </>
         )}
+        </>}
       </section>
     </main>
   );

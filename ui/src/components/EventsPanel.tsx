@@ -8,7 +8,7 @@ export function EventsPanel({ events }: { events: KEvent[] }) {
       {events.length === 0 ? (
         <p className="muted">Henüz olay yok. Bir görev çalıştırın (ör. <code>kayaai ask "Merhaba"</code>).</p>
       ) : (
-        <ol className="events">
+        <ol className="events" tabIndex={0} aria-label="Son olaylar listesi (kaydırılabilir)">
           {events.map((e) => (
             <li key={e.id} className={`ev ev-${e.type.split(".")[0]}`}>
               <time className="muted">{new Date(e.ts).toLocaleTimeString("tr-TR")}</time>

@@ -16,6 +16,7 @@ import { SystemPanel } from "./components/SystemPanel";
 import { TopBar } from "./components/TopBar";
 import { useEvents, usePolling } from "./hooks";
 import { useRoute } from "./route";
+import { ingestProgress } from "./office/progress";
 
 function Login({ onToken, failed }: { onToken: (t: string) => void; failed: boolean }) {
   const [value, setValue] = useState("");
@@ -98,6 +99,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
   }, [unauthorized, onUnauthorized]);
 
   const onEvent = useCallback((e: KEvent) => {
+    if (ingestProgress(e)) return;  // canlı ilerleme (Adım 15): yalnız ofis için, olay listesine girmez
     setEvents((prev) => [e, ...prev].slice(0, 50));
     if (e.type === "task.status" || e.type.startsWith("agent.")) bump("agents");
     if (e.type.startsWith("approval.") || e.type === "tool.used") bump("approvals");
@@ -133,6 +135,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
           onOpenMemory={() => navigate({ page: "memory" })}
           onOpenFlow={(jobId) => navigate({ page: "flow", jobId })}
           refreshKey={chatKey}
+          flowKey={flowKey}
+          approvalsKey={keys.approvals}
           claude={claude.data}
         />
       ) : route.page === "memory" ? (
@@ -146,7 +150,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
       ) : route.page === "models" ? (
         <ModelsView refreshKey={modelsKey} events={events} />
       ) : route.page === "flow" ? (
-        <FlowView jobId={route.jobId} onSelect={(id) => navigate({ page: "flow", jobId: id })} refreshKey={flowKey} />
+        <FlowView jobId={route.jobId} onSelect={(id) => navigate({ page: "flow", jobId: id })} refreshKey={flowKey} approvalsKey={keys.approvals} />
       ) : (
         <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized} />
       )}

@@ -53,6 +53,7 @@ class FakeOllama:
         self.models = [{"name": "qwen3:8b", "model": "qwen3:8b", "size": 5_200_000_000},
                        {"name": "bge-m3", "model": "bge-m3", "size": 1_200_000_000}]
         self.chat_delay_s = 0.0
+        self.stream_delay_s = 0.0  # akışlı cevapta satırlar arası bekleme (canlı ofis denemeleri)
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler_class())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
 
@@ -158,7 +159,15 @@ class FakeOllama:
                     self.send_header("Content-Type", "application/x-ndjson")
                     self.send_header("Content-Length", str(len(data)))
                     self.end_headers()
-                    self.wfile.write(data)
+                    if fake.stream_delay_s:
+                        import time
+
+                        for x in body:
+                            self.wfile.write((json.dumps(x) + "\n").encode())
+                            self.wfile.flush()
+                            time.sleep(fake.stream_delay_s)
+                    else:
+                        self.wfile.write(data)
                     return
                 data = json.dumps(body).encode()
                 self.send_response(status)

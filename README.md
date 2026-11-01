@@ -23,6 +23,9 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), VRAM bekçisi + `kayaai bench`, kurulum belgeleri | **Tamamlandı** (Windows'ta doğrulandı) — yol haritası tamam |
 | 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | **Tamamlandı** (Windows'ta doğrulandı) |
+| 15 | Canlı ofis: ajanlar 2B izometrik ofiste çalışır, canlı yazar, birbirine iş teslim eder; Asistan'ın yanında + tam ekran | Kodlandı (Windows kontrolü bekliyor) |
+| 16 | "Bugün" giriş ekranı, sol menü, bildirimler | Planlandı |
+| 17 | Bulut köprüsü (OmniRoute; varsayılan kapalı, veri kapısıyla) | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -334,6 +337,14 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   Bağlantı denemesi: `kayaai integrations test`.
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
+
+## Canlı ofis (Adım 15)
+
+Asistan'da "Otomatik" (şef) ile iş verince sağdaki **Ofis** panelinde ekip çalışır: şef planı yapar, ajanlar masalarında
+çalışırken yazdıkları balonda canlı akar, iş birinden diğerine geçerken masaya yürüyüp teslim eder, denetçi kontrol için
+yanına gider, onay gereken ajan senin masana gelir (🔔). Bir karaktere tıkla (ya da Tab + Enter): görevi, modeli, süresi,
+canlı çıktısı; onay varsa **Onayla/Reddet**, çalışan adımda **Bu adımı durdur**. **Büyüt ⤢** ya da üstteki **Ofis**
+sekmesi: tam ekran; **Akış grafiği** ikinci görünüm. Windows'ta "animasyon efektleri" kapalıysa karakterler yürümez.
 
 ## Model kalitesi ve fine-tuning
 

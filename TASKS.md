@@ -207,6 +207,19 @@ Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamland
   h1, landmark adları, kontrast, Escape/odak yönetimi — Playwright klavye 9 kontrol
 - [x] Windows'ta sahip doğruladı (2026-11-01): duraklat/sürdür, yasak liste, gerçek kur/tatil bağlantısı, klavye
 
+## Adım 15–17 — Sahip tasarımı (2026-11-01): canlı ofis → Bugün + sol menü + bildirim → bulut köprüsü
+Sahip kararları: ofis 2B izometrik; Asistan'ın yanında + tam ekran; bildirim tarayıcı + Windows; bulutta "genel + seçtiğim
+iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önce doğrulanacak.
+- [x] 15a — Canlı ilerleme: akışlı Ollama (`on_token`), yarım JSON'dan okunur kuyruk, `task.progress` (≤0,4 sn'de bir,
+  iş bitince silinir), `orchestrator.live_progress` — Python 15
+- [x] 15b — Ofis: `ui/src/office/scene.ts` (düğüm→karakter, masalar, yürüyüş farkları), `OfficeView` (SVG izometrik,
+  derinlik sırası, balonlar üst katmanda, inceleme paneli, onay/durdur), Asistan yan paneli (Ofis | Hafıza) + `/ofis`
+  (Ofis | Akış grafiği; eski `/akis` açılır) — Vitest 10, Playwright (canlı akış, teslim yürüyüşü, inceleme), axe 0 ihlal
+  (+ eski iki ihlal: olay listesi klavye, mesaj başlık sırası), klavye, hareketi azalt
+- [ ] Windows: Asistan'da "Otomatik" ile çok adımlı bir iş → ofiste izle; karaktere tıkla; Büyüt
+- [ ] 16 — Bugün giriş ekranı + sol menü + bildirimler (tarayıcı + Windows)
+- [ ] 17 — Bulut köprüsü (OmniRoute)
+
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
   deneme / geçersiz / zaman aşımı / kesilme → `data/quality.json`) — Python 5
 - [x] Windows (sahip, 2026-11-01): `kayaai quality` — general 77 / planner 33 görev %100 ilk deneme, hiç geçersiz yok →

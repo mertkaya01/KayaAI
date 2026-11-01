@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.15.0] - 2026-11-01
+
+### Eklendi (Adım 15 — canlı ofis; sahip tasarımı)
+- **Canlı ilerleme**: model çıktısı akışlı okunur (`OllamaClient.chat(on_token=…)`), yarım JSON'dan okunur kuyruk
+  çıkarılır, `task.progress` olayı en çok 0,4 sn'de bir gider ve görev bitince silinir (kalıcı kayıt `task_events`'te)
+- **Ofis** (2B izometrik): her ajanın masası; çalışan ajanın ekranı yanar, yazdığı balonda akar; iş teslimi, denetçinin
+  kontrolü, şefin cevabı getirmesi yürüyüşle; onay bekleyen ajan sahibin masasına gelir; hata ve yeniden deneme balonda.
+  Karaktere tıkla → görev/model/süre/canlı çıktı, Onayla/Reddet, Bu adımı durdur. Asistan'da sağ panel (Ofis | Hafıza),
+  tam ekran `/ofis` (Ofis | Akış grafiği). Ekran okuyucu için durum listesi; "hareketi azalt"ta yürüyüş yerine not
+
+### Değişti
+- Üst menüde "Akış" → "Ofis" (`/akis` bağlantıları açılmaya devam eder)
+
+### Düzeltildi (erişilebilirlik)
+- Kontrol Merkezi olay listesi klavyeyle kaydırılamıyordu (axe: scrollable-region-focusable)
+- Cevaplardaki `##`/`###` başlıkları h4/h5 oluyordu, sayfa başlık sırası atlanıyordu (axe: heading-order)
+
 ## [0.14.3] - 2026-11-01
 
 ### Değişti (kurulum güvenilirliği)

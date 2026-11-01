@@ -71,7 +71,8 @@ export function Markdown({ text }: { text: string }) {
     if (h) {
       const k = key();
       const content = inline(h[2], k);
-      blocks.push(h[1].length === 1 ? <h3 key={k}>{content}</h3> : h[1].length === 2 ? <h4 key={k}>{content}</h4> : <h5 key={k}>{content}</h5>);
+      // Sayfada mesaj başlıkları hep h3 (bölüm başlığı h2'nin altı; seviye atlanmasın — axe heading-order). Boyut sınıfla.
+      blocks.push(h[1].length === 1 ? <h3 key={k}>{content}</h3> : <h3 key={k} className={`md-h${h[1].length}`}>{content}</h3>);
       i++;
       continue;
     }
