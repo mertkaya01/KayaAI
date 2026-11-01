@@ -195,7 +195,6 @@ Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamland
   yalnızca koddan oluşan debounce cevabında 'debounce' eksik sayıldı (kod blokları siliniyordu) → v0.4.3'te düzeltildi
 
 ## Sonraya not (kullanıcı isteği: "her şey bitince")
-Referans repolardan faydalanılacak; içerikleri henüz incelenmedi, her biri alınmadan önce lisansı kontrol edilecek:
-sindresorhus/awesome · public-apis/public-apis · donnemartin/system-design-primer · cobusgreyling/loop-engineering ·
-SeloGPT/selogpt-prompt-labs · arturitu/the-delegation · ripienaar/free-for-dev · sdmg15/Best-websites-a-programmer-should-visit ·
-Donchitos/Claude-Code-Game-Studios · microsoft/Web-Dev-For-Beginners
+- [x] Referans repolar incelendi (2026-11-01) — lisanslar, katkılar ve öneriler: [`docs/REFERENCES.md`](docs/REFERENCES.md).
+  Öneriler: otomasyonu duraklat anahtarı, dosya yazma yasak listesi, isteğe bağlı dış veri (döviz/tatil), erişilebilirlik
+- [ ] Fine-tuning değerlendirmesi (sahip sorusu; sırada)
