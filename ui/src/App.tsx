@@ -114,6 +114,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
 
   return (
     <>
+      <a className="skip-link" href="#main" onClick={(e) => { e.preventDefault(); document.getElementById("main")?.focus(); }}>İçeriğe atla</a>
       <TopBar
         health={health.data}
         claude={claude.data}
@@ -124,6 +125,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         onChanged={() => setClaudeKey((k) => k + 1)}
         onLogout={onLogout}
       />
+      <div id="main" tabIndex={-1}>
       {route.page === "chat" ? (
         <ChatView
           convId={route.convId}
@@ -148,6 +150,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
       ) : (
         <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized} />
       )}
+      </div>
     </>
   );
 }

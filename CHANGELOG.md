@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.14.0] - 2026-11-01
+
+### Eklendi (Adım 14 — referans incelemesinden; sahip dördünü seçti)
+- **Otomasyonu duraklat** (loop-engineering "kill switch"): üst çubukta ⏸ Otomasyon, `kayaai pause|resume|automation`,
+  `/api/automation*`; zamanlanmış görevler atlanır, tarayıcı işi başlamaz/durur
+- **Dosya yazma yasak listesi**: `files.deny_write` / `deny_write_dirs` (gizli bilgi ve çalıştırılabilir dosyalar,
+  `.ssh`/`.git`/`secrets`…), talepte ve yürütmede
+- **Dış veri kaynakları** (public-apis): Frankfurter döviz kurları ve Nager.Date resmi tatilleri; varsayılan kapalı,
+  R2 ile açılır; sohbette kur soruları, satış raporunda kur notu, zamanlanmış görevde "resmi tatilde çalışma";
+  `kayaai integrations list|enable|disable|rates|holidays|test`; Kontrol Merkezi paneli
+- **Erişilebilirlik** (awesome-a11y): axe denetimi 5 ihlal → 0 (sekme `aria-current`, h1, landmark adları, kontrast,
+  boş tablo başlıkları); İçeriğe atla bağlantısı, görünür klavye odağı, pencerelerde Escape ve odak geri dönüşü
+
+### Düzeltildi
+- Asistan'da son mesaja kaydırma `scrollIntoView` ile yapılıyordu; klavyede Tab başlangıcını mesaj sonuna taşıyıp
+  "İçeriğe atla"yı atlatıyordu → kapsayıcı kaydırması
+
 ## [0.13.4] - 2026-11-01
 
 ### Düzeltildi

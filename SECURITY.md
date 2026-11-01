@@ -197,6 +197,17 @@
       gizli dosya kurallarına uyar (`.env`, anahtar, parola dosyaları okunmaz), içerik bilgisayardan çıkmaz
 - [x] Satış raporu ve klasör yalnız izinli klasörlerden; raporlar yeni dosya (R1)
 
+## Adım 14'te uygulananlar (referans incelemesinden)
+
+- [x] **Kill switch**: otomasyonu duraklat — zamanlanmış görevler (Windows'un başlattığı süreç de görür) atlanır, tarayıcı
+      işi başlamaz, süren durur; elle yapılanlar etkilenmez
+- [x] **Yazma yasak listesi**: gizli bilgi / çalıştırılabilir dosya adları ve hassas klasörler izinli klasörde bile
+      reddedilir; talepte ve onaydan sonra yürütmede (önceden oluşmuş onay da yazamaz)
+- [x] **Dış veri**: varsayılan kapalı; açmak R2 (önizlemede site ve gönderilen veri), yalnız iki ana makine (kodla),
+      yönlendirme izlenmez, her çağrı olay kaydına; kişisel veri/sohbet/dosya gönderilmez; sonuçlar önbellekte
+- [x] **Prompt injection**: tarayıcı ajanı ve belge özeti güvenilmez metni "veri" olarak alır; riskli eylemleri kod
+      sınıflandırır ve istenmeyen geri alınamaz eylemi reddeder (Adım 12d/v0.12.4)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü (tarayıcı dışı) eylem

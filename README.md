@@ -22,6 +22,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
 | 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), VRAM bekçisi + `kayaai bench`, kurulum belgeleri | **Tamamlandı** (Windows'ta doğrulandı) — yol haritası tamam |
+| 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | Kodlandı (Windows kontrolü bekliyor) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -318,6 +319,21 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   kısmen işlemciye taşınıp yavaşlamaz. Yine de yetmezse cevapta uyarı görünür.
 - `kayaai bench`: sohbet (soğuk/sıcak, token/sn), embedding, görsel model, Whisper (yükleme ayrı, gerçek zaman oranı) ve
   VRAM tepe kullanımını ölçer → `data\bench.json` (ayrı klasörde; görev geçmişin kirlenmez).
+
+## Güvenlik ve kullanım iyileştirmeleri (Adım 14)
+
+- **⏸ Otomasyon** (üst çubuk) ya da `kayaai pause` / `kayaai resume`: duraklatınca zamanlanmış görevler atlanır (Windows'taki
+  kayıtları kalır), tarayıcı işi başlamaz, süren tarayıcı işi durur. Sohbet ve elle yaptıkların etkilenmez.
+- **Dosya yazma yasak listesi**: izinli klasörde bile `.env`, `*.key`, `*.pem`, `id_rsa*`, `*secret*`, `*password*`,
+  `*.exe`, `*.dll`, `*.lnk` gibi dosyalara ve `.ssh`, `.git`, `secrets` klasörlerine yazılmaz (`config\settings` →
+  `files.deny_write`).
+- **Dış veri kaynakları** (Kontrol Merkezi paneli ya da `kayaai integrations`; varsayılan kapalı, açmak onaylı):
+  **Döviz kurları** (Frankfurter, Avrupa Merkez Bankası) — sohbette "1500 dolar kaç TL?" gibi sorularda güncel kur
+  modele verilir, satış raporuna kur notu eklenir; **Resmi tatiller** (Nager.Date) — zamanlanmış görevde "resmi tatilde
+  çalışma" seçeneği. Yalnız bu iki siteye, yalnız para birimi kodu / yıl+ülke gider; her istek kayda geçer.
+  Bağlantı denemesi: `kayaai integrations test`.
+- **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
+  okuyucu etiketleri, Escape ile kapanan pencereler.
 
 ## İş modülleri (Adım 10)
 

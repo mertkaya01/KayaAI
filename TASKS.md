@@ -197,4 +197,13 @@ Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamland
 ## Sonraya not (kullanıcı isteği: "her şey bitince")
 - [x] Referans repolar incelendi (2026-11-01) — lisanslar, katkılar ve öneriler: [`docs/REFERENCES.md`](docs/REFERENCES.md).
   Öneriler: otomasyonu duraklat anahtarı, dosya yazma yasak listesi, isteğe bağlı dış veri (döviz/tatil), erişilebilirlik
+## Adım 14 — Referans incelemesinden iyileştirmeler (sahip dördünü seçti, 2026-11-01)
+- [x] 14a — Otomasyonu duraklat (üst çubuk, `kayaai pause|resume`, API) — Python 3 + Playwright 4 kontrol
+- [x] 14b — Dosya yazma yasak listesi (talep + yürütme) — Python 23
+- [x] 14c — Döviz kuru (Frankfurter) + resmi tatiller (Nager.Date): kapalı, R2 ile açılır, sohbet bağlamı, satış raporu
+  notu, zamanlanmış görevde tatil atlama, `kayaai integrations` — Python 15 (sahte ağ; bu ortamdan siteler engelli)
+- [x] 14d — Erişilebilirlik: axe (WCAG 2.1 AA) 8 sayfada 5 ihlal → 0; İçeriğe atla, görünür odak, aria-current,
+  h1, landmark adları, kontrast, Escape/odak yönetimi — Playwright klavye 9 kontrol
+- [ ] Windows: `kayaai integrations enable exchange_rates` → onay → `kayaai integrations test` (gerçek bağlantı); ⏸ Otomasyon
+
 - [ ] Fine-tuning değerlendirmesi (sahip sorusu; sırada)

@@ -71,31 +71,31 @@ export function TopBar({
     <header className="topbar">
       <div className="brand">
         <span className="logo" aria-hidden>◆</span>
-        <strong>kayaAI</strong>
+        <h1 className="brand-name">kayaAI</h1>
         {health && <span className="muted ver">v{health.version}</span>}
         <nav className="tabs main-tabs" aria-label="Sayfalar">
-          <button aria-selected={route.page === "chat"} onClick={() => onNavigate({ page: "chat", convId: route.page === "chat" ? route.convId : null })}>
+          <button aria-current={route.page === "chat" ? "page" : undefined} onClick={() => onNavigate({ page: "chat", convId: route.page === "chat" ? route.convId : null })}>
             Asistan
           </button>
-          <button aria-selected={route.page === "memory"} onClick={() => onNavigate({ page: "memory" })}>
+          <button aria-current={route.page === "memory" ? "page" : undefined} onClick={() => onNavigate({ page: "memory" })}>
             Hafıza
           </button>
-          <button aria-selected={route.page === "flow"} onClick={() => onNavigate({ page: "flow", jobId: null })}>
+          <button aria-current={route.page === "flow" ? "page" : undefined} onClick={() => onNavigate({ page: "flow", jobId: null })}>
             Akış
           </button>
-          <button aria-selected={route.page === "subtitles"} onClick={() => onNavigate({ page: "subtitles" })}>
+          <button aria-current={route.page === "subtitles" ? "page" : undefined} onClick={() => onNavigate({ page: "subtitles" })}>
             Altyazı
           </button>
-          <button aria-selected={route.page === "browser"} onClick={() => onNavigate({ page: "browser" })}>
+          <button aria-current={route.page === "browser" ? "page" : undefined} onClick={() => onNavigate({ page: "browser" })}>
             Tarayıcı
           </button>
-          <button aria-selected={route.page === "schedule"} onClick={() => onNavigate({ page: "schedule" })}>
+          <button aria-current={route.page === "schedule" ? "page" : undefined} onClick={() => onNavigate({ page: "schedule" })}>
             Zamanlama
           </button>
-          <button aria-selected={route.page === "models"} onClick={() => onNavigate({ page: "models" })}>
+          <button aria-current={route.page === "models" ? "page" : undefined} onClick={() => onNavigate({ page: "models" })}>
             Modeller
           </button>
-          <button aria-selected={route.page === "control"} onClick={() => onNavigate({ page: "control" })}>
+          <button aria-current={route.page === "control" ? "page" : undefined} onClick={() => onNavigate({ page: "control" })}>
             Kontrol Merkezi
           </button>
         </nav>
