@@ -2,6 +2,19 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.14.2] - 2026-11-01
+
+### Düzeltildi (güvenlik)
+- Gizli bilgi algılayıcı şu biçimleri kaçırıyordu, hafızaya/vektör dizinine yazılabilirlerdi: Hugging Face (`hf_…`),
+  Stripe (`sk_live_…`, `rk_test_…`), GitLab (`glpat-…`), npm (`npm_…`) anahtarları, parolalı bağlantı adresleri
+  (`postgres://kullanıcı:parola@…`, `https://kullanıcı:parola@…`) ve JWT'ler (yalnız içinde yeterince rakam varsa
+  yakalanıyordu). Hepsi için açık kalıp + test; sıradan metinde yanlış alarm olmadığı da test ediliyor
+
+### Eklendi
+- `kayaai memory scan [--fix]`: kayıtlı hafıza öğelerini ve belge parçalarını güncel kurallarla yeniden tarar (eski
+  kurallarla kaydedilmişler için); rapor metin içermez. `--fix`: eşleşen hafıza öğeleri "gizli" yapılır (hiçbir
+  bağlama girmez, silinmez), eşleşen belge parçaları dizinden çıkar (dosyalara dokunulmaz)
+
 ## [0.14.1] - 2026-11-01
 
 ### Eklendi

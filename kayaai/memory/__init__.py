@@ -114,3 +114,50 @@ __all__ = [
     "CATEGORY_LABELS", "REMEMBER_RE", "SENSITIVITY_LABELS", "DocumentIndex", "EmbedUnavailable", "Memory",
     "MemoryBook", "MemoryDB", "MemoryError", "MemoryItem", "RecallResult", "SecretRefused",
 ]
+
+
+def scan_secrets(rt: "Runtime", *, fix: bool = False) -> dict[str, Any]:
+    """Kayıtlı hafıza öğelerini ve belge parçalarını GÜNCEL gizli bilgi kurallarıyla yeniden tarar (kurallar
+    genişleyince eski kayıtlar için). Metin döndürülmez, yalnız id/tür/dosya.
+
+    fix=True: (1) eşleşen hafıza öğeleri "gizli" yapılır → hiçbir bağlama girmez (silinmez; silmek sahibin kararı);
+    (2) eşleşen belge parçaları dizinden çıkarılır (yalnız türetilmiş dizin; dosyalara dokunulmaz).
+    """
+    from .documents import Chunk, DocInfo
+    from .secrets import detect_secrets
+
+    assert rt.memory is not None
+    mem = rt.memory
+    items = []
+    for m in mem.book.list():
+        if m.sensitivity == "secret":
+            continue
+        kinds = detect_secrets(m.text)
+        if kinds:
+            items.append({"id": m.id, "kinds": kinds, "status": m.status})
+            if fix:
+                m.sensitivity, m.secret_kinds = "secret", kinds
+                mem.book._save(m)
+    by_doc: dict[str, list[str]] = {}
+    for r in mem.db.query("SELECT data FROM chunks"):
+        ch = Chunk.model_validate_json(r["data"])
+        if detect_secrets(ch.text, strict=False):
+            by_doc.setdefault(ch.doc_id, []).append(ch.id)
+    docs = []
+    for doc_id, ids in by_doc.items():
+        rows = mem.db.query("SELECT data FROM documents WHERE id = ?", (doc_id,))
+        doc = DocInfo.model_validate_json(rows[0]["data"]) if rows else None
+        docs.append({"path": doc.path if doc else doc_id, "chunks": len(ids)})
+        if fix:
+            with mem.db.tx() as c:
+                mem.db.delete_vectors(c, "chunk", ids)
+                mem.db.delete_texts(c, "chunk", ids)
+                c.executemany("DELETE FROM chunks WHERE id = ?", [(i,) for i in ids])
+                if doc:
+                    doc.chunks = max(0, doc.chunks - len(ids))
+                    doc.skipped_secret_chunks += len(ids)
+                    c.execute("UPDATE documents SET data = ? WHERE id = ?",
+                              (mem.db.dumps(doc.model_dump(mode="json")), doc.id))
+    if fix and (items or docs):
+        rt.store.emit("memory.secrets_fixed", {"items": len(items), "chunks": sum(d["chunks"] for d in docs)})
+    return {"items": items, "documents": docs, "fixed": fix}

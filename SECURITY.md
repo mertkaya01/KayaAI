@@ -114,6 +114,8 @@
 - [x] Claude/ajan önerileri `proposed` kalır, sahip onaylamadan kullanılmaz
 - [x] Belge dizini yalnızca izinli kökler; yol doğrulaması; `.env`/anahtar dosyaları/ikili dosyalar ve gizli kalıp geçen
       parçalar dizine girmez; boyut ve dosya sayısı sınırı
+- [x] Kurallar genişleyince (v0.14.2: Hugging Face/Stripe/GitLab/npm anahtarları, parolalı adresler, JWT) eski
+      kayıtlar `kayaai memory scan --fix` ile yeniden taranır: öğe "gizli" yapılır, belge parçası dizinden çıkar
 - [x] Hafıza ve belge içeriği modele güvenilmez VERİ olarak gider; kaynaklar uydurulmaz talimatı
 - [x] Sahip her şeyi görebilir, düzenleyebilir, silebilir, dışa aktarabilir
 

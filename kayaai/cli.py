@@ -1049,6 +1049,20 @@ def cmd_memory(args: argparse.Namespace) -> int:
                     mem.book.approve(args.text[0])
                     _print(f"[OK] Onaylandı: {args.text[0]}")
                 return 0
+            if args.action == "scan":
+                from .memory import scan_secrets
+
+                out = scan_secrets(rt, fix=args.fix)
+                for it in out["items"]:
+                    _print(f"  hafıza  {it['id']}  {', '.join(it['kinds'])}" + ("  → gizli yapıldı" if args.fix else ""))
+                for d in out["documents"]:
+                    _print(f"  belge   {d['path']}  {d['chunks']} parça" + ("  → dizinden çıkarıldı" if args.fix else ""))
+                if not (out["items"] or out["documents"]):
+                    _print("[OK] Gizli bilgi görünen kayıt yok.")
+                elif not args.fix:
+                    _print("Düzeltmek için: kayaai memory scan --fix  (hafıza öğeleri 'gizli' yapılır, belge parçaları "
+                           "dizinden çıkar; dosyalarına dokunulmaz). Silmek istersen: kayaai memory rm <id>")
+                return 0
             if args.action == "search":
                 res = mem.recall(" ".join(args.text))
                 for m in res.memories:
@@ -1438,13 +1452,14 @@ def build_parser() -> argparse.ArgumentParser:
         bp.set_defaults(func=cmd_business)
 
     mp = sub.add_parser("memory", help="hafıza: listele / ekle / sil / ara / belgeleri dizinle / dışa aktar")
-    mp.add_argument("action", nargs="?", choices=["list", "add", "rm", "approve", "search", "index", "status", "export"],
+    mp.add_argument("action", nargs="?", choices=["list", "add", "rm", "approve", "search", "index", "status", "export", "scan"],
                     default="list")
     mp.add_argument("text", nargs="*")
     mp.add_argument("--category", choices=["preference", "project", "decision", "instruction", "file", "note"])
     mp.add_argument("--sensitivity", choices=["public", "personal", "private"])
     mp.add_argument("--secret", action="store_true", help="add: GİZLİ olarak kaydet (açık izin; bağlama girmez)")
     mp.add_argument("--out", default=None, help="export: dosya yolu")
+    mp.add_argument("--fix", action="store_true", help="scan: eşleşenleri gizli yap / dizinden çıkar")
     mp.set_defaults(func=cmd_memory)
 
     dp = sub.add_parser("disputes", help="ajan anlaşmazlıkları: listele / göster / karar ver")

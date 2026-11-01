@@ -318,3 +318,66 @@ def test_cli_memory(env, fake_ollama, capsys):
     assert cli.main(["memory", "index"]) == 0 and "işlenen 1" in capsys.readouterr().out
     assert cli.main(["memory", "export"]) == 0
     assert len(json.loads((env.data_dir / "memory_export.json").read_text(encoding="utf-8"))["items"]) == 2
+
+
+@pytest.mark.parametrize("text,kind", [
+    ("hf_" + "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3z", "API anahtarı"),        # Hugging Face
+    ("sk_live_" + "51HxYz2AbCdEf3GhIjK4lMnOp5QrStU6", "API anahtarı"),     # Stripe
+    ("rk_test_" + "4eC39HqLyjWDarjtT1zdp7dc", "API anahtarı"),
+    ("glpat-" + "xY12zA34bC56dE78fG90", "API anahtarı"),                   # GitLab
+    ("npm_" + "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3z", "API anahtarı"),
+    ("postgres://admin:S3cr3tPass@db.local:5432/x", "bağlantı parolası"),
+    ("Ab12Cd34Ef56Gh78Ij90Kl12Mn34Op56Qr78", "uzun anahtar/token"),
+    ("https://user:p4ss@example.com/repo.git", "bağlantı parolası"),
+    ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV", "JWT"),
+])
+def test_more_secret_formats(text, kind):
+    from kayaai.memory.secrets import detect_secrets
+
+    assert kind in detect_secrets(f"anahtarım bu: {text} tamam")
+
+
+@pytest.mark.parametrize("text", ["https://example.com/a:b@c", "Toplantı yarın 10:30'da", "mailto:ali@example.com",
+                                  "__init__module_with_long_name_123456_abcdef"])
+def test_no_false_alarm_for_ordinary_text(text):
+    from kayaai.memory.secrets import detect_secrets
+
+    assert detect_secrets(text) == []
+
+
+def test_scan_finds_records_stored_under_older_rules(rt, tmp_path, monkeypatch, capsys):
+    """Kurallar genişleyince eski kayıtlar: tarama metin göstermeden bulur; --fix gizli yapar / dizinden çıkarır."""
+    from kayaai.memory import documents as docmod, scan_secrets
+    from kayaai.memory.book import MemoryItem
+
+    token = "hf_" + "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3z"
+    old = MemoryItem(text=f"HF anahtarım {token}", category="note", sensitivity="personal", source="owner")
+    rt.memory.book._index(old)  # eski kurallarla kaydedilmiş gibi
+    ok, _ = rt.memory.book.add("Kahvemi şekersiz içerim")
+    files = tmp_path / "files"
+    (files / "kurulum.md").write_text(f"# Kurulum\n\nModel indirmek için {token} kullan.\n\n" + "Başka bilgi. " * 200,
+                                      encoding="utf-8")
+    monkeypatch.setattr(docmod, "detect_secrets", lambda text, strict=True: [])  # eski kurallar
+    rt.memory.docs.index()
+    monkeypatch.undo()
+    assert any(token in h["text"] for h in rt.memory.recall("Model indirmek için anahtar").documents)
+
+    out = scan_secrets(rt)
+    assert out["items"] == [{"id": old.id, "kinds": ["API anahtarı"], "status": "active"}]
+    assert out["documents"][0]["path"].endswith("kurulum.md") and out["documents"][0]["chunks"] >= 1
+    assert token not in json.dumps(out)  # rapor metni içermez
+    assert rt.memory.book.get(old.id).sensitivity == "personal"  # salt okuma
+
+    fixed = scan_secrets(rt, fix=True)
+    assert fixed["fixed"] and rt.memory.book.get(old.id).sensitivity == "secret"
+    assert rt.memory.book.get(ok.id).sensitivity != "secret"
+    assert all(m["id"] != old.id for m in rt.memory.recall("HF anahtarım").memories)
+    assert all(token not in h["text"] for h in rt.memory.recall("Model indirmek için anahtar").documents)
+    assert (files / "kurulum.md").read_text(encoding="utf-8").count(token) == 1  # dosyaya dokunulmadı
+    assert scan_secrets(rt) == {"items": [], "documents": [], "fixed": False}
+    assert any(e["type"] == "memory.secrets_fixed" for e in rt.store.events_since(0, 500))
+
+
+def test_cli_memory_scan(env, fake_ollama, capsys):
+    assert cli.main(["memory", "scan"]) == 0
+    assert "Gizli bilgi görünen kayıt yok" in capsys.readouterr().out
