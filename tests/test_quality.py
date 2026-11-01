@@ -53,6 +53,13 @@ def test_weak_agent_is_candidate_and_infra_errors_do_not_count():
     assert b["validation_failures"] == 3 and b["schema_failures"] == 0 and b["invalid"] == 1
 
 
+def test_only_local_model_outputs_are_counted():
+    parent = {"worker": "conductor", "model": None, "status": "succeeded", "metrics": {}}
+    claude = row(worker="conductor", model="claude (Claude Code)")
+    out = quality.report([parent, claude, row()])
+    assert [(a["agent"], a["tasks"]) for a in out["agents"]] == [("data", 1)]
+
+
 def test_groups_by_model():
     out = quality.report([row(model="a") for _ in range(3)] + [row(model="b")])
     assert [(a["model"], a["tasks"]) for a in out["agents"]] == [("a", 3), ("b", 1)]

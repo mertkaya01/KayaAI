@@ -4,6 +4,9 @@ Kaynak yalnız bu bilgisayardaki görev kayıtlarıdır (`tasks` tablosu); hiçb
 Her ajan × model için: görev sayısı, başarı, **ilk denemede geçerli çıktı** oranı (şema + doğrulama), şema/doğrulama
 hataları, geçersiz çıktı (3 denemede de olmadı), zaman aşımı, kesilen cevap (`done_reason=length`), hız.
 
+Ölçülen şey BİÇİM ve doğrulamadır (şemaya uyuyor mu, ajanın kendi kontrolünden geçiyor mu); cevabın doğruluğu
+`kayaai models compare` (Adım 11) ve gözden geçiren ajan / anlaşmazlıklar ile izlenir.
+
 Karar kuralı (docs/FINETUNING.md): en az 30 görevi olan bir grupta ilk-deneme oranı %85'in altındaysa ya da geçersiz
 çıktı %5'in üstündeyse o ajan "aday"dır — önce istem/model değişikliği denenir, düzelmezse dar kapsamlı LoRA düşünülür.
 """
@@ -45,7 +48,12 @@ def report(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if t.get("status") in _IGNORED:
             continue
         m = t.get("metrics") or {}
-        key = (t.get("worker") or "?", t.get("model") or m.get("model") or "?")
+        model = t.get("model") or m.get("model") or ""
+        # Yalnız yerel modelin ürettiği çıktılar: üst iş görevleri (şef, tarayıcı işi) model çıktısı değildir,
+        # Claude da yerel olarak eğitilemez.
+        if "output_attempts" not in m or not model or "claude" in model.lower():
+            continue
+        key = (t.get("worker") or "?", model)
         g = groups[key]
         kind = _classify(t)
         g["tasks"] += 1

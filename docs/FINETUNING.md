@@ -51,7 +51,28 @@ aşağıda.
 
 ## `kayaai quality` kuralları
 
+- Yalnız yerel modelin ürettiği çıktılar sayılır; şef/tarayıcı üst görevleri ve Claude görevleri sayılmaz.
+- Ölçülen biçim ve doğrulamadır; cevabın *doğruluğu* `kayaai models compare` ve gözden geçiren ajanla izlenir.
 - Sayılanlar: biten görevler (başarılı, geçersiz çıktı, zaman aşımı, diğer hata). İptal/ret/bekleyen sayılmaz.
 - Ollama bağlantı hatası gibi altyapı hataları modelin kalitesine sayılmaz ("değerlendirilen" sayıdan düşülür).
 - **Aday:** en az 30 değerlendirilen görevde ilk-deneme oranı < %85 ya da geçersiz çıktı > %5.
 - Çıktı: ekranda tablo + `data/quality.json`. Model çağrılmaz, hiçbir şey dışarı gönderilmez.
+
+## İlk ölçüm — sahibin bilgisayarı (2026-11-01)
+
+Tüm geçmiş, yerel model çıktıları (yalnız modelin ürettikleri):
+
+| Ajan | Model | Görev | İlk deneme | Geçersiz | Karar |
+| --- | --- | ---: | ---: | ---: | --- |
+| general | qwen3:8b | 77 | %100 | %0 | gerek yok |
+| planner | qwen3:8b | 33 | %100 | %0 | gerek yok |
+| coder | qwen2.5-coder:7b | 19 | %100 | %0 | yetersiz veri |
+| browser.step | qwen3:8b | 12 | %100 | %0 | yetersiz veri |
+| reviewer | qwen3:8b | 10 | %100 | %0 | yetersiz veri |
+| data, vision, diğerleri | — | 1'er | %100 | %0 | yetersiz veri |
+
+Hiçbir görevde şema ya da doğrulama hatası, zaman aşımı veya kesilen cevap yok; hız 126–149 token/sn.
+**Sonuç: fine-tuning gerekmiyor.** Şema hatasının hiç olmaması beklenen bir şey: Ollama çıktıyı JSON şemasıyla
+kısıtlıyor. Asıl sinyal doğrulama hataları ve cevabın doğruluğu olacak. Kullanım arttıkça `kayaai quality --days 30`
+ara sıra yeniden bakılır; bir ajan "aday" olursa yukarıdaki karar sırası uygulanır.
+
