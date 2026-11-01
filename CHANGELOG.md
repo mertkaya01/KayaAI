@@ -5,7 +5,10 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 ## [0.14.3] - 2026-11-01
 
 ### Değişti (kurulum güvenilirliği)
-- Üst sınırı olmayan bağımlılıklara sınır: `pillow<14`, `winrt-*<5` (pywinrt 4.x ile doğrulandı)
+- Üst sınırı olmayan bağımlılıklara sınır: `pillow<14`, `winrt-runtime<5`, `winrt-Windows.*<5!0` (projeksiyon
+  paketleri `4!10.0.x` sürüm çağıyla yayımlanır; ilk denemedeki `<5` bunları dışlıyordu — sahibin listesiyle yakalandı)
+- `constraints/windows.txt`: sahibin çalışan Windows kurulumundan 80 paket; `tests/test_constraints.py` listenin
+  pyproject aralıklarıyla çelişmediğini ve UTF-8 olduğunu denetler
 - `setup.ps1`: `constraints\windows.txt` varsa bilinen iyi sürümlerle kurar (sahibin çalışan kurulumundan
   `pip freeze`); yoksa eskisi gibi pyproject aralıkları. Liste `scripts\windows\freeze.ps1` ile üretilir (klasörü
   oluşturur, UTF-8 yazar). `docs/DEPLOYMENT.md` §3
