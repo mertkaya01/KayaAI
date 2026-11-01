@@ -119,7 +119,9 @@ def run_bench(settings: Settings, log: Any = print) -> dict[str, Any]:
                 try:
                     r = see(rt, [img], "Genel toplam ne kadar?")
                     runs.append({"seconds": round(time.monotonic() - t0, 2), "verified": r.verified,
-                                 "correct": "1.680" in r.answer})
+                                 "correct": "1.680" in r.answer, "answer": r.answer[:200],
+                                 "unverified_numbers": r.unverified_numbers, "ocr_text": r.ocr_text[:300],
+                                 "warnings": r.warnings})
                 except VisionError as exc:
                     runs.append({"error": str(exc)})
             out["vision"] = {"model": vis.name, "runs": runs}
@@ -130,7 +132,14 @@ def run_bench(settings: Settings, log: Any = print) -> dict[str, Any]:
         if is_installed(real) and sys.platform == "win32":
             from .speech.tts_win import synth_wav, wer
 
+            from .speech import prepare_gpu
+
             release()
+            from .llm.vram import free_vram
+
+            before = free_vram()
+            vram_warning = prepare_gpu(rt)  # API ile aynı: Whisper'dan önce gerekirse boştaki modeller boşaltılır
+            after = free_vram()
             text = "Please schedule a meeting with the design team next Tuesday afternoon."
             wav = work / "bench.wav"
             if synth_wav(text, "en-US", wav):
@@ -143,7 +152,9 @@ def run_bench(settings: Settings, log: Any = print) -> dict[str, Any]:
                                      "device": t.device})
                     except SpeechError as exc:
                         rows.append({"error": str(exc)})
-                out["whisper"] = {"model": real.speech.model, "runs": rows, "gpu_error": status(real)["gpu_error"]}
+                out["whisper"] = {"model": real.speech.model, "runs": rows, "gpu_error": status(real)["gpu_error"],
+                                  "free_mb_before": before[0] if before else None,
+                                  "free_mb_after_guard": after[0] if after else None, "vram_warning": vram_warning}
                 log(f"Whisper: yükleme {rows[0].get('load_s')} sn · gerçek zaman oranı {rows[-1].get('rtf')} · "
                     f"{rows[-1].get('device')}")
     out["vram"] = {"peak_used_mb": vs.peak_used_mb, "total_mb": vs.total_mb}

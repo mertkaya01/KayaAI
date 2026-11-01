@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.13.3] - 2026-11-01
+
+### Düzeltildi (Windows denemesi)
+- `schedule_check` ilk denemede rapor yazmadan bitti (test görevi silinmedi, yalnız `data\schedule\<id>.xml` kaldı).
+  Artık rapor Ctrl+C ve hata dahil her durumda yazılır; Görev Zamanlayıcı'nın kendi kaydı (son çalışma, son sonuç) ve
+  çalışma günlüğü rapora eklenir; test görevi her durumda silinmeye çalışılır
+- Windows'un başlattığı çalışmalar (pythonw: konsol yok) artık çıktılarını ve olası hatalarını `data\schedule\<id>.log`
+  dosyasına yazar — önceden sessizce düşen bir çalışma hiç görülmezdi
+- `kayaai bench`: Whisper öncesi API ile aynı VRAM bekçisi (ölçümde VRAM tepe 16,1/16,3 GB idi); görsel modelin
+  "doğrulanmadı" sonucu için cevap, OCR metni ve eşleşmeyen sayılar kaydedilir
+
+### Doğrulandı (Windows, `kayaai bench`)
+- qwen3:8b 139 token/sn (sıcak 0,4 sn), bge-m3 7,8 ms/metin, qwen2.5vl sıcak 0,44 sn, Whisper turbo CUDA'da gerçek
+  zamanın ~17 katı hızlı (4,4 sn ses → 0,25 sn), WER 0
+
 ## [0.13.2] - 2026-11-01
 
 ### Eklendi (Adım 13c — belgeler)

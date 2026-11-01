@@ -148,7 +148,7 @@ kayaAI sistemde başka iz bırakmaz: hizmet kurmaz, kayıt defterine yazmaz, yö
 | Altyazıda ses gelmiyor | paylaşım penceresinde bir ekran/sekme seç ve **"Sistem sesini paylaş"** kutusunu işaretle |
 | Küçük altyazı penceresi açılmıyor | Edge/Chrome 116+ gerekli |
 | Tarayıcı ajanı Edge'i açamıyor | Edge kurulu mu; başka bir kayaAI tarayıcı işi açık mı (aynı anda tek iş) |
-| Zamanlanmış görev çalışmadı | Zamanlama sekmesinde "son çalışma" ve hata; Görev Zamanlayıcı → `kayaAI` klasörü → görev → Geçmiş. Görev yalnız oturum açıkken çalışır; Ollama kapalıysa "başarısız" kaydedilir ve sonraki zamanında yeniden dener |
+| Zamanlanmış görev çalışmadı | Zamanlama sekmesinde "son çalışma" ve hata; Windows'un başlattığı her çalışmanın çıktısı `data\schedule\<id>.log`; Görev Zamanlayıcı → `kayaAI` klasörü → görev → Geçmiş ("Son Sonuç" 0 = başarılı). Görev yalnız oturum açıkken çalışır; Ollama kapalıysa "başarısız" kaydedilir ve sonraki zamanında yeniden dener |
 | Kurulumda test düştü | çıktıyı geliştirme oturumuna yapıştır; kurulum o adımda güvenle durur |
 | Arayüz "anahtar geçersiz" | `kayaai ui` ile aç (anahtarı kendisi verir) ya da `kayaai api token` |
 

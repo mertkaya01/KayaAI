@@ -177,7 +177,11 @@ belge dizini yenileme, serbest görev.
 - [x] 13b — VRAM bekçisi (görsel model / Whisper öncesi boştaki modelleri boşaltır) + `kayaai bench` (Windows'ta çalıştırılacak)
 - [x] 13c — [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): sıfırdan kurulum, güncelleme, yedekleme/geri yükleme, kaldırma,
   sorun giderme, güvenlik özeti; README hızlı başlangıç bağlantısı
-- [ ] Windows: `python scripts\schedule_check.py` (kabul: kayaAI kapalıyken Görev Zamanlayıcı çalıştırır), `kayaai bench`
+- [x] Windows `kayaai bench` (2026-11-01): qwen3:8b soğuk 4,7 sn / sıcak 0,4 sn, 139 token/sn; bge-m3 7,8 ms/metin;
+  qwen2.5vl soğuk 3,7 / sıcak 0,44 sn; Whisper yükleme 3,6 sn, gerçek zaman oranı 0,057 (CUDA), WER 0; VRAM tepe 16,1/16,3 GB
+  → v0.13.3: bench de Whisper öncesi VRAM bekçisini çağırır, görsel doğrulama ayrıntısını kaydeder
+- [ ] Windows: `python scripts\schedule_check.py` (kabul: kayaAI kapalıyken Görev Zamanlayıcı çalıştırır) — ilk denemede rapor
+  yazılmadı (betik sona ulaşmadı); v0.13.3: rapor her durumda yazılır, Windows çalıştırmalarının günlüğü tutulur
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 kodlandı (13a–c, v0.13.2), Windows doğrulaması bekliyor — yol haritasının son adımı.

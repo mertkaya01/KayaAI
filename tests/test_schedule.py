@@ -361,3 +361,23 @@ def test_cli_schedule(env, schtasks, capsys):
     sid = out.split()[0]
     assert main(["schedule", "run", sid]) == 0 and "succeeded" in capsys.readouterr().out
     assert main(["schedule", "add", "--kind", "free", "--request", "x"]) == 1
+
+
+def test_windows_triggered_run_writes_log(env, capsys):
+    """pythonw ile konsolsuz çalışma: çıktı ve hata data/schedule/<id>.log'a (Windows gözlemi: sessiz çalışma görülmüyordu)."""
+    import sys as _sys
+
+    from kayaai.cli import main
+
+    with build_runtime(env) as rt:
+        s = _add(rt, kind="reindex", name="Gece")
+    out_before = _sys.stdout
+    assert main(["schedule", "run", s.id, "--trigger", "windows"]) == 0
+    assert _sys.stdout is out_before  # konsol geri verildi
+    log = (env.data_dir / "schedule" / f"{s.id}.log").read_text(encoding="utf-8")
+    assert "Windows çalıştırması" in log and "succeeded" in log and "çıkış kodu 0" in log
+    assert main(["schedule", "run", "yokgorev", "--trigger", "windows"]) == 1
+    bad = (env.data_dir / "schedule" / "yokgorev.log").read_text(encoding="utf-8")
+    assert "bulunamadı" in bad and "çıkış kodu 1" in bad
+    with build_runtime(env) as rt:
+        assert rt.store.list_schedule_runs(s.id)[0]["trigger"] == "windows"

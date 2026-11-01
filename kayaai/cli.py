@@ -723,6 +723,40 @@ DAY_KEYS = {"pzt": 0, "pts": 0, "mon": 0, "sal": 1, "tue": 1, "çar": 2, "car": 
 
 
 def cmd_schedule(args: argparse.Namespace) -> int:
+    if args.action == "run" and args.trigger == "windows" and args.id:
+        return _windows_logged(args)
+    return _cmd_schedule(args)
+
+
+def _windows_logged(args: argparse.Namespace) -> int:
+    """Görev Zamanlayıcı çalıştırması (pythonw: konsol yok) — çıktı ve olası hata `data/schedule/<id>.log`'a yazılır,
+    yoksa sessizce düşen bir çalışma hiç görülmezdi (Windows gözlemi, 2026-11-01)."""
+    import datetime as _dt
+    import os
+    import traceback
+
+    log_dir = load_settings().data_dir / "schedule"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    path = log_dir / f"{Path(args.id).name}.log"
+    if path.is_file() and path.stat().st_size > 1_000_000:
+        path.replace(path.with_suffix(".log.1"))
+    old = sys.stdout, sys.stderr
+    with path.open("a", encoding="utf-8", buffering=1) as f:
+        sys.stdout = sys.stderr = f
+        try:
+            print(f"--- {_dt.datetime.now():%Y-%m-%d %H:%M:%S} Windows çalıştırması · pid {os.getpid()} · "
+                  f"{sys.executable} · klasör {os.getcwd()}")
+            code = _cmd_schedule(args)
+            print(f"çıkış kodu {code}")
+            return code
+        except BaseException:  # noqa: BLE001 - her hata günlüğe
+            traceback.print_exc()
+            return 1
+        finally:
+            sys.stdout, sys.stderr = old
+
+
+def _cmd_schedule(args: argparse.Namespace) -> int:
     from pydantic import ValidationError
 
     from .schedule import (Cadence, Schedule, ScheduleError, list_schedules, request_create, request_delete,

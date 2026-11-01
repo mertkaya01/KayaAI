@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.13.2)
+## 12. Current state (v0.13.3)
 
 | Phase | Content | Status |
 |---|---|---|
