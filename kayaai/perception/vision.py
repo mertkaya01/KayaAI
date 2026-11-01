@@ -113,6 +113,16 @@ def see(rt: "Runtime", images: list[bytes], question: str = "", *, ocr_texts: li
             task_input["ocr_text"] = [t[:OCR_CHARS] for t in texts]
         if conversation:
             task_input["conversation"] = conversation[-4:]
+        from ..llm.vram import ensure_vram, model_loaded
+
+        spec = rt.registry.get(rt.workers.get("vision").definition.local_model)  # type: ignore[attr-defined]
+        if not model_loaded(rt, spec.name):  # Adım 13b: yüklemeden önce GPU'da yer aç
+            vr = ensure_vram(rt, spec.approx_vram_gb or 6.0, "görsel model", keep={spec.name})
+            if vr.unloaded:
+                res.warnings.append("GPU'da yer açmak için bellekten çıkarıldı: " + ", ".join(vr.unloaded)
+                                    + " (gerekince kendiliğinden yeniden yüklenir)")
+            if vr.warning:
+                res.warnings.append(vr.warning)
         task = rt.orchestrator.ask(question, worker="vision", input=task_input, parent_id=parent_id)
     finally:
         for p in paths:  # geçici kopyalar silinir (özgün ek, sohbet ekiyse ek klasöründe kalır)

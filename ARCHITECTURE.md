@@ -294,6 +294,14 @@ Windows zamanı gelince → `kayaai schedule run` → runner.run_schedule: kilit
 Windows dışı: kayıt saklanır, `kayaai schedule run-due` (due = son çalışmadan sonraki ilk zaman geçti mi)
 ```
 
+## VRAM bekçisi ve ölçüm (Adım 13b)
+
+- `llm/vram.ensure_vram(rt, gerekli_gb, amaç, keep)`: nvidia-smi `memory.free` → yetersizse `/api/ps` modellerinden
+  `keep` dışındakileri VRAM büyüklüğüne göre boşaltır (her birinden sonra yeniden ölçer); NVIDIA yoksa karışmaz.
+  Çağıranlar: `perception/vision.see` (görsel model yüklü değilse), `speech.prepare_gpu` (Whisper ilk yükleme; canlı
+  altyazıda genel model korunur ve yeri de hesaba katılır).
+- `kayaai bench` (`kayaai/bench.py`): ayrı veri klasörü, VRAM örnekleyici (0,5 sn), soğuk/sıcak ölçümler → data/bench.json.
+
 ## İş modülleri (Adım 10)
 
 ```

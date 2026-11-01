@@ -804,6 +804,18 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_bench(args: argparse.Namespace) -> int:
+    from .bench import run_bench
+
+    _print("Ölçülüyor (kurulu modeller; birkaç dakika sürebilir)…")
+    out = run_bench(load_settings(), log=_print)
+    if out.get("error"):
+        _print(f"[HATA] {out['error']}")
+        return 1
+    _print(f"Sonuç: {out['path']}")
+    return 0
+
+
 def cmd_browse(args: argparse.Namespace) -> int:
     """Tarayıcı ajanı: onay gereken adımlar onay kuyruğuna düşer (başka bir terminalde: kayaai approvals approve <id>)."""
     from .browser.agent import BrowserJobError, start_job
@@ -1238,6 +1250,9 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    sub.add_parser("bench", help="donanımda ölçüm: sohbet, embedding, görsel, Whisper, VRAM tepe → data/bench.json"
+                   ).set_defaults(func=cmd_bench)
 
     sh = sub.add_parser("schedule", help="zamanlanmış görevler (Windows Görev Zamanlayıcı; ekleme/silme onaylı)")
     sh.add_argument("action", nargs="?", choices=["list", "add", "run", "run-due", "enable", "disable", "rm", "sync"],

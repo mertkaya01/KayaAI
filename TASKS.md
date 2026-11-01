@@ -174,7 +174,8 @@ belge dizini yenileme, serbest görev.
 - [x] 13a — Zamanlanmış görevler: kayıt + sıklık, Görev Zamanlayıcı XML'i (schtasks), R2 onay, çalıştırıcı (kilit,
   Ollama bekleme, sonuç Asistan'a), 4 işleyici, API/CLI, Zamanlama sekmesi, `scripts/schedule_check.py`
 - Testler: Python (zamanlama 36), Playwright (zamanlama 8 kontrol); Windows `schedule_check` bekliyor
-- [ ] 13b — VRAM bekçisi + `kayaai bench` · [ ] 13c — DEPLOYMENT.md
+- [x] 13b — VRAM bekçisi (görsel model / Whisper öncesi boştaki modelleri boşaltır) + `kayaai bench` (Windows'ta çalıştırılacak)
+- [ ] 13c — DEPLOYMENT.md
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 sürüyor (13a kodlandı).

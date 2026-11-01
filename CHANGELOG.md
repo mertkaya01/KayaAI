@@ -2,6 +2,16 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.13.1] - 2026-11-01
+
+### Eklendi (Adım 13b — optimizasyon)
+- **VRAM bekçisi** (`llm/vram.py`): görsel model ya da Whisper yüklenmeden önce boş GPU belleği ölçülür; yetmiyorsa o işe
+  gerekmeyen boştaki Ollama modelleri boşaltılır (Windows ekran görüntüsünde VRAM %97 doluydu). Canlı altyazıda genel
+  model korunur; yer yine yetmezse cevapta uyarı
+- `kayaai bench`: sohbet soğuk/sıcak + token/sn, embedding, görsel, Whisper (yükleme ayrı, gerçek zaman oranı), VRAM
+  tepe → `data/bench.json`
+- Windows ses sentezi yardımcıları pakete taşındı (`speech/tts_win.py`; kontrol betiği ve bench ortak kullanır)
+
 ## [0.13.0] - 2026-11-01
 
 ### Eklendi (Adım 13a — zamanlanmış görevler; kabul: Claude Code açık olmadan çalışır)

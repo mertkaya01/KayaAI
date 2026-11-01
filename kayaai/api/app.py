@@ -618,11 +618,18 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         import binascii
 
         from ..speech.stt import SpeechError, SpeechUnavailable, transcribe
+        from ..speech.stt import is_installed as _installed
+
+        def is_speech_ready() -> bool:
+            return _installed(rt.settings)
 
         try:
             audio = base64.b64decode(body.data_b64, validate=True)
         except (binascii.Error, ValueError) as exc:
             raise HTTPException(400, "Ses verisi bozuk (base64)") from exc
+        from ..speech import prepare_gpu
+
+        vram_warning = prepare_gpu(rt) if is_speech_ready() else None
         try:
             t = transcribe(rt.settings, audio, body.language)
         except SpeechUnavailable as exc:
@@ -631,18 +638,19 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             raise HTTPException(400, str(exc)) from exc
         rt.store.emit("speech.transcribed", {"audio_seconds": t.audio_seconds, "seconds": t.seconds,
                                              "device": t.device, "chars": len(t.text)})  # metin olaya yazılmaz
-        return t.model_dump(mode="json")
+        return {**t.model_dump(mode="json"), "vram_warning": vram_warning}
 
     def _free_vision_vram() -> None:
-        """Altyazı sürerken GPU'da Whisper + çeviri modeline yer aç: görsel model yüklüyse boşalt (Adım 12c)."""
-        spec = rt.registry.models.get("vision-7b")
-        if spec is None:
-            return
+        """Altyazı sürerken GPU'da Whisper + çeviri modeline yer aç (Adım 12c → 13b VRAM bekçisi): görsel model ve
+        diğer boştaki modeller GEREKİRSE boşaltılır; genel model (çeviri) korunur."""
+        from ..llm.vram import model_loaded
+        from ..speech import prepare_gpu
+
+        general = rt.registry.model_for_worker("general")
+        extra = 0.0 if model_loaded(rt, general.name) else (general.approx_vram_gb or 6.5)
         try:
-            if any(m.get("name") == spec.name for m in rt.llm.running_models()):
-                rt.llm.unload_model(spec.name)
-                rt.store.emit("model.unloaded", {"name": spec.name, "reason": "canlı altyazı"})
-        except Exception:  # noqa: BLE001 - Ollama yoksa önemli değil
+            prepare_gpu(rt, "canlı altyazı", extra_gb=extra)
+        except Exception:  # noqa: BLE001 - Ollama/nvidia-smi yoksa önemli değil
             pass
 
     @app.websocket("/api/speech/live")

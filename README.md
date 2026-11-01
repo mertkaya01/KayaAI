@@ -21,7 +21,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
 | 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | **Tamamlandı** (Windows'ta doğrulandı) |
-| 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), optimizasyon, kurulum belgeleri | 13a kodlandı; 13b–c sırada |
+| 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), optimizasyon, kurulum belgeleri | 13a–b kodlandı; 13c sırada |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -307,6 +307,14 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   Ollama kapalıysa görev "başarısız" kaydedilir ve sonraki zamanında yeniden dener.
 - CLI: `kayaai schedule add --kind sales_report --path satis.xlsx --weekly pzt --at 08:30 --name "Haftalık satış"` ·
   `list` · `run <id>` · `enable|disable <id>` · `rm <id>` · `sync`. Doğrulama: `python scripts\schedule_check.py`.
+
+## Hız ve GPU belleği (Adım 13b)
+
+- **VRAM bekçisi**: görsel model ya da Whisper yüklenmeden önce boş GPU belleği ölçülür; yetmiyorsa o işe gerekmeyen,
+  Ollama'da boşta duran modeller bellekten çıkarılır (gerekince saniyeler içinde yeniden yüklenir). Böylece modeller
+  kısmen işlemciye taşınıp yavaşlamaz. Yine de yetmezse cevapta uyarı görünür.
+- `kayaai bench`: sohbet (soğuk/sıcak, token/sn), embedding, görsel model, Whisper (yükleme ayrı, gerçek zaman oranı) ve
+  VRAM tepe kullanımını ölçer → `data\bench.json` (ayrı klasörde; görev geçmişin kirlenmez).
 
 ## İş modülleri (Adım 10)
 

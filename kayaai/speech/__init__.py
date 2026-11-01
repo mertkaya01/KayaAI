@@ -12,6 +12,18 @@ if TYPE_CHECKING:
     from ..runtime import Runtime
 
 
+def prepare_gpu(rt: "Runtime", purpose: str = "ses tanıma", extra_gb: float = 0.0) -> str | None:
+    """Whisper GPU'ya yüklenecekse önce yer aç (Adım 13b). Genel model (çeviri/sohbet) korunur. Uyarı metni ya da None."""
+    from ..llm.vram import ensure_vram
+    from .stt import _STATE
+
+    if rt.settings.speech.device == "cpu" or (_STATE["model"] is not None and not extra_gb):
+        return None
+    general = rt.registry.model_for_worker("general").name
+    need = (1.6 if _STATE["model"] is None else 0.0) + extra_gb
+    return ensure_vram(rt, need, purpose, keep={general}).warning if need else None
+
+
 def request_download(rt: "Runtime", requested_by: str = "user") -> SubmitResult:
     """Ses tanıma modelini indirme talebi — R2 sahip onayı (internetten ~1,6 GB)."""
     name = rt.settings.speech.model
