@@ -2,6 +2,17 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.13.4] - 2026-11-01
+
+### Düzeltildi
+- Görsel doğrulama: Windows OCR para tutarlarında ondalık virgülü "1" okuyor (`1.680,00 TL` → `1.680100 TL`); model
+  doğru okusa da cevap "doğrulanmadı" çıkıyordu. Para birimi izleyen bu kalıpta virgüllü okuma da kabul edilir
+  (yalnız izin verilen sayılar genişler; uydurma sayı yine yakalanır)
+
+### Doğrulandı (Windows) — Adım 13 ve yol haritası tamam
+- `schedule_check`: Görev Zamanlayıcı kayaAI kapalıyken görevi çalıştırdı (Last Result 0), sonuç Asistan'da
+- `kayaai bench`: VRAM bekçisi Whisper öncesi 247 MB → 7,4 GB boşalttı; Whisper turbo RTF 0,027 (CUDA)
+
 ## [0.13.3] - 2026-11-01
 
 ### Düzeltildi (Windows denemesi)

@@ -180,11 +180,15 @@ belge dizini yenileme, serbest görev.
 - [x] Windows `kayaai bench` (2026-11-01): qwen3:8b soğuk 4,7 sn / sıcak 0,4 sn, 139 token/sn; bge-m3 7,8 ms/metin;
   qwen2.5vl soğuk 3,7 / sıcak 0,44 sn; Whisper yükleme 3,6 sn, gerçek zaman oranı 0,057 (CUDA), WER 0; VRAM tepe 16,1/16,3 GB
   → v0.13.3: bench de Whisper öncesi VRAM bekçisini çağırır, görsel doğrulama ayrıntısını kaydeder
-- [ ] Windows: `python scripts\schedule_check.py` (kabul: kayaAI kapalıyken Görev Zamanlayıcı çalıştırır) — ilk denemede rapor
-  yazılmadı (betik sona ulaşmadı); v0.13.3: rapor her durumda yazılır, Windows çalıştırmalarının günlüğü tutulur
+- [x] Windows `schedule_check` (2026-11-01, v0.13.3): **kabul geçti** — kayaAI kapalıyken Görev Zamanlayıcı 16:12'de
+  çalıştırdı (Last Result 0, `trigger: windows`, sonuç Asistan'da, günlük yazıldı); ilk deneme de çalışmıştı (15:54,
+  Last Result 0) ama betik rapor yazmadan bitmişti → v0.13.3
+- [x] Windows `kayaai bench` (v0.13.3): VRAM bekçisi Whisper öncesi 247 MB → 7,4 GB boşalttı; Whisper RTF 0,027.
+  Görsel "doğrulanmadı": OCR ondalık virgülü "1" okuyor (1.680,00 → 1.680100) → v0.13.4: para tutarlarında bu okuma
+  kabul edilir (yanlış sayı yine yakalanır)
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 kodlandı (13a–c, v0.13.2), Windows doğrulaması bekliyor — yol haritasının son adımı.
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 tamamlandı (2026-11-01). **Yol haritası (Adım 0–13) tamamlandı.**
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:
