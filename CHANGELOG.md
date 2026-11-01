@@ -2,6 +2,17 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.13.0] - 2026-11-01
+
+### Eklendi (Adım 13a — zamanlanmış görevler; kabul: Claude Code açık olmadan çalışır)
+- Windows Görev Zamanlayıcı (sahip kararı): görev XML'i + `schtasks.exe` (ek paket yok), `\kayaAI\<id>`, sahibin
+  hesabıyla en düşük yetki, kaçırılanı telafi, 2 sa sınır; ekleme/silme R2 onaylı, aç/kapat ve şimdi çalıştır R1
+- Görev türleri: belge klasörü özeti, satış raporu (xlsx/pdf), belge dizini yenileme, serbest görev (yerel şef)
+- `kayaai schedule run <id>` çalıştırıcısı: kilit, Ollama bekleme, sonuç Asistan'da "Zamanlanmış görevler" sohbetine,
+  çalışma geçmişi; tek seferlik görev çalışınca kapanır; Windows dışı için `run-due`
+- **Zamanlama** sekmesi, `/api/schedules*`, CLI `kayaai schedule list|add|run|run-due|enable|disable|rm|sync`,
+  `scripts/schedule_check.py` (Windows'un kendisinin çalıştırdığını doğrular)
+
 ## [0.12.4] - 2026-11-01
 
 ### Güvenlik (Windows doğrulaması bulgusu)

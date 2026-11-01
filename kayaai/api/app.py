@@ -212,6 +212,14 @@ class BrowserRunBody(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
 
 
+class ScheduleBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    kind: Literal["docs_digest", "sales_report", "reindex", "free"]
+    params: dict[str, Any] = Field(default_factory=dict)
+    cadence: dict[str, Any]
+    catch_up: bool = True
+
+
 class ModelName(BaseModel):
     name: str = Field(min_length=1, max_length=140)
 
@@ -726,6 +734,70 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
             return request_download(rt, requested_by="api").model_dump(mode="json")
         except SpeechError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- zamanlanmış görevler (Adım 13)
+
+    from ..schedule import ScheduleError
+    from ..tools.files import PathNotAllowed as _PathNotAllowed
+
+    def _sched(fn: Any, *args: Any) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        try:
+            return fn(rt, *args, requested_by="api").model_dump(mode="json")
+        except (ScheduleError, ValidationError, ValueError, _PathNotAllowed) as exc:
+            raise HTTPException(409 if not isinstance(exc, ScheduleError) or "bulunamadı" not in str(exc) else 404,
+                                str(exc)) from exc
+
+    @app.get("/api/schedules", dependencies=[Depends(auth)])
+    def schedules_list() -> dict[str, Any]:
+        from ..schedule import list_schedules, sync_report
+        from ..schedule import windows as win
+
+        return {"schedules": list_schedules(rt), "windows": win.supported(), "sync": sync_report(rt)}
+
+    @app.post("/api/schedules", dependencies=[Depends(auth)])
+    def schedules_create(body: ScheduleBody) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        from ..schedule import Cadence, Schedule, request_create
+
+        try:
+            s = Schedule(name=body.name, kind=body.kind, params=body.params, cadence=Cadence(**body.cadence),
+                         catch_up=body.catch_up)
+        except ValidationError as exc:
+            raise HTTPException(409, "; ".join(e["msg"] for e in exc.errors())) from exc
+        return _sched(request_create, s)
+
+    @app.post("/api/schedules/{sid}/delete", dependencies=[Depends(auth)])
+    def schedules_delete(sid: str) -> dict[str, Any]:
+        from ..schedule import request_delete
+
+        return _sched(request_delete, sid)
+
+    @app.post("/api/schedules/{sid}/enable", dependencies=[Depends(auth)])
+    def schedules_enable(sid: str) -> dict[str, Any]:
+        from ..schedule import request_enable
+
+        return _sched(request_enable, sid, True)
+
+    @app.post("/api/schedules/{sid}/disable", dependencies=[Depends(auth)])
+    def schedules_disable(sid: str) -> dict[str, Any]:
+        from ..schedule import request_enable
+
+        return _sched(request_enable, sid, False)
+
+    @app.post("/api/schedules/{sid}/run", dependencies=[Depends(auth)])
+    def schedules_run(sid: str) -> dict[str, Any]:
+        from ..schedule import request_run
+
+        return _sched(request_run, sid)
+
+    @app.get("/api/schedules/runs", dependencies=[Depends(auth)])
+    def schedules_runs(sid: str | None = None, limit: int = Query(30, ge=1, le=200)) -> list[dict[str, Any]]:
+        from ..schedule.runner import history
+
+        return history(rt, sid, limit)
 
     # ---------------------------------------------------------------- tarayıcı (Adım 12d)
 

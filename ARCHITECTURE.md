@@ -281,6 +281,19 @@ start_job(hedef, url) → BrowserJob (tek iş; arka plan iş parçacığı) → 
   korumalar: 20 adım, aynı eylem 3 kez → dur, 3 kural dışı adım → dur, onay zaman aşımı (10 dk) → reddedilir
 ```
 
+## Zamanlanmış görevler (Adım 13a)
+
+```
+Schedule (SQLite schedules; Cadence: daily|weekly|monthly|once + HH:MM yerel) ── R2 onay ──► schedule.create yürütücüsü
+   → windows.task_xml (UTF-16 XML: CalendarTrigger/TimeTrigger, InteractiveToken + LeastPrivilege, StartWhenAvailable,
+     PT2H, IgnoreNew; Exec: <venv>\pythonw.exe -m kayaai schedule run <id> --trigger windows, WorkingDirectory=proje)
+   → schtasks /Create /TN kayaAI\<id> /XML … /F   (silme /Delete, aç-kapat /Change; liste /Query /FO CSV)
+Windows zamanı gelince → `kayaai schedule run` → runner.run_schedule: kilit dosyası (3 sa bayat) → Ollama'yı bekle
+   (≤2 dk) → işleyici (docs_digest | sales_report | reindex | free=Conductor force=local) → ChatBook'a mesaj
+   ("Zamanlanmış görevler" sohbeti, meta.schedule) → schedule_runs kaydı + schedule.run olayı → once ise kapanır
+Windows dışı: kayıt saklanır, `kayaai schedule run-due` (due = son çalışmadan sonraki ilk zaman geçti mi)
+```
+
 ## İş modülleri (Adım 10)
 
 ```

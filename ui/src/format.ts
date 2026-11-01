@@ -122,6 +122,12 @@ export function describeEvent(e: KEvent): string {
     case "model.compare":
       return d.status ? `Model karşılaştırma ${d.status === "done" ? "bitti" : d.status === "failed" ? "başarısız" : "başladı"}`
         : `Model karşılaştırma: ${d.done}/${d.total}`;
+    case "schedule.run":
+      return `Zamanlanmış görev · ${d.name}: ${({ running: "çalışıyor", succeeded: "başarılı", failed: "başarısız", skipped: "atlandı" } as Record<string, string>)[String(d.status)] ?? d.status}${d.seconds != null ? ` (${d.seconds} sn)` : ""}`;
+    case "schedule.created":
+      return `Zamanlanmış görev eklendi: ${d.name}${d.registered ? " (Windows'a kaydedildi)" : ""}`;
+    case "schedule.deleted":
+      return `Zamanlanmış görev silindi: ${d.name}`;
     case "browser.step":
       return `Tarayıcı ${d.n}. adım [${d.risk}] ${d.description} — ${d.status}`;
     case "speech.live":

@@ -12,6 +12,7 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai schedule [list|add|run|rm|…]  Zamanlanmış görevler (Windows Görev Zamanlayıcı)
     kayaai browse "hedef" --url ADRES  Tarayıcı ajanı (ayrı Edge profili; form/gönder/öde onaylı)
     kayaai speech [status|download|transcribe <dosya>]  Yerel ses tanıma (faster-whisper)
     kayaai screen ["soru"]   Ekran görüntüsü (tek kare) + yerel görsel model (OCR ile doğrulama)
@@ -717,6 +718,92 @@ def cmd_speech(args: argparse.Namespace) -> int:
     return 0
 
 
+DAY_KEYS = {"pzt": 0, "pts": 0, "mon": 0, "sal": 1, "tue": 1, "çar": 2, "car": 2, "wed": 2, "per": 3, "thu": 3,
+            "cum": 4, "fri": 4, "cmt": 5, "sat": 5, "paz": 6, "sun": 6}
+
+
+def cmd_schedule(args: argparse.Namespace) -> int:
+    from pydantic import ValidationError
+
+    from .schedule import (Cadence, Schedule, ScheduleError, list_schedules, request_create, request_delete,
+                           request_enable, sync_report)
+    from .schedule.runner import run_due, run_schedule
+    from .tools.files import PathNotAllowed
+    from .runtime import build_runtime
+
+    def submitted(res: Any, ok: str) -> int:
+        if res.status == "awaiting_approval":
+            _print(f"[ONAY BEKLİYOR] {res.message}")
+            _print(f"Onayla: kayaai approvals approve {res.approval_id}  (ya da Control Center → Onay merkezi)")
+            return 0
+        if res.status == "failed":
+            _print(f"[HATA] {res.error}")
+            return 1
+        _print(f"[OK] {ok}")
+        return 0
+
+    with build_runtime(load_settings()) as rt:
+        try:
+            a = args.action
+            if a == "list":
+                rows = list_schedules(rt)
+                if not rows:
+                    _print("Zamanlanmış görev yok. Ekle: kayaai schedule add --kind reindex --daily --at 03:00 --name \"Gece dizin\"")
+                for r in rows:
+                    win = "" if r["in_windows"] is None else (" · Windows'ta kayıtlı" if r["in_windows"] else " · WINDOWS'TA YOK")
+                    _print(f"{r['id']}  {'açık ' if r['enabled'] else 'KAPALI'}  {r['summary']}")
+                    _print(f"          sonraki: {r['next_run'] or '-'} · son: {r['last_run'] or '-'} {r['last_status'] or ''}{win}")
+                return 0
+            if a == "add":
+                if args.weekly:
+                    days = [DAY_KEYS[d.strip().lower()[:3]] for d in args.weekly.split(",")]
+                    cad = Cadence(freq="weekly", at=args.at, days=days)
+                elif args.monthly:
+                    cad = Cadence(freq="monthly", at=args.at, day=args.monthly)
+                elif args.once:
+                    cad = Cadence(freq="once", at=args.at, on=args.once)
+                else:
+                    cad = Cadence(freq="daily", at=args.at)
+                params: dict[str, Any] = {}
+                if args.path:
+                    params["path"] = args.path
+                if args.folder:
+                    params["folder"] = args.folder
+                if args.request:
+                    params["request"] = args.request
+                if args.formats:
+                    params["formats"] = args.formats.split(",")
+                s = Schedule(name=args.name or args.kind, kind=args.kind, params=params, cadence=cad,
+                             catch_up=not args.no_catch_up)
+                return submitted(request_create(rt, s, requested_by="cli"), f"Eklendi: {s.id}")
+            if a == "run-due":
+                runs = run_due(rt)
+                _print(f"{len(runs)} görev çalıştı" + "".join(f"\n  {r.schedule_id}: {r.status} {r.message[:80]}" for r in runs))
+                return 0
+            if a == "sync":
+                rep = sync_report(rt)
+                if not rep["supported"]:
+                    _print("Windows Görev Zamanlayıcı yok (yalnız Windows); kayaai schedule run-due kullan")
+                    return 0
+                _print(f"Windows'ta eksik: {', '.join(rep['missing']) or 'yok'} · kayaAI'de olmayan: {', '.join(rep['orphans']) or 'yok'}")
+                return 0
+            if not args.id:
+                _print(f"Görev kimliği gerekli: kayaai schedule {a} <id>  (liste: kayaai schedule list)")
+                return 2
+            if a == "run":
+                run = run_schedule(rt, args.id, args.trigger)
+                _print(f"{run.status}: {run.message}")
+                return 0 if run.status in ("succeeded", "skipped") else 1
+            if a in ("enable", "disable"):
+                return submitted(request_enable(rt, args.id, a == "enable", requested_by="cli"), a)
+            if a == "rm":
+                return submitted(request_delete(rt, args.id, requested_by="cli"), "Silindi")
+        except (ScheduleError, ValidationError, ValueError, KeyError, PathNotAllowed) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+    return 2
+
+
 def cmd_browse(args: argparse.Namespace) -> int:
     """Tarayıcı ajanı: onay gereken adımlar onay kuyruğuna düşer (başka bir terminalde: kayaai approvals approve <id>)."""
     from .browser.agent import BrowserJobError, start_job
@@ -1151,6 +1238,24 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    sh = sub.add_parser("schedule", help="zamanlanmış görevler (Windows Görev Zamanlayıcı; ekleme/silme onaylı)")
+    sh.add_argument("action", nargs="?", choices=["list", "add", "run", "run-due", "enable", "disable", "rm", "sync"],
+                    default="list")
+    sh.add_argument("id", nargs="?")
+    sh.add_argument("--name", default=None)
+    sh.add_argument("--kind", choices=["docs_digest", "sales_report", "reindex", "free"], default="reindex")
+    sh.add_argument("--at", default="09:00", help="saat HH:MM (yerel)")
+    sh.add_argument("--weekly", default=None, help="günler: pzt,sal,çar,per,cum,cmt,paz")
+    sh.add_argument("--monthly", type=int, default=None, help="ayın günü 1-28")
+    sh.add_argument("--once", default=None, help="tarih YYYY-MM-DD")
+    sh.add_argument("--path", default=None, help="sales_report: Excel/CSV dosyası (izinli klasör)")
+    sh.add_argument("--folder", default=None, help="docs_digest: yalnız bu klasör")
+    sh.add_argument("--request", default=None, help="free: şefe verilecek istek")
+    sh.add_argument("--formats", default=None, help="sales_report: xlsx,pdf,docx,md")
+    sh.add_argument("--no-catch-up", action="store_true", help="kaçırılan çalışmayı sonradan yapma")
+    sh.add_argument("--trigger", choices=["manual", "windows", "run-due"], default="manual", help=argparse.SUPPRESS)
+    sh.set_defaults(func=cmd_schedule)
 
     br = sub.add_parser("browse", help="tarayıcı ajanı (Edge, ayrı profil): hedefi adım adım yapar, riskli adımlar onaylı")
     br.add_argument("goal", nargs="+", help="ne yapılacak (ör. 'python kitaplarının fiyatlarını listele')")

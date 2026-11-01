@@ -326,6 +326,22 @@ select { font: inherit; background: var(--bg); color: var(--text); border: 1px s
 .warn-text { color: var(--warn); }
 .answer { white-space: pre-wrap; }
 
+/* Zamanlama (Adım 13) */
+.sched { display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; max-width: 1400px; margin: 0 auto; }
+.sched-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .sched { padding: 12px; } .sched-grid { grid-template-columns: 1fr; } }
+.sched-list, .runs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sched-list li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.sched-list li.off { opacity: .6; }
+.sched-form { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.sched-form > label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+.sched-form label.inline { flex-direction: row; align-items: center; gap: 6px; }
+.sched-form input, .sched-form select, .sched-form textarea { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.sched-form .checks { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); }
+.sched-form .checks label { display: flex; gap: 4px; align-items: center; }
+.runs li { font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.runs li.run-failed strong { color: var(--bad); }
+
 /* Markdown */
 .md { overflow-wrap: anywhere; }
 .md p { margin: 6px 0; }

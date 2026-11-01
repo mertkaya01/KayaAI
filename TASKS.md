@@ -168,8 +168,16 @@ tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
   hedefinde "Satın Al" önerildi) kodla reddedilir, aynı adım tekrarı atlanır; ses ölçümünde model yükleme ayrı; OCR küçük
   görüntüyü 2 kat büyütür; test PDF'i düzeltildi; Türkçe OneCore sesi (WinRT) ile ölçüm
 
+## Adım 13 — Zamanlama, optimizasyon, kurulum belgeleri (son adım)
+Sahip kararları (2026-11-01): Windows Görev Zamanlayıcı; hazır görevler: belge klasörü özeti, haftalık satış raporu,
+belge dizini yenileme, serbest görev.
+- [x] 13a — Zamanlanmış görevler: kayıt + sıklık, Görev Zamanlayıcı XML'i (schtasks), R2 onay, çalıştırıcı (kilit,
+  Ollama bekleme, sonuç Asistan'a), 4 işleyici, API/CLI, Zamanlama sekmesi, `scripts/schedule_check.py`
+- Testler: Python (zamanlama ), Playwright (zamanlama 8 kontrol); Windows `schedule_check` bekliyor
+- [ ] 13b — VRAM bekçisi + `kayaai bench` · [ ] 13c — DEPLOYMENT.md
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Sıradaki: Adım 13 (zamanlama).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 sürüyor (13a kodlandı).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:
