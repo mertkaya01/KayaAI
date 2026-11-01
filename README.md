@@ -21,9 +21,12 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
 | 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | **Tamamlandı** (Windows'ta doğrulandı) |
-| 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), optimizasyon, kurulum belgeleri | 13a–b kodlandı; 13c sırada |
+| 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), VRAM bekçisi + `kayaai bench`, kurulum belgeleri | Kodlandı (Windows doğrulaması bekliyor) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
+
+> **Hızlı başlangıç:** GitHub'dan sıfırdan kurulum, güncelleme, yedekleme, kaldırma ve sorun giderme →
+> [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
 ## Gereksinimler (Faz 1)
 

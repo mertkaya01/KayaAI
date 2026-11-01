@@ -2,6 +2,13 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.13.2] - 2026-11-01
+
+### Eklendi (Adım 13c — belgeler)
+- `docs/DEPLOYMENT.md`: GitHub'dan sıfırdan kurulum (gereksinimler, model boyutları, setup.ps1 adımları, ilk çalıştırma,
+  doğrulama betikleri), güncelleme, `data\` yedekleme/geri yükleme ve taşıma (neyin özel olduğu), kaldırma (Görev
+  Zamanlayıcı kayıtları dahil), sorun giderme tablosu, güvenlik özeti ve çok cihaz notları; README'de bağlantı
+
 ## [0.13.1] - 2026-11-01
 
 ### Eklendi (Adım 13b — optimizasyon)

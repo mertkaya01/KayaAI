@@ -175,10 +175,12 @@ belge dizini yenileme, serbest görev.
   Ollama bekleme, sonuç Asistan'a), 4 işleyici, API/CLI, Zamanlama sekmesi, `scripts/schedule_check.py`
 - Testler: Python (zamanlama 36), Playwright (zamanlama 8 kontrol); Windows `schedule_check` bekliyor
 - [x] 13b — VRAM bekçisi (görsel model / Whisper öncesi boştaki modelleri boşaltır) + `kayaai bench` (Windows'ta çalıştırılacak)
-- [ ] 13c — DEPLOYMENT.md
+- [x] 13c — [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): sıfırdan kurulum, güncelleme, yedekleme/geri yükleme, kaldırma,
+  sorun giderme, güvenlik özeti; README hızlı başlangıç bağlantısı
+- [ ] Windows: `python scripts\schedule_check.py` (kabul: kayaAI kapalıyken Görev Zamanlayıcı çalıştırır), `kayaai bench`
 
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 sürüyor (13a kodlandı).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Adım 13 kodlandı (13a–c, v0.13.2), Windows doğrulaması bekliyor — yol haritasının son adımı.
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:
