@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.12.1] - 2026-11-01
+
+### Eklendi (Adım 12b — bas-konuş ve sesli okuma)
+- Asistan'da **🎤** (basılı tut ya da tıkla-başlat/bitir): MediaRecorder → yerel **faster-whisper large-v3-turbo** →
+  metin yazı kutusuna; GPU (CUDA float16) → olmazsa işlemci (int8), nedeni raporlanır; 10 dk boşta kalınca bellekten çıkar
+- Model indirme sahip onayıyla (`speech.download`, R2) ya da setup.ps1'de; setup.ps1 GPU için NVIDIA cuBLAS + cuDNN'i
+  isteğe bağlı kurar; `kayaai doctor` ses durumunu gösterir
+- Cevaplarda **🔊 Oku**: yalnızca yerel Windows sesleri (çevrim içi sesler kullanılmaz)
+- API `GET /api/speech/status`, `POST /api/speech/transcribe`, `POST /api/speech/download`; CLI
+  `kayaai speech status|download|transcribe`; `perception_check` Windows sesiyle sentezlenen cümlelerle WER ölçer
+- Bağımlılıklar: faster-whisper, av (<19)
+
+### Düzeltildi
+- PyAV 19 faster-whisper 1.2.1'in ses çözmesini bozuyor (`metadata_errors` kaldırılmış): `av<19` sınırı
+
 ## [0.12.0] - 2026-11-01
 
 ### Eklendi (Adım 12a — ekranı okuma; kabul #8)

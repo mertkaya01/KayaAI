@@ -4,6 +4,7 @@ import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { Markdown } from "../markdown";
 import { CapturePreview, grabScreenFrame } from "./ScreenCapture";
+import { MicButton, SpeakButton } from "./Voice";
 
 const STATUS_TEXT: Record<string, string> = {
   pending: "sırada…",
@@ -115,6 +116,7 @@ function MessageView({ m, claude, onHandoff, onRemember, onReport, onOpenFlow, b
             <option value="">Rapor oluştur…</option>
             {REPORT_FORMATS.map(([f, label]) => <option key={f} value={f}>{label} (.{f})</option>)}
           </select>
+          <SpeakButton text={m.content} />
           <button className="ghost small" onClick={() => { void navigator.clipboard?.writeText(m.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
             {copied ? "Kopyalandı" : "Kopyala"}
           </button>
@@ -414,6 +416,8 @@ export function ChatView({
             <button className="ghost" onClick={() => fileInput.current?.click()}>Dosya ekle</button>
             <button className="ghost" onClick={() => void addFromFolder()}>Klasörden ekle</button>
             <button className="ghost" onClick={() => void captureScreen()} title="Ekrandan tek kare al (yerel görsel model yorumlar)">📷 Ekran</button>
+            <MicButton disabled={busy} onNotice={setNotice}
+              onText={(t) => setText((prev) => (prev.trim() ? `${prev.trimEnd()} ${t}` : t))} />
             {attachments.some((a) => a.kind === "table") && (
               <button className="ghost" disabled={busy} onClick={() => void send("analyze")} title="Sayıları program hesaplar">Analiz et</button>
             )}
@@ -423,7 +427,7 @@ export function ChatView({
                 <button className="ghost" disabled={busy} onClick={() => void send("invoice")}>Fatura olarak oku</button>
               </>
             )}
-            <span className="muted hint">Metin, PDF, Excel/CSV, görüntü</span>
+            <span className="muted hint">Metin, PDF, Excel/CSV, görüntü, ses</span>
             <span className="spacer" />
             <button className="toggle" disabled={busy || !text.trim()} onClick={() => void send()}>Gönder</button>
           </div>

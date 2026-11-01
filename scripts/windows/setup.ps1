@@ -241,6 +241,26 @@ if ($LASTEXITCODE -eq 0 -and $vision) {
     }
 }
 
+# Adım 12b — ses tanıma (bas-konuş, canlı altyazı). Zorunlu değil.
+$speechOk = (& $VenvPython -c "from kayaai.config import load_settings; from kayaai.speech.stt import is_installed; print(is_installed(load_settings()))").Trim()
+if ($speechOk -eq "True") {
+    Write-Ok "Ses tanıma modeli zaten kurulu (whisper)"
+} elseif ($SkipModel) {
+    Write-Warn2 "Ses tanıma modeli atlandı. Sonra: kayaai speech download"
+} elseif (Confirm-Action "Ses tanıma modeli (whisper large-v3-turbo, ~1.6 GB, MIT) indirilsin mi? (bas-konuş ve canlı altyazı için)") {
+    & $VenvPython -c "from kayaai.config import load_settings; from kayaai.speech.stt import download; print(download(load_settings()))"
+    if ($LASTEXITCODE -ne 0) { Write-Warn2 "Ses modeli indirilemedi. Sonra: kayaai speech download" }
+    else { Write-Ok "Ses tanıma modeli indirildi" }
+}
+$gpuLibs = (& $VenvPython -c "import importlib.util as u; print(bool(u.find_spec('nvidia.cublas') and u.find_spec('nvidia.cudnn')))" 2>$null)
+if ($gpuLibs -and $gpuLibs.Trim() -eq "True") {
+    Write-Ok "Ses tanıma GPU kütüphaneleri kurulu (cuBLAS + cuDNN)"
+} elseif (-not $SkipModel -and (Confirm-Action "Ses tanıma GPU'da çalışsın mı? NVIDIA cuBLAS + cuDNN kütüphaneleri pip ile kurulur (~1.3 GB). Hayır: işlemcide çalışır (daha yavaş)")) {
+    & $VenvPython -m pip install "nvidia-cublas-cu12" "nvidia-cudnn-cu12>=9,<10"
+    if ($LASTEXITCODE -ne 0) { Write-Warn2 "GPU kütüphaneleri kurulamadı; ses tanıma işlemcide çalışır." }
+    else { Write-Ok "GPU kütüphaneleri kuruldu" }
+}
+
 # ---------------------------------------------------------------- 8. doctor
 Write-Step "8/8 Son kontrol (kayaai doctor)"
 & $VenvPython -m kayaai doctor

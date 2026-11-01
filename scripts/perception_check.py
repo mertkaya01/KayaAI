@@ -1,8 +1,10 @@
-"""Adım 12 doğrulaması — GERÇEK modellerle algı: 12a ekranı okuma (OCR + qwen2.5vl:7b) ve taranmış PDF.
+"""Adım 12 doğrulaması — GERÇEK modellerle algı: 12a ekranı okuma (OCR + qwen2.5vl:7b), taranmış PDF, 12b ses tanıma.
 
-Kullanım (proje klasöründe, venv etkin; önce: ollama pull qwen2.5vl:7b):
-    python scripts/perception_check.py            # örnek görüntüler + taranmış PDF
+Kullanım (proje klasöründe, venv etkin; önce: ollama pull qwen2.5vl:7b ve kayaai speech download):
+    python scripts/perception_check.py            # örnek görüntüler + taranmış PDF + ses tanıma
     python scripts/perception_check.py --screen   # + gerçek ekranından TEK kare (yalnız bu komutla, kaydedilmez)
+Ses: konuşma örnekleri Windows'un kendi sesleriyle (System.Speech, çevrim dışı) WAV'a sentezlenir → whisper → kelime hata
+oranı (WER). Türkçe ses yüklü değilse yalnız İngilizce ölçülür.
 Sonuç: data/perception_check.json
 
 AYRI veri klasöründe çalışır (data/checks/perception). Örnek görüntüler sistem yazı tipiyle üretilir (Türkçe karakterli);
@@ -75,6 +77,69 @@ def scanned_pdf(png: bytes) -> bytes:
     return buf.getvalue()
 
 
+SPEECH = [
+    ("tr", "Yarın sabah saat onda Atlas projesi için müşteriyle toplantımız var."),
+    ("tr", "Lütfen geçen ayın satış raporunu Excel olarak hazırla ve bana gönder."),
+    ("en", "Please schedule a meeting with the design team next Tuesday afternoon."),
+]
+
+
+def synth_wav(text: str, culture: str, out: Path) -> str | None:
+    """Windows System.Speech ile WAV (çevrim dışı). Ses yoksa None."""
+    import subprocess
+
+    ps = (
+        "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        f"$v = $s.GetInstalledVoices() | Where-Object {{ $_.VoiceInfo.Culture.Name -eq '{culture}' -and $_.Enabled }} | "
+        "Select-Object -First 1; if (-not $v) { exit 3 }; $s.SelectVoice($v.VoiceInfo.Name); "
+        f"$s.SetOutputToWaveFile('{out}'); $s.Speak($env:KAYA_TTS_TEXT); $s.Dispose(); Write-Output $v.VoiceInfo.Name"
+    )
+    import os
+
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True,
+                       env={**os.environ, "KAYA_TTS_TEXT": text}, timeout=60)
+    return r.stdout.strip() if r.returncode == 0 and out.is_file() else None
+
+
+def wer(ref: str, hyp: str) -> float:
+    import re
+
+    norm = lambda t: re.findall(r"\w+", t.lower().replace("İ", "i").replace("I", "ı"))  # noqa: E731
+    r, h = norm(ref), norm(hyp)
+    d = list(range(len(h) + 1))
+    for i in range(1, len(r) + 1):
+        prev, d[0] = d[0], i
+        for j in range(1, len(h) + 1):
+            cur = min(d[j] + 1, d[j - 1] + 1, prev + (r[i - 1] != h[j - 1]))
+            prev, d[j] = d[j], cur
+    return round(d[len(h)] / max(1, len(r)), 3)
+
+
+def check_speech(settings, work: Path) -> tuple[list[dict], dict]:
+    from kayaai.speech.stt import SpeechError, is_installed, status, transcribe
+
+    if not is_installed(settings):
+        return [], {"error": "ses modeli kurulu değil: kayaai speech download"}
+    if sys.platform != "win32":
+        return [], {"error": "örnek ses sentezi yalnız Windows'ta (System.Speech)"}
+    rows = []
+    for i, (lang, text) in enumerate(SPEECH):
+        f = work / f"ses{i}.wav"
+        voice = synth_wav(text, "tr-TR" if lang == "tr" else "en-US", f)
+        if not voice:
+            rows.append({"lang": lang, "skipped": f"Windows'ta {lang} sesi yok"})
+            continue
+        try:
+            t = transcribe(settings, f.read_bytes(), lang)
+            rows.append({"lang": lang, "voice": voice, "wer": wer(text, t.text), "text": t.text,
+                         "audio_s": t.audio_seconds, "seconds": t.seconds, "device": t.device})
+        except SpeechError as exc:
+            rows.append({"lang": lang, "error": str(exc)})
+        print(f"Ses [{lang}]: {rows[-1].get('text', rows[-1].get('error', rows[-1].get('skipped')))}")
+    st = status(settings)
+    return rows, {"device": st["device"], "gpu_error": st["gpu_error"]}
+
+
 def main() -> int:
     from kayaai.llm.compare import missing_expected
     from kayaai.perception.ocr import OcrUnavailable, available, ocr_image
@@ -85,6 +150,7 @@ def main() -> int:
     work = settings.data_dir / "checks" / "perception"
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
+    real = settings.model_copy(deep=True)  # ses modeli asıl data/models altında (indirilmiş olanı kullan)
     settings.data_dir = work / "data"
     settings.files.home_dir = str(work / "files")
     t_all = time.monotonic()
@@ -143,14 +209,22 @@ def main() -> int:
             except (VisionError, OSError, ValueError) as exc:
                 screen_row = {"error": str(exc)}
 
+    sp_rows, sp_info = check_speech(real, work)
+    measured = [r for r in sp_rows if "wer" in r]
+    summary_speech = {"speech_device": sp_info.get("device"), "speech_gpu_error": sp_info.get("gpu_error"),
+                      "speech_error": sp_info.get("error"),
+                      "speech_wer": {r["lang"]: r["wer"] for r in measured} or None,
+                      "speech_rtf": round(sum(r["seconds"] for r in measured) / max(0.01, sum(r["audio_s"] for r in measured)), 3)
+                      if measured else None}
     summary = {
+        **summary_speech,
         "ocr": why, "vision_ok": f"{sum(1 for r in rows if r.get('ok'))}/{len(rows)}",
         "ocr_found": ", ".join(o.get("found", "hata") for o in ocr_rows) or "OCR yok",
         "scanned_pdf_ok": pdf_row.get("ok"), "avg_vision_s": round(sum(r.get("seconds", 0) for r in rows) / max(1, len(rows)), 2),
         "total_s": round(time.monotonic() - t_all, 1),
     }
     report_path.write_text(json.dumps({"summary": summary, "vision": rows, "ocr": ocr_rows, "scanned_pdf": pdf_row,
-                                       "screen": screen_row}, ensure_ascii=False, indent=2), encoding="utf-8")
+                                       "screen": screen_row, "speech": sp_rows}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     print(f"Rapor: {report_path}")
     return 0

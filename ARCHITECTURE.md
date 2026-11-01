@@ -243,6 +243,17 @@ taranmış PDF: readers.read_pdf metinsizse → perception/ocr.ocr_pdf (pypdfium
 - `vision` ajanı planlayıcıya sunulmaz (`FORBIDDEN_STEP_AGENTS`); yalnız görüntü ekiyle çalışır; Claude karşılığı yok.
 - CLI `kayaai screen` (mss, tek kare), API `POST /api/perception/image`, `GET /api/perception/status`.
 
+## Ses: bas-konuş ve sesli okuma (Adım 12b)
+
+```
+UI 🎤 (basılı tut / tıkla) → getUserMedia + MediaRecorder (webm/opus, kayıt bitince mikrofon kapanır)
+   → POST /api/speech/transcribe (base64) → speech/stt.decode (PyAV, bellekte 16 kHz mono) → faster-whisper
+   model: data/models/whisper/<ad> (speech.download R2 executor; faster_whisper.download_model; ilerleme klasör boyutundan)
+   aygıt: cuda float16 (Windows: pip nvidia-cublas/cudnn DLL klasörleri arama yoluna) → hata/aygıt yok → cpu int8
+   süreçte tek model, kilitli; idle_unload_s sonra bırakılır; olay kaydına metin değil yalnız süreler yazılır
+🔊 Oku → speechSynthesis, yalnız voice.localService (Markdown → düz metin, kod okunmaz)
+```
+
 ## İş modülleri (Adım 10)
 
 ```

@@ -32,7 +32,7 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 6 | PDF okunup özetleniyor | [x] 2026-10-31 — 3 sayfalık rapor, 4/4 anahtar bilgi, sayfa kaynaklı |
 | 7 | Excel analiz ediliyor | [x] 2026-10-31 — sayıları program hesaplar, uydurma sayı 0 (v0.10.2: toplam/maks yorumu düzeltildi) |
 | 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [~] 12a kodlandı (v0.12.0), Windows doğrulaması bekliyor |
-| 9 | Seçilen ses kaynağı yazıya dökülüyor | [ ] Faz 6 |
+| 9 | Seçilen ses kaynağı yazıya dökülüyor | [~] mikrofon: 12b kodlandı (v0.12.1); sistem sesi 12c |
 | 10 | Çeviri altyazı olarak gösteriliyor | [ ] Faz 6 |
 | 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [ ] Faz 7 |
 | 12 | İş raporu üretiliyor | [x] 2026-10-31 — xlsx / md / docx / pdf |
@@ -151,7 +151,10 @@ tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
 - [x] 12a — Ekranı oku: 📷 Ekran (tek kare, alan seçimi), görüntü eki, Windows OCR, vision ajanı (qwen2.5vl:7b),
   sayı denetimi, devam soruları, Claude'a gitmez; taranmış PDF (pypdfium2 + OCR); CLI `kayaai screen`; API
 - Testler: Python (algı 18), Playwright (ekran akışı 12 kontrol); Windows `perception_check` bekliyor
-- [ ] 12b — Bas-konuş + sesli okuma · [ ] 12c — Canlı çeviri altyazı · [ ] 12d — Tarayıcı otomasyonu
+- [x] 12b — Bas-konuş (🎤 basılı tut / tıkla, MediaRecorder → yerel faster-whisper, GPU → işlemci, model indirme R2,
+  ses saklanmaz) + 🔊 Oku (yalnız yerel Windows sesleri); CLI `kayaai speech`; setup.ps1 model + GPU kütüphaneleri
+- Testler: Python (ses 15; webm/wav gerçek çözme), Vitest 18, Playwright (bas-konuş 9 kontrol); Windows `perception_check` bekliyor
+- [ ] 12c — Canlı çeviri altyazı · [ ] 12d — Tarayıcı otomasyonu
 
 ## Sıradaki adımlar
 Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 sürüyor (12a kodlandı).

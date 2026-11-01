@@ -12,6 +12,7 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai speech [status|download|transcribe <dosya>]  Yerel ses tanıma (faster-whisper)
     kayaai screen ["soru"]   Ekran görüntüsü (tek kare) + yerel görsel model (OCR ile doğrulama)
     kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
@@ -137,6 +138,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         from .perception.ocr import available as ocr_available
 
         _print(("[OK] " if ocr_available()[0] else "[UYARI] ") + "OCR: " + ocr_available()[1])
+        from .speech.stt import is_installed as speech_installed
+
+        if speech_installed(settings):
+            _print(f"[OK] Ses tanıma modeli kurulu: whisper {settings.speech.model}")
+        else:
+            _print(f"[UYARI] Ses tanıma modeli kurulu değil (whisper {settings.speech.model}) — kayaai speech download")
         for m in client.running_models():
             vram = (m.get("size_vram") or 0) / 1024**3
             total = (m.get("size") or 0) / 1024**3
@@ -667,6 +674,41 @@ def cmd_screen(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_speech(args: argparse.Namespace) -> int:
+    from .speech import SpeechError, request_download
+    from .speech.stt import status, transcribe
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    if args.action == "status":
+        st = status(settings)
+        _print(f"Model: whisper {st['model']} · {'kurulu' if st['installed'] else 'KURULU DEĞİL'} · {st['dir']}")
+        if not st["installed"]:
+            _print("İndir: kayaai speech download  (~%s MB, sahip onayı gerekir)" % (st["approx_mb"] or "?"))
+        return 0
+    if args.action == "download":
+        with build_runtime(settings) as rt:
+            try:
+                res = request_download(rt, requested_by="cli")
+            except SpeechError as exc:
+                _print(f"[HATA] {exc}")
+                return 1
+            _print(f"[ONAY BEKLİYOR] {res.message}")
+            _print(f"Onayla: kayaai approvals approve {res.approval_id}  (onaylayınca indirme başlar)")
+        return 0
+    if not args.file:
+        _print("Kullanım: kayaai speech transcribe <ses-dosyası> [--lang tr|en]")
+        return 2
+    try:
+        t = transcribe(settings, Path(args.file).read_bytes(), args.lang)
+    except (OSError, SpeechError) as exc:
+        _print(f"[HATA] {exc}")
+        return 1
+    _print(t.text or "(konuşma algılanmadı)")
+    _print(f"({t.audio_seconds} sn ses · {t.seconds} sn işlem · {t.device} · dil: {t.language})")
+    return 0
+
+
 def cmd_business(args: argparse.Namespace) -> int:
     """İş modülleri (Adım 10): kayaai analyze | summarize | invoice <dosya> [soru] [--report biçim]."""
     from .business import from_result, run_mode, save
@@ -1068,6 +1110,12 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    sp = sub.add_parser("speech", help="ses tanıma: durum / modeli indir (onaylı) / dosyayı yazıya çevir")
+    sp.add_argument("action", nargs="?", choices=["status", "download", "transcribe"], default="status")
+    sp.add_argument("file", nargs="?")
+    sp.add_argument("--lang", choices=["auto", "tr", "en"], default=None)
+    sp.set_defaults(func=cmd_speech)
 
     sc = sub.add_parser("screen", help="ekran görüntüsü al (tek kare) ve yerel görsel modelle yorumla")
     sc.add_argument("question", nargs="*", help="soru (boşsa: ekranda ne var?)")

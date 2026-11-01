@@ -20,7 +20,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
-| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş, canlı altyazı, tarayıcı otomasyonu | 12a kodlandı (Windows doğrulaması bekliyor); 12b–d sırada |
+| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı altyazı, tarayıcı otomasyonu | 12a–b kodlandı (Windows doğrulaması bekliyor); 12c–d sırada |
 | 13 | Zamanlama, optimizasyon | Planlandı |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
@@ -254,6 +254,19 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - Görsel model kullanılmayınca 2 dk sonra GPU belleğinden çıkar. Kurulum: `ollama pull qwen2.5vl:7b` (setup.ps1 sorar).
 - CLI: `kayaai screen "ekranda ne var?"` (birincil ekrandan tek kare) · `kayaai screen --file ekran.png "toplam ne?"`.
   Ölçüm: `python scripts\perception_check.py [--screen]`.
+
+## Bas-konuş ve sesli okuma (Adım 12b)
+
+- Asistan'da **🎤**: basılı tut ve konuş (bırakınca biter) ya da tıkla-başlat / tıkla-bitir. Konuşma yerel **Whisper
+  large-v3-turbo** ile yazıya çevrilip yazı kutusuna eklenir; düzeltip gönderirsin. Mikrofon yalnız kayıt sürerken açık
+  (kırmızı sayaç + tarayıcı göstergesi), en fazla 2 dakika; **ses diske yazılmaz, saklanmaz**.
+- İlk kullanımda model indirilmeli (~1,6 GB, MIT): setup.ps1 sorar ya da `kayaai speech download` / mikrofon → **İndir**
+  (sahip onayı). GPU'da çalışması için setup.ps1 NVIDIA cuBLAS + cuDNN'i (~1,3 GB, pip) isteğe bağlı kurar; yoksa ya da
+  çalışmazsa işlemciye düşer (nedeni `kayaai speech status` ve `/api/speech/status`'ta). 10 dk kullanılmazsa bellekten çıkar.
+- Cevaplarda **🔊 Oku**: yalnızca bu bilgisayardaki Windows sesleri (Türkçe için "Tolga"); metni Microsoft'a gönderen
+  çevrim içi sesler kullanılmaz. Türkçe ses yoksa düğme nasıl ekleneceğini söyler (Ayarlar → Saat ve dil → Konuşma).
+- CLI: `kayaai speech status|download|transcribe kayit.wav [--lang tr]`. Ölçüm: `python scripts\perception_check.py`
+  (Windows sesiyle sentezlenen Türkçe/İngilizce cümleler → kelime hata oranı).
 
 ## İş modülleri (Adım 10)
 

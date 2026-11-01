@@ -154,6 +154,15 @@
 - [x] Yeni bağımlılıklar izin verici lisanslı: Pillow (MIT-CMU), pypdfium2 (Apache-2.0/BSD), mss (MIT), pywinrt (MIT);
       görsel model qwen2.5vl:7b (Apache-2.0)
 
+## Adım 12b'de uygulananlar (bas-konuş, sesli okuma)
+
+- [x] Mikrofon yalnız sahip düğmeye bastığında açılır, kayıt bitince akış kapatılır; sayaç + tarayıcı göstergesi; 2 dk üst sınır
+- [x] Ses diske yazılmaz ve saklanmaz (bellekte çözülür); olay kaydına tanınan metin değil yalnız süre/aygıt yazılır
+- [x] Ses tanıma tamamen yerel (faster-whisper); model indirme sahip onayı ister (R2) ya da setup.ps1'de sahibe sorulur
+- [x] Sesli okuma yalnız yerel Windows sesleriyle (`localService`); çevrim içi (bulut) sesler kullanılmaz
+- [x] Bağımlılıklar: faster-whisper, ctranslate2 (MIT), PyAV (BSD-3; <19 — 19 faster-whisper'ı bozuyor);
+      isteğe bağlı NVIDIA cuBLAS/cuDNN (NVIDIA lisansı, yalnız yerel çalıştırma için, yeniden dağıtılmaz)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem

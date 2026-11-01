@@ -77,6 +77,9 @@ def build_runtime(
     from .llm.manager import executors as model_executors
 
     permissions.executors.update(model_executors(rt))
+    from .speech import executors as speech_executors
+
+    permissions.executors.update(speech_executors(rt))
     if load_user_agents:
         sync_user_agents(rt)  # data/agents: sonradan oluşturulan (geçici / kalıcı yapılmış) ajanlar
     from .memory import Memory

@@ -278,6 +278,14 @@ select { font: inherit; background: var(--bg); color: var(--text); border: 1px s
 .ocr-text { white-space: pre-wrap; font-size: 12px; max-height: 220px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 6px; margin: 4px 0 0; }
 .row-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
+/* Bas-konuş (Adım 12b) */
+.mic { min-width: 44px; touch-action: none; user-select: none; }
+.mic.rec { color: var(--bad); border-color: var(--bad); }
+.rec-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--bad); animation: pulse 1s ease-in-out infinite; }
+.rec-label { color: var(--bad); font-size: 12px; }
+.mic-missing { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--warn); }
+@media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+
 /* Markdown */
 .md { overflow-wrap: anywhere; }
 .md p { margin: 6px 0; }

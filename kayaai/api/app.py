@@ -188,6 +188,11 @@ class ImageBody(BaseModel):
     question: str = Field("", max_length=4000)
 
 
+class AudioBody(BaseModel):
+    data_b64: str = Field(min_length=4, max_length=40_000_000)   # ≤ ~30 MB ses (120 sn webm/wav)
+    language: Literal["auto", "tr", "en"] | None = None
+
+
 class ModelName(BaseModel):
     name: str = Field(min_length=1, max_length=140)
 
@@ -570,6 +575,45 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         ok, why = available()
         spec = rt.registry.models.get("vision-7b")
         return {"ocr": {"available": ok, "detail": why}, "vision_model": spec.name if spec else None}
+
+    # ---------------------------------------------------------------- ses (Adım 12b)
+
+    @app.get("/api/speech/status", dependencies=[Depends(auth)])
+    def speech_status() -> dict[str, Any]:
+        from ..speech.stt import download_state, status
+
+        return {**status(rt.settings), "download": download_state()}
+
+    @app.post("/api/speech/transcribe", dependencies=[Depends(auth)])
+    def speech_transcribe(body: AudioBody) -> dict[str, Any]:
+        """Bas-konuş: ses → metin (yerel Whisper). Ses diske yazılmaz, saklanmaz."""
+        import base64
+        import binascii
+
+        from ..speech.stt import SpeechError, SpeechUnavailable, transcribe
+
+        try:
+            audio = base64.b64decode(body.data_b64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise HTTPException(400, "Ses verisi bozuk (base64)") from exc
+        try:
+            t = transcribe(rt.settings, audio, body.language)
+        except SpeechUnavailable as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except SpeechError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        rt.store.emit("speech.transcribed", {"audio_seconds": t.audio_seconds, "seconds": t.seconds,
+                                             "device": t.device, "chars": len(t.text)})  # metin olaya yazılmaz
+        return t.model_dump(mode="json")
+
+    @app.post("/api/speech/download", dependencies=[Depends(auth)])
+    def speech_download() -> dict[str, Any]:
+        from ..speech import SpeechError, request_download
+
+        try:
+            return request_download(rt, requested_by="api").model_dump(mode="json")
+        except SpeechError as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @app.post("/api/business/run", dependencies=[Depends(auth)])
     def business_run(body: BusinessRunBody) -> dict[str, Any]:
