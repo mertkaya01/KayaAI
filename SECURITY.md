@@ -210,8 +210,13 @@
 
 ## Henüz uygulanmayanlar (ilgili fazda)
 
-Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü (tarayıcı dışı) eylem
-önizlemesi, hafıza hassasiyet kontrolleri (Faz 9).
+Güncelleme (2026-11-01): dosya yükleme doğrulaması (tür izin listesi, base64 ve boyut kontrolü, Adım 9/12) ve hafıza
+hassasiyet kontrolleri (public/personal/private/secret, gizli bilgi algılama, Adım 8) uygulandı.
+
+- **Model ürettiği kodu çalıştırma:** bilinçli olarak YOK (ilke: açık onay olmadan çalıştırılmaz); sandbox ancak sahip
+  böyle bir özellik isterse tasarlanır.
+- **Hız sınırlama:** yok. API yalnız 127.0.0.1'de ve oturum anahtarıyla; ağa açılırsa (sahip kararı) zorunlu olur.
+- **Masaüstü (tarayıcı dışı) eylemler:** yok; yalnız tarayıcı ajanı (Adım 12d) önizlemeli/onaylı eylem yapar.
 
 ## Güvenlik sorunu bildirimi
 
