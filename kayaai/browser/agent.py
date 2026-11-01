@@ -328,6 +328,10 @@ def start_job(rt: "Runtime", goal: str, url: str, driver_factory: DriverFactory 
               background: bool | None = None) -> BrowserJob:
     from .risk import check_url
 
+    from ..automation import is_paused
+
+    if is_paused(rt):
+        raise BrowserJobError("Otomasyon duraklatıldı: tarayıcı işi başlatılamaz (Kontrol Merkezi → Otomasyonu sürdür)")
     if len(goal.strip()) < 5:
         raise BrowserJobError("Ne yapılacağını yaz (hedef)")
     url = url.strip()

@@ -342,6 +342,9 @@ select { font: inherit; background: var(--bg); color: var(--text); border: 1px s
 .runs li { font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .runs li.run-failed strong { color: var(--bad); }
 
+.automation-btn { font-size: 12px; padding: 3px 10px; }
+button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); cursor: pointer; }
+
 /* Markdown */
 .md { overflow-wrap: anywhere; }
 .md p { margin: 6px 0; }

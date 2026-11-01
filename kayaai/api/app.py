@@ -743,6 +743,26 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         except SpeechError as exc:
             raise HTTPException(409, str(exc)) from exc
 
+    # ---------------------------------------------------------------- otomasyonu duraklat (Adım 14a)
+
+    @app.get("/api/automation", dependencies=[Depends(auth)])
+    def automation_state() -> dict[str, Any]:
+        from ..automation import state
+
+        return state(rt)
+
+    @app.post("/api/automation/pause", dependencies=[Depends(auth)])
+    def automation_pause() -> dict[str, Any]:
+        from ..automation import set_paused
+
+        return set_paused(rt, True, by="api")
+
+    @app.post("/api/automation/resume", dependencies=[Depends(auth)])
+    def automation_resume() -> dict[str, Any]:
+        from ..automation import set_paused
+
+        return set_paused(rt, False, by="api")
+
     # ---------------------------------------------------------------- zamanlanmış görevler (Adım 13)
 
     from ..schedule import ScheduleError

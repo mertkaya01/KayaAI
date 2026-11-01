@@ -12,6 +12,7 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai pause | resume    Otomasyonu duraklat / sürdür (zamanlanmış görevler, tarayıcı)
     kayaai schedule [list|add|run|rm|…]  Zamanlanmış görevler (Windows Görev Zamanlayıcı)
     kayaai browse "hedef" --url ADRES  Tarayıcı ajanı (ayrı Edge profili; form/gönder/öde onaylı)
     kayaai speech [status|download|transcribe <dosya>]  Yerel ses tanıma (faster-whisper)
@@ -838,6 +839,24 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_pause(args: argparse.Namespace) -> int:
+    from .automation import set_paused, state
+    from .runtime import build_runtime
+
+    with build_runtime(load_settings()) as rt:
+        if args.func_name == "status":
+            st = state(rt)
+            _print("Otomasyon DURAKLATILDI" + (f" ({st['at']}, {st['by']})" if st["at"] else "") if st["paused"] else "Otomasyon açık")
+            return 0
+        st = set_paused(rt, args.func_name == "pause", by="cli", reason=" ".join(getattr(args, "reason", []) or []))
+        if st["paused"]:
+            _print("[OK] Otomasyon duraklatıldı: zamanlanmış görevler atlanır, tarayıcı işi başlamaz"
+                   + (f" (durdurulan tarayıcı işi: {', '.join(st['stopped_browser_jobs'])})" if st["stopped_browser_jobs"] else ""))
+        else:
+            _print("[OK] Otomasyon sürüyor")
+    return 0
+
+
 def cmd_bench(args: argparse.Namespace) -> int:
     from .bench import run_bench
 
@@ -1284,6 +1303,12 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    pz = sub.add_parser("pause", help="otomasyonu duraklat (zamanlanmış görevler, tarayıcı işleri)")
+    pz.add_argument("reason", nargs="*")
+    pz.set_defaults(func=cmd_pause, func_name="pause")
+    sub.add_parser("resume", help="otomasyonu sürdür").set_defaults(func=cmd_pause, func_name="resume")
+    sub.add_parser("automation", help="otomasyon durumu (açık / duraklatıldı)").set_defaults(func=cmd_pause, func_name="status")
 
     sub.add_parser("bench", help="donanımda ölçüm: sohbet, embedding, görsel, Whisper, VRAM tepe → data/bench.json"
                    ).set_defaults(func=cmd_bench)

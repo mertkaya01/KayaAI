@@ -196,6 +196,13 @@ def _wait_ollama(rt: "Runtime", wait_s: float) -> bool:
 def run_schedule(rt: "Runtime", sid: str, trigger: str = "manual", ollama_wait_s: float = OLLAMA_WAIT_S) -> Run:
     s = load(rt, sid)
     run = Run(schedule_id=s.id, trigger=trigger)  # type: ignore[arg-type]
+    from ..automation import is_paused
+
+    if trigger != "manual" and is_paused(rt):  # Adım 14a: otomasyon duraklatıldı (görev Windows'ta kalır)
+        run.status, run.message, run.finished_at = "skipped", "otomasyon duraklatıldı", datetime.now()
+        rt.store.save_schedule_run(run.id, s.id, run.started_at.isoformat(), run.model_dump(mode="json"))
+        rt.store.emit("schedule.run", {"id": s.id, "name": s.name, "status": "skipped", "trigger": trigger})
+        return run
     if not s.enabled and trigger != "manual":
         run.status, run.message, run.finished_at = "skipped", "görev kapalı", datetime.now()
         rt.store.save_schedule_run(run.id, s.id, run.started_at.isoformat(), run.model_dump(mode="json"))

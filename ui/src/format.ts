@@ -122,6 +122,10 @@ export function describeEvent(e: KEvent): string {
     case "model.compare":
       return d.status ? `Model karşılaştırma ${d.status === "done" ? "bitti" : d.status === "failed" ? "başarısız" : "başladı"}`
         : `Model karşılaştırma: ${d.done}/${d.total}`;
+    case "automation.paused":
+      return `Otomasyon duraklatıldı (${d.by})${d.reason ? `: ${d.reason}` : ""}`;
+    case "automation.resumed":
+      return `Otomasyon sürdürüldü (${d.by})`;
     case "schedule.run":
       return `Zamanlanmış görev · ${d.name}: ${({ running: "çalışıyor", succeeded: "başarılı", failed: "başarısız", skipped: "atlandı" } as Record<string, string>)[String(d.status)] ?? d.status}${d.seconds != null ? ` (${d.seconds} sn)` : ""}`;
     case "schedule.created":

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type ClaudeStatus, type Dispute, type Health, type KEvent, type SystemMetrics } from "./api";
+import { clearToken, getToken, setToken, takeTokenFromHash, type Agent, type Approval, type AutomationState, type ClaudeStatus, type Dispute, type Health, type KEvent, type SystemMetrics } from "./api";
 import { AgentsPanel } from "./components/AgentsPanel";
 import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { ChatView } from "./components/ChatView";
@@ -88,6 +88,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
 
   const health = usePolling<Health>("/api/health", 5000, claudeKey);
   const claude = usePolling<ClaudeStatus>("/api/claude", 5000, claudeKey);
+  const automation = usePolling<AutomationState>("/api/automation", 15000, claudeKey);
 
   const unauthorized = [health, claude].some((p) => p.unauthorized);
   useEffect(() => {
@@ -104,6 +105,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
     if (e.type.startsWith("model.") || e.type === "agent.model_changed") setModelsKey((k) => k + 1);
     if (e.type.startsWith("schedule.") || e.type === "approval.decided") setScheduleKey((k) => k + 1);
     if (e.type.startsWith("chat.") || (e.type === "task.status" && e.data.worker === "conductor")) setChatKey((k) => k + 1);
+    if (e.type.startsWith("automation.")) setClaudeKey((k) => k + 1);
     if (e.type === "claude.mode" || (e.type === "task.status" && e.data.status === "waiting_claude")) setClaudeKey((k) => k + 1);
   }, [bump]);
   const live = useEvents(token, onEvent);
@@ -113,6 +115,7 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
       <TopBar
         health={health.data}
         claude={claude.data}
+        automation={automation.data}
         live={live}
         route={route}
         onNavigate={navigate}

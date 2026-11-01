@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { post, type ClaudeStatus, type Health } from "../api";
+import { post, type AutomationState, type ClaudeStatus, type Health } from "../api";
 import type { Route } from "../route";
 
 const CLAUDE_TEXT: Record<ClaudeStatus["state"], string> = {
@@ -12,6 +12,7 @@ const CLAUDE_TEXT: Record<ClaudeStatus["state"], string> = {
 export function TopBar({
   health,
   claude,
+  automation,
   live,
   route,
   onNavigate,
@@ -20,6 +21,7 @@ export function TopBar({
 }: {
   health: Health | null;
   claude: ClaudeStatus | null;
+  automation?: AutomationState | null;
   live: boolean;
   route: Route;
   onNavigate: (r: Route) => void;
@@ -41,6 +43,21 @@ export function TopBar({
     setError(null);
     try {
       await post("/api/claude", { enabled: !claude.enabled, handback });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleAutomation() {
+    if (!automation) return;
+    if (!automation.paused && !window.confirm("Otomasyon duraklatılsın mı?\nZamanlanmış görevler atlanır, tarayıcı işi başlamaz, süren tarayıcı işi durdurulur. Sohbet ve elle yaptıkların etkilenmez.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await post(`/api/automation/${automation.paused ? "resume" : "pause"}`, {});
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -93,6 +110,13 @@ export function TopBar({
             {CLAUDE_TEXT[claude.state]}
             {claude.waiting_tasks > 0 && ` · kutuda ${claude.waiting_tasks}`}
           </span>
+        )}
+        {automation && (
+          <button className={automation.paused ? "pill bad automation-btn" : "ghost automation-btn"} disabled={busy}
+            onClick={() => void toggleAutomation()} aria-pressed={automation.paused}
+            title={automation.paused ? `Duraklatıldı${automation.at ? ` (${automation.at})` : ""} — sürdürmek için tıkla` : "Zamanlanmış görevleri ve tarayıcı işlerini durdur"}>
+            {automation.paused ? "⏸ Otomasyon duraklatıldı · Sürdür" : "⏸ Otomasyon"}
+          </button>
         )}
         <button className="toggle" disabled={!claude || busy} onClick={() => void toggle()}>
           {claude?.enabled ? "Claude'u kapat" : "Claude'u aç"}
