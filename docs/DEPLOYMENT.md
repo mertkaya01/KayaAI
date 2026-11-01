@@ -93,8 +93,10 @@ Windows kurulumundan alınmış liste). Böylece aylar sonra temiz kurulumda yen
 (ör. PyAV 19 ses tanımayı bozmuştu). Listeyi yenilemek için, her şey çalışırken:
 
 ```powershell
-.\.venv\Scripts\python -m pip freeze --exclude-editable > constraints\windows.txt
+powershell -ExecutionPolicy Bypass -File scripts\windows\freeze.ps1
 ```
+
+(Klasörü oluşturur ve UTF-8 yazar; PowerShell 5.1'de `>` UTF-16 yazdığı için doğrudan yönlendirme kullanılmaz.)
 
 ## 4. Yedekleme ve geri yükleme
 

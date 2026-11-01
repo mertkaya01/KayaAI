@@ -7,7 +7,8 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
 ### Değişti (kurulum güvenilirliği)
 - Üst sınırı olmayan bağımlılıklara sınır: `pillow<14`, `winrt-*<5` (pywinrt 4.x ile doğrulandı)
 - `setup.ps1`: `constraints\windows.txt` varsa bilinen iyi sürümlerle kurar (sahibin çalışan kurulumundan
-  `pip freeze`); yoksa eskisi gibi pyproject aralıkları. `docs/DEPLOYMENT.md` §3
+  `pip freeze`); yoksa eskisi gibi pyproject aralıkları. Liste `scripts\windows\freeze.ps1` ile üretilir (klasörü
+  oluşturur, UTF-8 yazar). `docs/DEPLOYMENT.md` §3
 
 ## [0.14.2] - 2026-11-01
 
