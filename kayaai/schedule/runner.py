@@ -104,6 +104,13 @@ def sales_report(rt: "Runtime", s: Schedule) -> tuple[str, list[str]]:
         if r.status == "done" and r.result:
             files.append(str(r.result.get("path")))
     md = res.markdown()
+    from ..integrations import IntegrationError, is_enabled, rates, rates_note
+
+    if is_enabled(rt, "exchange_rates"):  # Adım 14c: güncel kur notu (yalnız açıksa)
+        try:
+            md += "\n\n" + rates_note(rates(rt))
+        except IntegrationError as exc:
+            md += f"\n\n(Kur notu alınamadı: {exc})"
     if files:
         md += "\n\n**Rapor dosyaları:** " + ", ".join(f"`{f}`" for f in files)
     return md, files
@@ -203,6 +210,19 @@ def run_schedule(rt: "Runtime", sid: str, trigger: str = "manual", ollama_wait_s
         rt.store.save_schedule_run(run.id, s.id, run.started_at.isoformat(), run.model_dump(mode="json"))
         rt.store.emit("schedule.run", {"id": s.id, "name": s.name, "status": "skipped", "trigger": trigger})
         return run
+    if s.skip_holidays and trigger != "manual":  # Adım 14c
+        from ..integrations import IntegrationError, holiday_on
+
+        try:
+            name = holiday_on(rt, datetime.now().date())
+        except IntegrationError as exc:
+            name = None
+            run.message = f"(tatil takvimine bakılamadı: {exc}) "
+        if name:
+            run.status, run.message, run.finished_at = "skipped", f"resmi tatil: {name}", datetime.now()
+            rt.store.save_schedule_run(run.id, s.id, run.started_at.isoformat(), run.model_dump(mode="json"))
+            rt.store.emit("schedule.run", {"id": s.id, "name": s.name, "status": "skipped", "trigger": trigger})
+            return run
     if not s.enabled and trigger != "manual":
         run.status, run.message, run.finished_at = "skipped", "görev kapalı", datetime.now()
         rt.store.save_schedule_run(run.id, s.id, run.started_at.isoformat(), run.model_dump(mode="json"))
@@ -220,7 +240,7 @@ def run_schedule(rt: "Runtime", sid: str, trigger: str = "manual", ollama_wait_s
             raise ScheduleError("Ollama'ya ulaşılamadı (çalışıyor mu?). Görev sonraki zamanında yeniden denenecek.")
         content, run.files = HANDLERS[s.kind](rt, s)
         run.status = "succeeded"
-        run.message = content.splitlines()[0][:200] if content else "tamam"
+        run.message = (run.message + (content.splitlines()[0][:200] if content else "tamam")).strip()
     except Exception as exc:  # noqa: BLE001 - kayıt her durumda yazılmalı
         run.status, run.message = "failed", f"{type(exc).__name__}: {exc}"[:400]
         content = f"**{s.name}** ({KIND_LABEL[s.kind]}) çalışamadı: {exc}"

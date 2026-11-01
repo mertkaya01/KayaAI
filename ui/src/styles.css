@@ -345,6 +345,10 @@ select { font: inherit; background: var(--bg); color: var(--text); border: 1px s
 .automation-btn { font-size: 12px; padding: 3px 10px; }
 button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); cursor: pointer; }
 
+.integrations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.integrations li { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.integrations .pill { font-size: 11px; padding: 1px 7px; margin-left: 6px; }
+
 /* Markdown */
 .md { overflow-wrap: anywhere; }
 .md p { margin: 6px 0; }

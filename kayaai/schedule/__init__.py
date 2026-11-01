@@ -47,6 +47,11 @@ def _validate(rt: "Runtime", s: Schedule) -> None:
         p, _ = rt.files.resolve(str(s.params["folder"]))
         if not p.is_dir():
             raise ScheduleError(f"Klasör yok: {p}")
+    if s.skip_holidays:
+        from ..integrations import is_enabled
+
+        if not is_enabled(rt, "holidays"):
+            raise ScheduleError("'Resmi tatilde çalışma' için önce tatil takvimini aç (kayaai integrations enable holidays)")
     if s.cadence.next_after(datetime.now()) is None:
         raise ScheduleError("Tek seferlik görevin zamanı geçmiş")
 

@@ -284,6 +284,15 @@ class ChatBook:
             ctx["conversation"] = convo
         if files:
             ctx["attachments"] = files
+        # Adım 14c: kur/döviz sorusunda güncel ECB kurları (yalnız sahip açtıysa; model kur uydurmasın)
+        from ..integrations import IntegrationError, is_enabled, rates, wants_rates
+
+        if is_enabled(self.rt, "exchange_rates") and wants_rates(before.content):
+            try:
+                r = rates(self.rt)
+                ctx["exchange_rates"] = {"date": r["date"], "source": r["source"], "1_unit_in_TRY": r["per_try"]}
+            except IntegrationError as exc:
+                warnings.append(f"Güncel kurlar alınamadı: {exc}")
         return ctx, warnings
 
     # ------------------------------------------------------------------ gönderme

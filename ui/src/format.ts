@@ -122,6 +122,12 @@ export function describeEvent(e: KEvent): string {
     case "model.compare":
       return d.status ? `Model karşılaştırma ${d.status === "done" ? "bitti" : d.status === "failed" ? "başarısız" : "başladı"}`
         : `Model karşılaştırma: ${d.done}/${d.total}`;
+    case "integration.enabled":
+      return `Dış veri kaynağı açıldı: ${d.name}`;
+    case "integration.disabled":
+      return `Dış veri kaynağı kapatıldı: ${d.name}`;
+    case "integration.call":
+      return `Dış istek (${d.name} → ${d.host}): ${d.ok ? "başarılı" : `başarısız — ${d.error}`}`;
     case "automation.paused":
       return `Otomasyon duraklatıldı (${d.by})${d.reason ? `: ${d.reason}` : ""}`;
     case "automation.resumed":
