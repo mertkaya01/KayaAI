@@ -16,6 +16,7 @@ import { SystemPanel } from "./components/SystemPanel";
 import { Sidebar } from "./components/Sidebar";
 import { TodayView } from "./components/TodayView";
 import { NotificationsPanel } from "./components/NotificationsPanel";
+import { CloudPanel } from "./components/CloudPanel";
 import { Icon } from "./icons";
 import { useBrowserNotifier } from "./notify";
 import { readPref, useTheme, writePref } from "./theme";
@@ -75,6 +76,7 @@ function ControlCenter({ keys, bump, events, health, onUnauthorized, notifyKey, 
           <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => bump("approvals")} />
           <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => bump("disputes")} />
           <IntegrationsPanel refreshKey={keys.approvals} />
+          <CloudPanel refreshKey={keys.approvals} />
           <NotificationsPanel refreshKey={notifyKey} onChanged={onNotifyChanged} />
         </div>
         <div className="col">

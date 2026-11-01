@@ -67,7 +67,7 @@ Resource rules:
 | D1 | **Budget:** 0 TL. The only possible exception is a **Claude Pro** subscription, which the owner may or may not have at any given time. No paid APIs, no paid cloud storage. |
 | D2 | **Claude is optional — an on/off switch ("Claude mode").** kayaAI must be **fully usable with Claude off**: no feature, data or agent may depend on Claude. When on, Claude is reached only through Claude Code (the subscription); kayaAI never calls the Anthropic API. Opus becomes the conductor; Sonnet/Haiku run as Claude Code sub-agents. |
 | D3 | **Local agents** are reached through the kayaAI **MCP server** (stdio, no network port). |
-| D4 | **All storage is local** — memory, task history, logs, files, embeddings. "Cloud" only means the context Claude Code sends to Claude during a session. |
+| D4 | **All storage is local** — memory, task history, logs, files, embeddings. "Cloud" only means the context Claude Code sends to Claude during a session — **and, since 2026-11-01 (owner decision, Step 17), the optional cloud bridge**: a local OpenAI-compatible gateway (OmniRoute) to free cloud models, off by default (R2), used only when the owner allows it per request, never with memory, local documents or images, secret detector as a last gate, every call logged without text, daily cap, local fallback. Still 0 TL (free tiers; provider keys stay in the gateway). |
 | D5 | **Hybrid orchestration:** one central assistant + specialised agents; agents can collaborate; the owner can talk to any agent directly. |
 | D6 | **Dynamic model routing** by task difficulty, privacy, cost (Pro limits), capability and free hardware. Providers to support over time: Claude (via Claude Code), Ollama, LM Studio, llama.cpp (the last two via one OpenAI-compatible adapter). |
 | D7 | **Approval-based autonomy:** safe routine actions run automatically; risky ones need the owner's approval (see §8). |
@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.16.0) — roadmap Steps 0–13 complete + Step 14 (reference-review improvements)
+## 12. Current state (v0.17.0) — roadmap Steps 0–13 complete + Step 14 (reference-review improvements)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -300,7 +300,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 13 | Scheduling (owner decision: Windows Task Scheduler via schtasks XML, user context, catch-up; creating/deleting R2) with documents digest, sales report, re-index and free (local conductor) tasks; results land in the Assistant; 13b VRAM guard (frees idle Ollama models before loading the vision model / Whisper) + `kayaai bench`; 13c docs/DEPLOYMENT.md (install from GitHub, update, backup/restore, uninstall, troubleshooting) | [x] Windows-verified (`schedule_check`: Task Scheduler ran kayaAI with it closed, Last Result 0; `kayaai bench`: VRAM guard freed 247 MB → 7.4 GB before Whisper) |
 | 15 | Live office (owner design, 2026-11-01): 2D isometric office where agents work at desks, live streaming text in speech bubbles, walk to each other on hand-off/review, come to the owner's desk for approvals; click → inspector (approve/reject, stop a step); beside the Assistant chat + full screen (Ofis page, flow graph as second view); streaming Ollama + throttled `task.progress` events | [~] built; Windows check pending |
 | 16 | Design refresh (owner: "airier, advanced"): light/dark/system theme, left sidebar (collapsible, mobile drawer), "Today" landing (`/api/today`: approvals with one-click decide, live office of the running job, schedules, recent chats, system, optional rates/holiday), notifications (browser while the tab is in the background; Windows toast from unattended scheduled runs; kinds + quiet hours) | [~] built; Windows check pending |
-| 17 | Cloud bridge (OmniRoute or any OpenAI-compatible local gateway): off by default (R2), per-agent, data gate (general / owner-chosen business data / never private), every call logged, daily cap, local fallback — **principle change: cloud other than Claude, owner decision 2026-11-01** | [ ] planned |
+| 17 | Cloud bridge (OmniRoute or any OpenAI-compatible local gateway): off by default (R2), per-agent, data gate (general / owner-chosen business data / never private), every call logged, daily cap, local fallback — **principle change: cloud other than Claude, owner decision 2026-11-01** (see D4) | [~] built; Windows check pending (owner installs OmniRoute) |
 | 14 | Improvements from the reference review (owner chose all four): automation pause switch (kill switch), write denylist for secret-like/executable files, optional external data (Frankfurter rates, Nager.Date holidays; off by default, R2 to enable), accessibility pass (axe: 0 violations, skip link, focus) | [x] done (Windows-verified) |
 | 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [x] Windows-verified (`agents_check` 6/6); v0.7.1 fixes CJK leak, contradictory review items |
 

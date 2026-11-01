@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView, type SubmitResult } from "../api";
+import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView, type CloudStatus, type SubmitResult } from "../api";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { Markdown } from "../markdown";
@@ -165,6 +165,8 @@ export function ChatView({
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [agent, setAgent] = useState("auto");
+  const cloudSt = usePolling<CloudStatus>("/api/cloud", 30000, approvalsKey);
+  const [cloud, setCloud] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -175,9 +177,13 @@ export function ChatView({
   const lastRecall = [...(view?.messages ?? [])].reverse().find((m) => m.role === "assistant" && m.status === "done")?.recall;
   const pending = view?.messages.some((m) => ["pending", "running", "waiting_claude"].includes(m.status)) ?? false;
   // Adım 15: sağdaki ofis — bu sohbetteki son şef işi (sürmekte olan önce)
-  const conductorMsgs = (view?.messages ?? []).filter((m) => m.job_kind === "conductor" && m.job_id);
-  const runningJob = [...conductorMsgs].reverse().find((m) => ["pending", "running"].includes(m.status))?.job_id ?? null;
-  const officeJob = runningJob ?? conductorMsgs[conductorMsgs.length - 1]?.job_id ?? null;
+  // (şefsiz tek ajanlı işler de: ajan masasında çalışır)
+  const jobMsgs = (view?.messages ?? []).filter((m) => m.role === "assistant" && m.job_id && m.job_kind);
+  const runningMsg = [...jobMsgs].reverse().find((m) => ["pending", "running"].includes(m.status));
+  const officeMsg = runningMsg ?? jobMsgs[jobMsgs.length - 1];
+  const runningJob = runningMsg?.job_id ?? null;
+  const officeJob = officeMsg?.job_id ?? null;
+  const officeKind = officeMsg?.job_kind === "task" ? "task" : "conductor";
   const [side, setSide] = useState<"office" | "memory">("office");
   useEffect(() => { if (runningJob) setSide("office"); }, [runningJob]);
 
@@ -227,7 +233,8 @@ export function ChatView({
         id = (await post<Conversation>("/api/chat", {})).id;
         onSelect(id);
       }
-      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id), mode: mode ?? null });
+      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id), mode: mode ?? null,
+                                               cloud: cloud && !!cloudSt.data?.enabled });
       setText("");
       setAttachments([]);
       setListKey((k) => k + 1);
@@ -442,6 +449,10 @@ export function ChatView({
                 <button className="ghost" disabled={busy} onClick={() => void send("invoice")}>Fatura olarak oku</button>
               </>
             )}
+            {cloudSt.data?.enabled && (
+              <button className={`cloud-toggle${cloud ? " on" : ""}`} aria-pressed={cloud} onClick={() => setCloud((c) => !c)}
+                      title="Bu istekte bulut modellerine izin ver (hafıza, belgeler ve ekran görüntüleri gitmez)">☁ Bulut</button>
+            )}
             <span className="muted hint">Metin, PDF, Excel/CSV, görüntü, ses</span>
             <span className="spacer" />
             <button className="toggle" disabled={busy || !text.trim()} onClick={() => void send()}>Gönder</button>
@@ -455,8 +466,8 @@ export function ChatView({
           <button aria-pressed={side === "memory"} onClick={() => setSide("memory")}>Hafıza</button>
         </div>
         {side === "office" ? (
-          <OfficeView jobId={officeJob} refreshKey={flowKey} approvalsKey={approvalsKey} compact
-                      onExpand={officeJob ? () => onOpenFlow(officeJob) : undefined} />
+          <OfficeView jobId={officeJob} jobKind={officeKind} refreshKey={flowKey} approvalsKey={approvalsKey} compact
+                      onExpand={officeJob && officeKind === "conductor" ? () => onOpenFlow(officeJob) : undefined} />
         ) : <>
         <h2>Hafıza</h2>
         {lastRecall && (lastRecall.memories?.length || lastRecall.sources?.length) ? (

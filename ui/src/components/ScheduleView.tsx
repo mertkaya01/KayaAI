@@ -29,7 +29,7 @@ export function ScheduleView({ refreshKey = 0 }: { refreshKey?: number }) {
   const runs = usePolling<RunRow[]>("/api/schedules/runs?limit=20", 10000, `${key}-${refreshKey}`);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [form, setForm] = useState({ name: "", kind: "docs_digest" as Kind, freq: "daily", at: "09:00", days: [0] as number[], day: 1, on: "",
-    path: "", folder: "", request: "", formats: ["xlsx", "pdf"] as string[], catch_up: true, skip_holidays: false });
+    path: "", folder: "", request: "", formats: ["xlsx", "pdf"] as string[], catch_up: true, skip_holidays: false, cloud: false });
   const refresh = () => setKey((k) => k + 1);
 
   async function act(path: string, body: unknown, ok: string) {
@@ -53,7 +53,8 @@ export function ScheduleView({ refreshKey = 0 }: { refreshKey?: number }) {
     if (form.freq === "weekly") cadence.days = form.days;
     if (form.freq === "monthly") cadence.day = form.day;
     if (form.freq === "once") cadence.on = form.on;
-    void act("/api/schedules", { name: form.name.trim() || KIND[form.kind], kind: form.kind, params, cadence, catch_up: form.catch_up, skip_holidays: form.skip_holidays }, "Eklendi");
+    void act("/api/schedules", { name: form.name.trim() || KIND[form.kind], kind: form.kind, params, cadence, catch_up: form.catch_up, skip_holidays: form.skip_holidays,
+                                    cloud: form.kind === "free" && form.cloud }, "Eklendi");
   }
 
   const d = data.data;
@@ -126,6 +127,9 @@ export function ScheduleView({ refreshKey = 0 }: { refreshKey?: number }) {
             )}
             <label className="inline"><input type="checkbox" checked={form.catch_up} onChange={(e) => setForm({ ...form, catch_up: e.target.checked })} /> Bilgisayar kapalıyken kaçırılırsa açılınca çalıştır</label>
             <label className="inline"><input type="checkbox" checked={form.skip_holidays} onChange={(e) => setForm({ ...form, skip_holidays: e.target.checked })} /> Resmi tatilde çalışma (tatil takvimi açık olmalı)</label>
+            {form.kind === "free" && (
+              <label className="inline"><input type="checkbox" checked={form.cloud} onChange={(e) => setForm({ ...form, cloud: e.target.checked })} /> ☁ Buluta izin ver (bulut köprüsü açıksa; hafıza ve belgeler gitmez)</label>
+            )}
             <button type="submit" className="toggle">Ekle (onay ister)</button>
           </form>
         </section>

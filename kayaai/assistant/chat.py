@@ -308,7 +308,7 @@ class ChatBook:
         self._save_conv(conv)
 
     def send(self, conv_id: str, text: str, agent: str = AUTO, attachment_ids: list[str] | None = None,
-             mode: BusinessMode | None = None) -> tuple[ChatMessage, ChatMessage, Callable[[], None]]:
+             mode: BusinessMode | None = None, cloud: bool = False) -> tuple[ChatMessage, ChatMessage, Callable[[], None]]:
         """Kullanıcı mesajını kaydeder, bekleyen asistan mesajını ve işi oluşturur. Üçüncü değer: işi çalıştıran
         çağrılabilir (API onu arka plan kuyruğuna verir, CLI/test doğrudan çağırır)."""
         conv = self.get(conv_id)
@@ -354,6 +354,9 @@ class ChatBook:
             return user, reply, runner
         reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent=agent, reply_to=user.id)
         ctx, warnings = self.build_context(conv_id, user, refs)
+        if cloud:  # Adım 17: sahip bu istekte buluta izin verdi (ajan/ayar uygunsa bulut, değilse yerel)
+            ctx["_cloud"] = True
+            warnings = [*warnings, "☁ Bulut izinli istek: hafıza ve belge araması kullanılmadı (bilgisayardan çıkmasın diye)."]
         reply.warnings = reply.context_warnings = warnings
         runner = self._start(reply, text, agent, ctx, force=None)
         self._touch(conv, text)
@@ -525,10 +528,11 @@ class ChatBook:
                                              "status": msg.status})
         return reply, run_remember
 
-    def _recall(self, reply: ChatMessage, text: str, for_claude: bool) -> dict[str, Any]:
-        """İlgili hafıza öğeleri ve belge parçaları (Adım 9). Hata sohbeti durdurmaz."""
+    def _recall(self, reply: ChatMessage, text: str, for_claude: bool, cloud: bool = False) -> dict[str, Any]:
+        """İlgili hafıza öğeleri ve belge parçaları (Adım 9). Hata sohbeti durdurmaz. Bulut izinli istekte hiç aranmaz
+        (Adım 17: yerel bir adımın çıktısı üzerinden bile buluta sızmasın)."""
         mem = self.rt.memory
-        if mem is None or not self.rt.settings.memory.recall_in_chat:
+        if cloud or mem is None or not self.rt.settings.memory.recall_in_chat:
             return {}
         try:
             rec = mem.recall(text, for_claude=for_claude)
@@ -562,7 +566,7 @@ class ChatBook:
 
             def run_conductor() -> None:
                 try:
-                    extra = self._recall(reply, text, for_claude=force == "claude")
+                    extra = self._recall(reply, text, for_claude=force == "claude", cloud=bool(ctx.get("_cloud")))
                     if extra:
                         job.input["context"] = {**(job.input.get("context") or {}), **extra}
                         self.rt.store.save(job)
@@ -576,7 +580,7 @@ class ChatBook:
 
         def run_task() -> None:
             try:
-                extra = self._recall(reply, text, for_claude=False)
+                extra = self._recall(reply, text, for_claude=False, cloud=bool(ctx.get("_cloud")))
                 if extra:
                     t = self.store.get(task.id)
                     if t is not None:

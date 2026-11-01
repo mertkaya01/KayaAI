@@ -87,6 +87,10 @@ def build_runtime(
     from .schedule import executors as schedule_executors
 
     permissions.executors.update(schedule_executors(rt))
+    from .llm.cloud import CloudBridge, executors as cloud_executors  # Adım 17
+
+    permissions.executors.update(cloud_executors(rt))
+    rt.orchestrator.cloud = CloudBridge(rt)
     from .integrations import executors as integration_executors
 
     permissions.executors.update(integration_executors(rt))

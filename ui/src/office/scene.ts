@@ -16,6 +16,7 @@ export interface Actor extends ActorDef {
   nodes: FlowNode[];          // bu karakterin bu işteki düğümleri (inceleme paneli için)
   active: FlowNode | null;    // şu an çalışan / son düğüm
   approval: Approval | null;  // bu karakterin beklettiği onay
+  cloud: boolean;             // Adım 17: bu iş buluttan yapılıyor/yapıldı
 }
 
 /** Bir karakterin başka bir masaya gidip dönmesi (teslim, gözden geçirme, onay, Claude'a devir). */
@@ -100,7 +101,8 @@ export function deriveActors(graph: JobGraph | null, progress: Record<string, Pr
     }
     if (approval) { state = "waiting"; bubble = `Onay bekliyor: ${approval.action.summary}`; }
     if (d.id === "owner" && approvals.length && !approval) { state = "waiting"; bubble = `${approvals.length} onay bekliyor`; }
-    return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval };
+    const cloud = !!active?.model?.startsWith("☁");
+    return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval, cloud };
   });
 }
 
@@ -128,6 +130,34 @@ export function diffVisits(prev: JobGraph | null, next: JobGraph): Visit[] {
     if (n.kind === "claude" && n.status !== "pending" && was === "pending") out.push({ key: `${n.id}:claude`, actor: "chef", host: "claude", kind: "claude", note: "Claude'a devir" });
   }
   return out;
+}
+
+/** Tek ajanlı iş (şefsiz): istek → ajan → sonuç; ofis aynı sahneyle gösterir (Adım 17'de eklendi). */
+export interface TaskLite {
+  id: string; worker: string; objective: string; status: string; model: string | null; error: string | null;
+  metrics?: Record<string, unknown>; started_at?: string | null; finished_at?: string | null;
+}
+const TASK_STATUS: Record<string, FlowNode["status"]> = {
+  pending: "pending", running: "running", succeeded: "succeeded", awaiting_approval: "waiting", waiting_claude: "waiting",
+  failed: "failed", timed_out: "failed", cancelled: "failed", rejected: "failed",
+};
+
+export function taskGraph(t: TaskLite): JobGraph {
+  const st = TASK_STATUS[t.status] ?? "pending";
+  const dur = t.started_at && t.finished_at ? Math.round((Date.parse(t.finished_at) - Date.parse(t.started_at)) / 100) / 10 : null;
+  const tps = typeof t.metrics?.tokens_per_second === "number" ? (t.metrics.tokens_per_second as number) : null;
+  const n = (id: string, kind: FlowNode["kind"], label: string, status: FlowNode["status"], extra: Partial<FlowNode> = {}): FlowNode =>
+    ({ id, kind, label, status, agent: null, model: null, task_id: null, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null, ...extra });
+  return {
+    job_id: t.id, objective: t.objective, status: t.status, mode: "direct", routing: null, duration_s: dur, warnings: [],
+    nodes: [
+      n("request", "request", "İstek", "succeeded", { detail: t.objective }),
+      n("step-1", "step", t.worker, st, { agent: t.worker, model: t.model, task_id: t.id, duration_s: dur, tokens_per_second: tps,
+                                          detail: t.objective, error: t.error }),
+      n("result", "result", "Sonuç", st === "succeeded" ? "succeeded" : st === "failed" ? "failed" : "pending"),
+    ],
+    edges: [{ source: "request", target: "step-1" }, { source: "step-1", target: "result" }],
+  };
 }
 
 /** Izgara → ekran (izometrik). */

@@ -225,7 +225,12 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   bildirimi (zamanlanmış görev; PowerShell, metin ortam değişkeniyle) — Vitest 33, Playwright (bildirim arka planda
   geliyor / önde gelmiyor, menü, tema, klavye), axe 9 sayfa × 2 tema 0 ihlal
 - [ ] Windows: Sistem → Bildirimler → "Windows'u dene"; zamanlanmış görev kayaAI kapalıyken bildirim; açık tema
-- [ ] 17 — Bulut köprüsü (OmniRoute)
+- [x] 17 — Bulut köprüsü: `llm/cloud.py` (ayarlar, yalnız yerel adres, R2 aç / R1 kapat, veri kapısı, gizli bilgi kapısı,
+  günlük sınır, metinsiz kayıt, yerel yedek), işçi döngüsünde bulut → hata olursa yerel, şef her adıma izni geçirir,
+  sohbet `cloud`, `kayaai do --cloud`, serbest zamanlanmış görev `cloud`, `kayaai cloud status|enable|disable|key|test`,
+  `/api/cloud*`, Sistem → Bulut köprüsü paneli, sohbette ☁ Bulut, ofiste ☁ işareti; ofis tek ajanlı işleri de gösterir —
+  Python 14, Vitest 35, Playwright (sahte OmniRoute: dene → aç → onay → ☁ ile cevap, hafıza gitmedi)
+- [ ] Windows: OmniRoute kur → `kayaai cloud key` → `kayaai cloud test` → `kayaai cloud enable` → Asistan'da ☁ Bulut
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
   deneme / geçersiz / zaman aşımı / kesilme → `data/quality.json`) — Python 5

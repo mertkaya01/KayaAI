@@ -2,6 +2,17 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.17.0] - 2026-11-01
+
+### Eklendi (Adım 17 — bulut köprüsü; ilke değişikliği, sahip kararı)
+- **OmniRoute** (ya da OpenAI uyumlu başka bir yerel ağ geçidi) üzerinden ücretsiz bulut modelleri: varsayılan kapalı,
+  R2 ile açılır, yalnız 127.0.0.1; yalnız istekte izin verilince (sohbette **☁ Bulut**, `kayaai do --cloud`, serbest
+  zamanlanmış görevde kutu) ve izinli ajanlarda
+- **Veri kapısı**: bulut izinli istekte hafıza/belge araması yapılmaz, görev girdisinden hafıza/belge/görüntü çıkarılır,
+  gizli bilgi görülen istek gönderilmez; hata/kota/sınır → yerel model; günlük sınır; `cloud.call` kaydı metinsiz
+- `kayaai cloud status|enable|disable|key|test`, `/api/cloud*`, Sistem → Bulut köprüsü paneli, ofiste ☁ işareti
+- Ofis şefsiz tek ajanlı işleri de gösterir (ajan masasında çalışır, cevabı şef getirir)
+
 ## [0.16.0] - 2026-11-01
 
 ### Eklendi (Adım 16 — sahip: "daha ferah, ileri seviye")

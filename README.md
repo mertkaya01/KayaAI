@@ -25,7 +25,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | **Tamamlandı** (Windows'ta doğrulandı) |
 | 15 | Canlı ofis: ajanlar 2B izometrik ofiste çalışır, canlı yazar, birbirine iş teslim eder; Asistan'ın yanında + tam ekran | Kodlandı (Windows kontrolü bekliyor) |
 | 16 | Yeni tasarım (açık/koyu tema), sol menü, "Bugün" giriş ekranı, bildirimler (tarayıcı + Windows) | Kodlandı (Windows kontrolü bekliyor) |
-| 17 | Bulut köprüsü (OmniRoute; varsayılan kapalı, veri kapısıyla) | Planlandı |
+| 17 | Bulut köprüsü (OmniRoute; varsayılan kapalı, istek başına izin, veri kapısı) | Kodlandı (Windows kontrolü bekliyor) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -337,6 +337,18 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   Bağlantı denemesi: `kayaai integrations test`.
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
+
+## Bulut köprüsü (Adım 17, isteğe bağlı)
+
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) gibi **bu bilgisayarda çalışan** bir ağ geçidi üzerinden ücretsiz
+bulut modelleri. Kurulum ve ayarlar: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) §8.
+
+- Varsayılan **kapalı**; açmak onaylı (Sistem → Bulut köprüsü ya da `kayaai cloud enable`).
+- Yalnız sen bir istekte **☁ Bulut** dersen (sohbet düğmesi, `kayaai do --cloud`, serbest zamanlanmış görevde kutu) ve ajan
+  izinliyse kullanılır. Ofiste buluttan çalışan ajanın üstünde ☁ görünür.
+- **Gitmez**: hafıza, yerel belge parçaları, ekran görüntüleri (bulut izinli istekte hafıza/belge araması hiç yapılmaz).
+  Parola/anahtar/kart/IBAN görülen istek gönderilmez, yerelde yapılır. Hata, kota, sınır → yerel model.
+- Her çağrı olay kaydında (ajan, model, karakter sayısı, süre — metin yok); günlük sınır.
 
 ## Bugün, sol menü ve bildirimler (Adım 16)
 

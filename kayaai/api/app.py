@@ -130,6 +130,7 @@ class ChatSendBody(BaseModel):
     attachments: list[str] = Field(default_factory=list, max_length=10)
     # Adım 10: iş modülü (Analiz et / Özetle / Fatura olarak oku); boşsa tablo eki + otomatik/data → analiz
     mode: Literal["analyze", "summarize", "invoice"] | None = None
+    cloud: bool = False  # Adım 17: sahip bu istekte buluta izin verdi
 
 
 class AttachmentBody(BaseModel):
@@ -219,6 +220,7 @@ class ScheduleBody(BaseModel):
     cadence: dict[str, Any]
     catch_up: bool = True
     skip_holidays: bool = False
+    cloud: bool = False
 
 
 class ModelName(BaseModel):
@@ -559,7 +561,7 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
     @app.post("/api/chat/{conv_id}/messages", status_code=202, dependencies=[Depends(auth)])
     def chat_send(conv_id: str, body: ChatSendBody) -> dict[str, Any]:
-        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments, body.mode)
+        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments, body.mode, body.cloud)
         submit(runner)
         return {"user": user.model_dump(mode="json"), "reply": reply.model_dump(mode="json")}
 
@@ -795,6 +797,42 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
         return {"windows": windows_toast("kayaAI", "Deneme bildirimi: Windows bildirimleri çalışıyor.")}
 
+    # ---------------------------------------------------------------- bulut köprüsü (Adım 17)
+
+    @app.get("/api/cloud", dependencies=[Depends(auth)])
+    def cloud_status() -> dict[str, Any]:
+        from ..llm.cloud import status as cloud_state
+
+        return cloud_state(rt)
+
+    @app.post("/api/cloud/enable", dependencies=[Depends(auth)])
+    def cloud_enable(body: dict[str, Any]) -> dict[str, Any]:
+        from pydantic import ValidationError
+
+        from ..llm.cloud import CloudError, CloudSettings, request_enable
+
+        try:
+            return request_enable(rt, CloudSettings.model_validate(body), requested_by="api").model_dump(mode="json")
+        except ValidationError as exc:
+            raise HTTPException(422, "; ".join(e["msg"] for e in exc.errors())) from exc
+        except CloudError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.post("/api/cloud/disable", dependencies=[Depends(auth)])
+    def cloud_disable() -> dict[str, Any]:
+        from ..llm.cloud import request_disable
+
+        return request_disable(rt, requested_by="api").model_dump(mode="json")
+
+    @app.post("/api/cloud/test", dependencies=[Depends(auth)])
+    def cloud_test() -> dict[str, Any]:
+        from ..llm.cloud import CloudBridge
+
+        try:
+            return {"ok": True, "models": CloudBridge(rt).models()[:50]}
+        except Exception as exc:  # noqa: BLE001 - ağ geçidi kapalı/yanlış anahtar: anlaşılır mesaj
+            return {"ok": False, "error": str(exc)[:300]}
+
     # ---------------------------------------------------------------- dış veri kaynakları (Adım 14c)
 
     @app.get("/api/integrations", dependencies=[Depends(auth)])
@@ -860,7 +898,7 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
         try:
             s = Schedule(name=body.name, kind=body.kind, params=body.params, cadence=Cadence(**body.cadence),
-                         catch_up=body.catch_up, skip_holidays=body.skip_holidays)
+                         catch_up=body.catch_up, skip_holidays=body.skip_holidays, cloud=body.cloud)
         except ValidationError as exc:
             raise HTTPException(409, "; ".join(e["msg"] for e in exc.errors())) from exc
         return _sched(request_create, s)

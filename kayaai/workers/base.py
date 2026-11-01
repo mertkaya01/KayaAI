@@ -51,6 +51,7 @@ class WorkerContext:
     metrics: dict[str, Any] = field(default_factory=dict)
     # Adım 15: canlı ilerleme (verilirse model çıktısı akışlı okunur, okunur kuyruk olay olarak gider)
     progress: Any = None  # ProgressSink | None
+    cloud: Any = None     # Adım 17: CloudBridge | None (istekte izin + ayarlar uygunsa bulut, değilse yerel)
 
     def check_cancelled(self) -> None:
         if self.cancel_event.is_set():
@@ -102,7 +103,7 @@ class LLMWorker(Worker):
                 "e.g. [kaynak: notlar.md:12]. Never invent sources."
             )
         user = task.objective
-        data = {k: v for k, v in (task.input or {}).items() if k != "_images"}
+        data = {k: v for k, v in (task.input or {}).items() if not k.startswith("_")}  # _images, _cloud: iç işaretler
         if data:
             # Dış veriyi talimattan ayır: içindeki komutlar talimat değil, veridir.
             user += (
@@ -128,7 +129,18 @@ class LLMWorker(Worker):
 
     def run(self, task: Task, ctx: WorkerContext) -> BaseModel:
         spec = self.model_spec(ctx.registry)
-        messages = self.build_messages(task)
+        via_cloud = False
+        if ctx.cloud is not None and (task.input or {}).get("_cloud"):
+            why_not = ctx.cloud.permits(self.name, task)
+            via_cloud = why_not is None
+            ctx.metrics["cloud"] = "bulut" if via_cloud else f"yerel ({why_not})"
+        if via_cloud:
+            from ..llm.cloud import cloud_input
+
+            # Veri kapısı: hafıza, yerel belge parçaları, görüntüler buluta gitmez
+            messages = self.build_messages(task.model_copy(update={"input": cloud_input(task.input)}))
+        else:
+            messages = self.build_messages(task)
         schema = self.output_model.model_json_schema()
         errors: list[str] = []
         last_output: str | None = None
@@ -139,6 +151,42 @@ class LLMWorker(Worker):
             ctx.metrics["output_attempts"] = attempt
             if ctx.progress is not None and attempt > 1:
                 ctx.progress.reset(attempt)
+            if via_cloud:
+                from ..llm.cloud import CloudError
+
+                try:
+                    if ctx.progress is not None:
+                        ctx.progress.feed("☁ bulutta çalışıyor…")
+                    result = ctx.cloud.chat(self.name, messages, timeout=task.timeout_s, cancel_event=ctx.cancel_event)
+                except CloudError as exc:
+                    # Bulut olmadı → bu denemeden itibaren yerel model (tam girdiyle, baştan)
+                    log.warning("%s: bulut başarısız, yerele düşülüyor: %s", self.name, exc)
+                    ctx.metrics["cloud"] = f"yerel'e düşüldü ({str(exc)[:120]})"
+                    via_cloud = False
+                    messages = self.build_messages(task)
+                    result = None
+                if result is not None:
+                    ctx.metrics["model"] = result.model
+                    ctx.metrics.update({k: v for k, v in result.metrics().items() if k != "model"})
+                    last_output = result.content
+                    try:
+                        output = self.output_model.model_validate_json(result.content)
+                    except ValidationError as exc:
+                        err = _summarize_validation_error(exc)
+                        errors.append(f"deneme {attempt}: şema (bulut): {err}")
+                        messages = messages + [{"role": "assistant", "content": result.content},
+                                               {"role": "user", "content": f"Your output did not match the JSON Schema: {err}. Reply again with ONLY valid JSON."}]
+                        continue
+                    output = self.postprocess(task, output, ctx)
+                    validation = self.validate(task, output)
+                    if validation.passed or attempt == ctx.max_output_attempts:
+                        return output
+                    err = "; ".join(validation.errors)
+                    errors.append(f"deneme {attempt}: doğrulama (bulut): {err}")
+                    ctx.metrics["validation_retries"] = ctx.metrics.get("validation_retries", 0) + 1
+                    messages = messages + [{"role": "assistant", "content": result.content},
+                                           {"role": "user", "content": f"Your output failed validation: {err}. Fix it and reply again with ONLY valid JSON."}]
+                    continue
             result = ctx.llm.chat(
                 spec.name,
                 messages,

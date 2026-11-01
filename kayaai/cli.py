@@ -353,8 +353,8 @@ def cmd_do(args: argparse.Namespace) -> int:
         return 2
     force = "local" if args.local else ("claude" if args.claude else None)
     with build_runtime(settings, approver=interactive_approver) as rt:
-        _print("[şef] planlıyor... (yerel modeller)")
-        res = Conductor(rt).run(request, force=force)
+        _print("[şef] planlıyor..." + (" (☁ buluta izinli: hafıza/belgeler kullanılmaz)" if args.cloud else " (yerel modeller)"))
+        res = Conductor(rt).run(request, force=force, context={"_cloud": True} if args.cloud else None)
     if args.json:
         _print(res.model_dump_json(indent=2))
         return 0 if res.status == "succeeded" else 1
@@ -809,7 +809,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
                 if args.formats:
                     params["formats"] = args.formats.split(",")
                 s = Schedule(name=args.name or args.kind, kind=args.kind, params=params, cadence=cad,
-                             catch_up=not args.no_catch_up, skip_holidays=args.skip_holidays)
+                             catch_up=not args.no_catch_up, skip_holidays=args.skip_holidays, cloud=args.cloud)
                 return submitted(request_create(rt, s, requested_by="cli"), f"Eklendi: {s.id}")
             if a == "run-due":
                 runs = run_due(rt)
@@ -906,6 +906,53 @@ def cmd_integrations(args: argparse.Namespace) -> int:
             _print(f"[HATA] {exc}")
             return 1
     return 2
+
+
+def cmd_cloud(args: argparse.Namespace) -> int:
+    """Bulut köprüsü (Adım 17). Açmak sahip onayı ister; anahtar yalnız burada, açık onayla kaydedilir."""
+    import getpass
+
+    from .llm.cloud import CloudBridge, CloudError, CloudSettings, get_settings, request_disable, request_enable, save_key, status
+    from .runtime import build_runtime
+
+    with build_runtime(load_settings()) as rt:
+        try:
+            if args.action == "status":
+                st = status(rt)
+                _print(f"Bulut köprüsü: {'AÇIK' if st['enabled'] else 'kapalı'} · {st['base_url']} · model {st['model']}")
+                _print(f"İzinli ajanlar: {', '.join(st['agents'])} · bugün {st['used_today']}/{st['daily_limit']} çağrı")
+                _print(f"Anahtar: {'var (' + st['key_source'] + ')' if st['has_key'] else 'yok — kayaai cloud key ya da KAYAAI_CLOUD_KEY'}")
+                return 0
+            if args.action == "enable":
+                cur = get_settings(rt)
+                s = CloudSettings(base_url=args.url or cur.base_url, model=args.model or cur.model,
+                                  agents=[a.strip() for a in args.agents.split(",")] if args.agents else cur.agents,
+                                  daily_limit=args.limit or cur.daily_limit)
+                _print_submit(request_enable(rt, s, requested_by="cli"))
+                return 0
+            if args.action == "disable":
+                _print_submit(request_disable(rt, requested_by="cli"))
+                return 0
+            if args.action == "key":
+                key = getpass.getpass("OmniRoute (ağ geçidi) anahtarı (görünmez): ").strip()
+                if not key:
+                    _print("Anahtar girilmedi.")
+                    return 2
+                ok = input("Anahtar data\\cloud.key dosyasına kaydedilsin mi? Yalnız bu bilgisayarda kalır. [e/H] ").strip().lower()
+                if ok not in ("e", "evet", "y", "yes"):
+                    _print("Kaydedilmedi. İstersen KAYAAI_CLOUD_KEY ortam değişkenini kullan.")
+                    return 1
+                _print(f"[OK] Kaydedildi: {save_key(rt, key)}")
+                return 0
+            models = CloudBridge(rt).models()
+            _print(f"[OK] Ağ geçidine ulaşıldı · {len(models)} model: {', '.join(models[:12])}{' …' if len(models) > 12 else ''}")
+            return 0
+        except (CloudError, ValueError) as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        except Exception as exc:  # noqa: BLE001 - bağlantı hataları anlaşılır gösterilsin
+            _print(f"[HATA] Ağ geçidine ulaşılamadı: {exc}")
+            return 1
 
 
 def cmd_bench(args: argparse.Namespace) -> int:
@@ -1354,7 +1401,16 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--local", action="store_true", help="Claude gerekse bile yerelde yap")
     g.add_argument("--claude", action="store_true", help="Claude modu açıksa Claude kutusuna bırak")
     do.add_argument("--json", action="store_true")
+    do.add_argument("--cloud", action="store_true", help="bu istekte bulut köprüsüne izin ver (açık ve ajan izinliyse)")
     do.set_defaults(func=cmd_do)
+
+    cl = sub.add_parser("cloud", help="bulut köprüsü (OmniRoute vb. yerel ağ geçidi): durum / aç (onaylı) / kapat / anahtar / dene")
+    cl.add_argument("action", nargs="?", choices=["status", "enable", "disable", "key", "test"], default="status")
+    cl.add_argument("--url", default=None, help="ağ geçidi adresi (varsayılan http://127.0.0.1:20128/v1)")
+    cl.add_argument("--model", default=None, help="model (varsayılan auto; ör. auto/fast)")
+    cl.add_argument("--agents", default=None, help="izinli ajanlar, virgülle (varsayılan general,coder,document,planner,reviewer)")
+    cl.add_argument("--limit", type=int, default=None, help="günlük çağrı sınırı (varsayılan 200)")
+    cl.set_defaults(func=cmd_cloud)
 
     ag = sub.add_parser("agents", help="ajanlar: listele / geçici ajan oluştur / kalıcı yap / kaldır")
     ag.add_argument("action", nargs="?", choices=["list", "new", "promote", "remove"], default="list")
@@ -1420,6 +1476,7 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("--formats", default=None, help="sales_report: xlsx,pdf,docx,md")
     sh.add_argument("--no-catch-up", action="store_true", help="kaçırılan çalışmayı sonradan yapma")
     sh.add_argument("--skip-holidays", action="store_true", help="resmi tatilde çalışma (tatil takvimi açık olmalı)")
+    sh.add_argument("--cloud", action="store_true", help="serbest görevde bulut köprüsüne izin ver")
     sh.add_argument("--trigger", choices=["manual", "windows", "run-due"], default="manual", help=argparse.SUPPRESS)
     sh.set_defaults(func=cmd_schedule)
 

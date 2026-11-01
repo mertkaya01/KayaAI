@@ -3,8 +3,8 @@ import { api, ApiError, post, type Approval, type FlowNode, type JobGraph } from
 import { usePolling } from "../hooks";
 import { useProgress } from "../office/progress";
 import {
-  deriveActors, diffVisits, GRID, iso, seat, STATE_TEXT, TILE, visitorSpot,
-  type Actor, type Pt, type Visit,
+  deriveActors, diffVisits, GRID, iso, seat, STATE_TEXT, taskGraph, TILE, visitorSpot,
+  type Actor, type Pt, type TaskLite, type Visit,
 } from "../office/scene";
 
 /**
@@ -101,7 +101,7 @@ function Bubble({ a, at, note, scale, bounds }: { a: Actor; at: Pt; note: string
 
 function Person({ a, at, selected, onSelect, scale }: { a: Actor; at: Pt; selected: boolean; onSelect: () => void; scale: number }) {
   const p = iso(at);
-  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.bubble ? ` — ${a.bubble}` : ""}`;
+  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.cloud ? " (bulutta)" : ""}${a.bubble ? ` — ${a.bubble}` : ""}`;
   return (
     <g
       className={`person ${a.state}${selected ? " selected" : ""}`}
@@ -121,6 +121,7 @@ function Person({ a, at, selected, onSelect, scale }: { a: Actor; at: Pt; select
       </g>
       {a.state === "waiting" && <text x={12} y={-40} className="mark" aria-hidden="true">🔔</text>}
       {a.state === "error" && <text x={12} y={-40} className="mark" aria-hidden="true">!</text>}
+      {a.cloud && <text x={-24} y={-38} className="cloud-mark" aria-hidden="true">☁</text>}
     </g>
   );
 }
@@ -173,8 +174,9 @@ function Inspector({ a, graph, onClose, onChanged }: { a: Actor; graph: JobGraph
   );
 }
 
-export function OfficeView({ jobId, refreshKey, approvalsKey, compact = false, onExpand }: {
+export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvalsKey, compact = false, onExpand }: {
   jobId: string | null;
+  jobKind?: "conductor" | "task";
   refreshKey: number;
   approvalsKey: number;
   compact?: boolean;
@@ -195,11 +197,14 @@ export function OfficeView({ jobId, refreshKey, approvalsKey, compact = false, o
   useEffect(() => {
     if (!jobId) { setGraph(null); prev.current = null; return; }
     let stop = false;
-    api<JobGraph>(`/api/jobs/${jobId}/graph`)
+    const load = jobKind === "task"
+      ? api<{ task: TaskLite }>(`/api/tasks/${jobId}`).then((r) => taskGraph(r.task))
+      : api<JobGraph>(`/api/jobs/${jobId}/graph`);
+    load
       .then((g) => { if (!stop) { setGraph(g); setError(null); } })
       .catch((e) => { if (!stop) setError(e instanceof ApiError && e.status === 404 ? "İş bulunamadı." : String(e)); });
     return () => { stop = true; };
-  }, [jobId, refreshKey, tick, localKey]);
+  }, [jobId, jobKind, refreshKey, tick, localKey]);
 
   useEffect(() => {
     if (!live) return;

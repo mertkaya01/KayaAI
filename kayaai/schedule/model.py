@@ -92,6 +92,7 @@ class Schedule(BaseModel):
     enabled: bool = True
     catch_up: bool = True                 # bilgisayar kapalıyken kaçırılan çalışmayı açılınca yap
     skip_holidays: bool = False           # Adım 14c: resmi tatilde çalışma (tatil takvimi açık olmalı)
+    cloud: bool = False                   # Adım 17: serbest görevde buluta izin (köprü açık + ajan izinliyse)
     created_at: datetime = Field(default_factory=datetime.now)
     registered: bool = False              # Windows Görev Zamanlayıcı'da kayıtlı mı
     register_note: str | None = None
@@ -106,6 +107,8 @@ class Schedule(BaseModel):
             raise ValueError("satış raporu için Excel/CSV dosyası (path) gerekli")
         if self.kind == "free" and len(str(p.get("request", "")).strip()) < 5:
             raise ValueError("serbest görev için istek metni (request) gerekli")
+        if self.cloud and self.kind != "free":
+            raise ValueError("buluta izin şimdilik yalnız serbest görevde (diğerleri dosya/hafıza işler, yerelde kalır)")
         if self.kind == "sales_report":
             fmts = p.get("formats") or ["xlsx", "pdf"]
             if any(f not in ("md", "xlsx", "docx", "pdf") for f in fmts):
@@ -130,7 +133,8 @@ class Schedule(BaseModel):
             what += f": {str(self.params['request'])[:80]}"
         elif self.kind == "docs_digest" and self.params.get("folder"):
             what += f" ({self.params['folder']})"
-        return f"{self.name} — {what}, {self.cadence.describe()}" + (" (resmi tatilde çalışmaz)" if self.skip_holidays else "")
+        return (f"{self.name} — {what}, {self.cadence.describe()}" + (" (resmi tatilde çalışmaz)" if self.skip_holidays else "")
+                + (" (☁ buluta izinli)" if self.cloud else ""))
 
 
 class Run(BaseModel):

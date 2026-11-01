@@ -164,6 +164,28 @@ kayaAI sistemde başka iz bırakmaz: hizmet kurmaz, kayıt defterine yazmaz, yö
 
 Kayıtlar: `logs\kayaai.log`. Olaylar: Sistem → Son olaylar.
 
+## 8. Bulut köprüsü (isteğe bağlı, Adım 17)
+
+kayaAI tek başına yerel çalışır; bu bölüm yalnız ücretsiz bulut modellerini de kullanmak istersen.
+
+1. **OmniRoute'u kur** (resmî depo: <https://github.com/diegosouzapw/OmniRoute>, MIT; Node.js gerekir) ve README'sindeki
+   adımlarla başlat. Panelini aç, kullanmak istediğin sağlayıcıları bağla. Resmî ücretsiz API'si olanları öner:
+   Cerebras, Groq, NVIDIA NIM, Cloudflare, Gemini API anahtarı, OpenRouter'ın ücretsiz modelleri. Başka aracın oturumunu
+   ödünç kullanan sağlayıcılardan kaçın (OmniRoute da Kiro'yu varsayılan olarak yönlendirmiyor).
+2. **Yalnız bu bilgisayardan** erişilsin: OmniRoute'u ağa açma (varsayılan adres `http://localhost:20128/v1`).
+   kayaAI uzak adrese zaten bağlanmaz.
+3. OmniRoute panelinde **Endpoints** bölümünden bir anahtar oluştur ve kayaAI'ye ver (ikisinden biri):
+   ```powershell
+   kayaai cloud key          # gizli sorar, onaylarsan data\cloud.key'e kaydeder
+   setx KAYAAI_CLOUD_KEY "..."   # ya da ortam değişkeni
+   ```
+4. Bağlantıyı dene, sonra aç (onay merkezinde neyin gidip neyin gitmediği yazar):
+   ```powershell
+   kayaai cloud test
+   kayaai cloud enable --model auto --agents general,coder,document,planner,reviewer --limit 200
+   ```
+5. Kullanım: Asistan'da **☁ Bulut** düğmesi ya da `kayaai do --cloud "..."`. Kapatmak: `kayaai cloud disable`.
+
 ## 7. Güvenlik özeti ve çok cihaz
 
 - API ve arayüz yalnız **bu bilgisayardan** erişilir (`127.0.0.1`); ağa açmak sahibin kararıdır ve şu an desteklenmez.

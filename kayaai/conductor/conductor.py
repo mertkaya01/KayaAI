@@ -496,6 +496,8 @@ class Conductor:
                                 {"count": n, "to": run.disputes[0].escalated_to, "ids": [d.id for d in run.disputes]})
 
     def _ask(self, job: Task, worker: str, objective: str, input: dict[str, Any]) -> Task:
+        if (job.input.get("context") or {}).get("_cloud") or job.input.get("_cloud"):
+            input = {**(input or {}), "_cloud": True}  # Adım 17: istekteki bulut izni her adıma geçer
         task = self.rt.orchestrator.submit(objective, worker=worker, input=input or None, parent_id=job.id)
         return self.rt.orchestrator.run(task.id)
 

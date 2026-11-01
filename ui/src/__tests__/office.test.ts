@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Approval, FlowNode, JobGraph } from "../api";
-import { actorOf, deriveActors, diffVisits, iso, layout } from "../office/scene";
+import { actorOf, deriveActors, diffVisits, iso, layout, taskGraph } from "../office/scene";
 
 function node(id: string, kind: FlowNode["kind"], status: FlowNode["status"], agent: string | null = null, task_id: string | null = null): FlowNode {
   return { id, kind, label: id, status, agent, model: "qwen3:8b", task_id, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null };
@@ -81,6 +81,12 @@ describe("deriveActors", () => {
     expect(a.find((x) => x.id === "reviewer")!.bubble).toBe("check-s1…");
   });
 
+  it("marks agents working through the cloud bridge", () => {
+    const c = graph([{ ...node("step-s1", "step", "running", "general", "t1"), model: "☁ groq/llama-3.3-70b" }], []);
+    expect(deriveActors(c, {}, []).find((x) => x.id === "general")!.cloud).toBe(true);
+    expect(deriveActors(c, {}, []).find((x) => x.id === "data")!.cloud).toBe(false);
+  });
+
   it("clips long bubbles", () => {
     const a = deriveActors(g, { t2: { task_id: "t2", worker: "document", chars: 1, field: null, tail: "y".repeat(300), attempt: 1, at: 0 } }, []);
     expect(a.find((x) => x.id === "document")!.bubble!.length).toBe(120);
@@ -108,6 +114,18 @@ describe("diffVisits", () => {
     expect(diffVisits(null, g)).toEqual([]);
     expect(diffVisits({ ...g, job_id: "other" }, g)).toEqual([]);
   });
+});
+
+it("single-agent task as an office graph", () => {
+  const g = taskGraph({ id: "t1", worker: "coder", objective: "Kod yaz", status: "running", model: "☁ auto", error: null,
+                        metrics: { tokens_per_second: 50 }, started_at: null, finished_at: null });
+  const a = deriveActors(g, {}, []);
+  expect(a.find((x) => x.id === "coder")!.state).toBe("working");
+  expect(a.find((x) => x.id === "coder")!.cloud).toBe(true);
+  const done = taskGraph({ id: "t1", worker: "coder", objective: "Kod yaz", status: "succeeded", model: "qwen", error: null,
+                           started_at: "2026-11-01T10:00:00Z", finished_at: "2026-11-01T10:00:03.5Z" });
+  expect(diffVisits(g, done).map((v) => v.kind)).toEqual(["deliver"]);
+  expect(done.nodes[1].duration_s).toBe(3.5);
 });
 
 it("iso projection", () => {

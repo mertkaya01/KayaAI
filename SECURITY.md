@@ -218,6 +218,19 @@
 - [x] Tarayıcı izni yalnız sahip tıklayınca istenir; bağlantıdan önceki (geçmiş) olaylar bildirim üretmez; sessiz saatler
 - [x] Tema ve menü tercihi yalnız tarayıcıda (kişisel tercih); hiçbir gizli bilgi tarayıcı deposunda tutulmaz
 
+## Adım 17'de uygulananlar (bulut köprüsü — ilke değişikliği, sahip kararı 2026-11-01)
+
+- [x] Varsayılan kapalı; açmak **R2** (önizleme: adres, model, ajanlar, sınır, gidenler/asla gitmeyenler); kapatmak R1
+- [x] **Yalnız yerel ağ geçidi** (127.0.0.1 / localhost / ::1); uzak adres doğrulamada reddedilir; yönlendirme izlenmez
+- [x] **İstek başına izin** (`_cloud` işareti; sohbet düğmesi / `--cloud` / serbest zamanlanmış görev kutusu); izin yoksa
+      hiçbir koşulda gitmez; şefin her adımına aynı izin geçer
+- [x] **Veri kapısı**: bulut izinli istekte hafıza/belge araması yapılmaz (yerel bir adımın çıktısı üzerinden bile
+      sızmasın); görev girdisinden `memory`, `documents`, `_images` (iç içe dahil) çıkarılır; görsel ajan buluta verilemez
+- [x] **Gizli bilgi algılayıcı** son kapı: eşleşme varsa istek gitmez (`cloud.blocked`), iş yerelde yapılır
+- [x] **Kayıt**: `cloud.call` olayı yalnız ajan, model, karakter sayıları, süre, hata (metin YOK); günlük çağrı sınırı
+- [x] Hata / zaman aşımı / kota → yerel model; ağ geçidi anahtarı yalnız ortam değişkeni ya da sahibin terminalde açık
+      onayıyla `data/cloud.key` (API/arayüz anahtarı ne alır ne gösterir)
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Güncelleme (2026-11-01): dosya yükleme doğrulaması (tür izin listesi, base64 ve boyut kontrolü, Adım 9/12) ve hafıza
