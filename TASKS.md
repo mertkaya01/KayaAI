@@ -45,7 +45,8 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 - [x] `scripts/mcp_check.py` gerçek modelle — Windows'ta geçti (GPU tespiti v0.2.1'de düzeltildi)
 - [x] `mcp_setup.ps1` (.mcp.json üretimi) — Windows'ta çalıştı
 - [x] Claude Code yerel worker'ları çağırabiliyor (kabul testi #5)
-- [ ] Claude'un yerel modeli ne zaman kendiliğinden kullanacağı (yönlendirme kuralları, `CLAUDE.md`) — mimari raporda
+- [x] Claude'un yerel modeli ne zaman kullanacağı (`CLAUDE.md`): sahip kararı (2026-11-01) "Ekleme, benimki yeter" —
+  depoya kural eklenmez, sahibin kendi `CLAUDE.md`'si geçerli
 
 ## Adım 3 — İki mod + şef ([plan](docs/STEP3_PLAN.md))
 - [x] 3a Claude modu: `claude.enabled` ayarı, SQLite'ta kalıcı aç/kapa, "son temas" (MCP çağrılarından),
