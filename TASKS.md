@@ -204,6 +204,6 @@ Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamland
   notu, zamanlanmış görevde tatil atlama, `kayaai integrations` — Python 15 (sahte ağ; bu ortamdan siteler engelli)
 - [x] 14d — Erişilebilirlik: axe (WCAG 2.1 AA) 8 sayfada 5 ihlal → 0; İçeriğe atla, görünür odak, aria-current,
   h1, landmark adları, kontrast, Escape/odak yönetimi — Playwright klavye 9 kontrol
-- [ ] Windows: `kayaai integrations enable exchange_rates` → onay → `kayaai integrations test` (gerçek bağlantı); ⏸ Otomasyon
+- [x] Windows'ta sahip doğruladı (2026-11-01): duraklat/sürdür, yasak liste, gerçek kur/tatil bağlantısı, klavye
 
 - [ ] Fine-tuning değerlendirmesi (sahip sorusu; sırada)

@@ -22,7 +22,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
 | 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 13 | Zamanlanmış görevler (Windows Görev Zamanlayıcı), VRAM bekçisi + `kayaai bench`, kurulum belgeleri | **Tamamlandı** (Windows'ta doğrulandı) — yol haritası tamam |
-| 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | Kodlandı (Windows kontrolü bekliyor) |
+| 14 | Referans incelemesinden: otomasyonu duraklat, dosya yazma yasak listesi, isteğe bağlı döviz/tatil verisi, erişilebilirlik | **Tamamlandı** (Windows'ta doğrulandı) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
