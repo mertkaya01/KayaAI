@@ -12,10 +12,13 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("özel anahtar", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
     ("API anahtarı", re.compile(r"\b(sk-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|"
                                 r"github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|xox[abposr]-[A-Za-z0-9-]{10,}|"
-                                r"AIza[0-9A-Za-z_-]{30,})")),
+                                r"AIza[0-9A-Za-z_-]{30,}|hf_[A-Za-z0-9]{30,}|(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|"
+                                r"glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{30,})")),
+    ("bağlantı parolası", re.compile(r"(?i)\b[a-z][a-z0-9+.-]*://[^\s/:@]+:[^\s/@]+@")),
     ("parola", re.compile(r"(?i)\b(şifre(?:m|si|miz)?|parola(?:m|sı)?|password|passwd|pwd|pin(?:\s*kodu)?)\b"
                           r"\s*(?:[:=]|\bis\b|\bşu\b|\bolarak\b)?\s*\S{3,}")),
     ("erişim anahtarı", re.compile(r"(?i)\b(token|api[_ -]?key|secret|bearer)\b\s*[:=]\s*\S{8,}")),
+    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
     ("IBAN", re.compile(r"\bTR\d{2}\s?(?:\d{4}\s?){5}\d{2}\b")),
 ]
 _CARD = re.compile(r"\b(?:\d[ -]?){13,19}\b")
