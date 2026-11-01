@@ -128,6 +128,30 @@ class MemorySettings(BaseModel):
         return data
 
 
+class SpeechSettings(BaseModel):
+    """Adım 12b — ses tanıma (sahip kararı: faster-whisper large-v3-turbo, GPU; olmazsa işlemci). Tamamen yerel."""
+
+    model: str = "large-v3-turbo"            # faster-whisper model adı (indirme: data/models/whisper, sahip onayıyla)
+    device: Literal["auto", "cuda", "cpu"] = "auto"
+    language: Literal["auto", "tr", "en"] = "auto"
+    max_seconds: int = Field(120, ge=5, le=600)        # bas-konuş kaydı üst sınırı
+    idle_unload_s: int = Field(600, ge=30, le=86_400)  # bu kadar kullanılmazsa model bellekten çıkar
+    beam_size: int = Field(5, ge=1, le=10)
+
+
+class BrowserSettings(BaseModel):
+    """Adım 12d — tarayıcı otomasyonu (sahip kararı: kurulu Edge, ayrı boş profil)."""
+
+    channel: str | None = "msedge"           # Playwright kanalı (msedge: kurulu Edge, indirme yok)
+    executable_path: str | None = None       # verilirse kanal yerine bu tarayıcı (testler)
+    headless: bool = False                   # görünür pencere: ne yaptığını görürsün
+    profile_dir: str = "browser_profile"     # data/ altında; senin Edge profilin DEĞİL (çerez/şifre yok)
+    max_steps: int = Field(20, ge=1, le=60)
+    step_timeout_s: int = Field(30, ge=5, le=180)
+    approval_timeout_s: int = Field(600, ge=30, le=3600)
+    allow_local: bool = False                # yerel ağ / bu bilgisayar adresleri (yalnız testler)
+
+
 class ApprovalSettings(BaseModel):
     # Bu süreden uzun bekleyen onay talebi geçersiz sayılır (expired).
     expire_hours: int = Field(24, ge=1, le=24 * 30)
@@ -160,6 +184,8 @@ class Settings(BaseModel):
     files: FilesSettings = Field(default_factory=FilesSettings)
     approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
+    speech: SpeechSettings = Field(default_factory=SpeechSettings)
+    browser: BrowserSettings = Field(default_factory=BrowserSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     @property

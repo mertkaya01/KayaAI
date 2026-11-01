@@ -34,6 +34,7 @@ AUTO = "auto"
 MessageStatus = Literal["done", "pending", "running", "waiting_claude", "failed", "cancelled"]
 BusinessMode = Literal["analyze", "summarize", "invoice"]
 MAX_BINARY_MB = 10.0
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 _SAFE_NAME = re.compile(r"[^\w.\- ()]+", re.UNICODE)
 
 
@@ -53,7 +54,7 @@ class AttachmentRef(BaseModel):
     id: str
     name: str
     chars: int
-    kind: Literal["text", "pdf", "table"] = "text"  # Adım 10: PDF ve tablo (Excel/CSV) ekleri
+    kind: Literal["text", "pdf", "table", "image"] = "text"  # Adım 10: PDF/tablo · Adım 12a: görüntü (ekran görüntüsü)
 
 
 class Attachment(AttachmentRef):
@@ -172,6 +173,28 @@ class ChatBook:
         self.store.save_attachment(a.id, a.created_at.isoformat(), a.model_dump(mode="json"))
         return a
 
+    def _save_image(self, name: str, data: bytes, source: Literal["upload", "path"], path: str | None) -> Attachment:
+        """Görüntü eki (ekran görüntüsü/fotoğraf): özgün dosya saklanır; metni OCR ile okunur (Windows; yoksa boş)."""
+        from ..perception.ocr import OcrUnavailable, normalize_image, ocr_image
+
+        if len(data) > MAX_BINARY_MB * 1024 * 1024:
+            raise ChatError(f"Görüntü çok büyük ({len(data) / 1e6:.1f} MB > {MAX_BINARY_MB:.0f} MB)")
+        try:
+            normalize_image(data)  # doğrula (bozuk / dev görüntü)
+        except ValueError as exc:
+            raise ChatError(str(exc)) from exc
+        try:
+            text = ocr_image(data).text
+        except (OcrUnavailable, ValueError):
+            text = ""
+        a = Attachment(id=uuid.uuid4().hex[:12], name=safe_name(name), chars=len(text), size=len(data), source=source,
+                       path=path, kind="image")
+        self.attach_dir.mkdir(parents=True, exist_ok=True)
+        (self.attach_dir / f"{a.id}.bin").write_bytes(data)
+        (self.attach_dir / f"{a.id}.txt").write_text(text, encoding="utf-8")
+        self.store.save_attachment(a.id, a.created_at.isoformat(), a.model_dump(mode="json"))
+        return a
+
     def upload_binary(self, name: str, data_b64: str) -> Attachment:
         import base64
         import binascii
@@ -179,8 +202,15 @@ class ChatBook:
         from ..business.readers import BINARY_SUFFIXES
 
         suffix = Path(safe_name(name)).suffix.lower()
+        if suffix in IMAGE_SUFFIXES:
+            try:
+                return self._save_image(name, base64.b64decode(data_b64, validate=True), "upload", None)
+            except (binascii.Error, ValueError) as exc:
+                if isinstance(exc, ChatError):
+                    raise
+                raise ChatError("Görüntü içeriği bozuk (base64)") from exc
         if suffix not in BINARY_SUFFIXES:
-            raise ChatError(f"Bu dosya türü ikili ek olarak kabul edilmiyor ({suffix or 'uzantısız'}); PDF ve Excel (.xlsx) olur")
+            raise ChatError(f"Bu dosya türü ikili ek olarak kabul edilmiyor ({suffix or 'uzantısız'}); PDF, Excel (.xlsx) ve görüntü (PNG/JPEG) olur")
         try:
             data = base64.b64decode(data_b64, validate=True)
         except (binascii.Error, ValueError) as exc:
@@ -207,10 +237,12 @@ class ChatBook:
         assert self.rt.files is not None
         from ..business.readers import BINARY_SUFFIXES
 
-        if Path(path).suffix.lower() in BINARY_SUFFIXES:
+        if Path(path).suffix.lower() in BINARY_SUFFIXES | IMAGE_SUFFIXES:
             resolved, _ = self.rt.files.resolve(path)  # kök kontrolü (izinli klasör dışı → PathNotAllowed)
             if not resolved.is_file():
                 raise ChatError(f"Dosya yok: {resolved}")
+            if resolved.suffix.lower() in IMAGE_SUFFIXES:
+                return self._save_image(resolved.name, resolved.read_bytes(), "path", str(resolved))
             return self._save_binary(resolved.name, resolved.read_bytes(), "path", str(resolved))
         res = self.rt.files.read(path, requested_by="assistant")
         if res.status != "done" or not res.result:
@@ -293,6 +325,15 @@ class ChatBook:
             self._touch(conv, text)
             self.store.emit("chat.message", {"conv_id": conv_id, "message_id": user.id, "role": "user"})
             return user, reply, runner
+        # Adım 12a: görüntü eki → görsel ajan (ekran görüntüsü); devam sorusu da önceki görüntü(ler)le cevaplanır
+        images = [r for r in refs if r.kind == "image"]
+        if mode is None and not images and not refs and agent in (AUTO, "vision"):
+            images = self._last_vision_images(conv_id, user.id)
+        if mode is None and images and agent in (AUTO, "vision"):
+            reply, runner = self._vision(conv_id, user, images)
+            self._touch(conv, text)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": user.id, "role": "user"})
+            return user, reply, runner
         # Adım 10: tablo eki + otomatik/data → analiz; açık mod (Analiz et / Özetle / Fatura olarak oku) her zaman
         if mode is None and agent in (AUTO, "data") and any(r.kind == "table" for r in refs) \
                 and not any(r.kind == "pdf" for r in refs):
@@ -325,11 +366,70 @@ class ChatBook:
             msg = ChatMessage.model_validate(self.store.get_message(msg.reply_to))
         reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent="claude", reply_to=msg.id,
                             handoff=True)
-        ctx, warnings = self.build_context(conv_id, msg, msg.attachments)
+        # Ekran görüntüleri (ve OCR metinleri) özeldir: Claude'a gönderilmez (Adım 12a güvenlik kuralı)
+        refs = [r for r in msg.attachments if r.kind != "image"]
+        ctx, warnings = self.build_context(conv_id, msg, refs)
+        if len(refs) < len(msg.attachments):
+            warnings.append("Ekran görüntüleri Claude'a gönderilmez (yerelde kalır); yalnızca metin devredildi.")
         reply.warnings = reply.context_warnings = warnings
         runner = self._start(reply, msg.content, AUTO, ctx, force="claude")
         self._touch(conv)
         return reply, runner
+
+    def _last_vision_images(self, conv_id: str, before_id: str) -> list[AttachmentRef]:
+        """Son asistan cevabı görsel ajandansa, sorduğu görüntüler (devam sorusu: "peki sağ üstte ne yazıyor?")."""
+        msgs = [ChatMessage.model_validate(m) for m in self.store.list_messages(conv_id)]
+        msgs = [m for m in msgs if m.id != before_id]
+        last = next((m for m in reversed(msgs) if m.role == "assistant"), None)
+        if last is None or last.agent != "vision" or last.status != "done" or not last.reply_to:
+            return []
+        q = next((m for m in msgs if m.id == last.reply_to), None)
+        if q is None:
+            return []
+        if q.attachments:
+            return [r for r in q.attachments if r.kind == "image"]
+        return [AttachmentRef.model_validate(r) for r in last.meta.get("vision_images", [])]
+
+    def _vision(self, conv_id: str, user: ChatMessage, images: list[AttachmentRef]) -> tuple[ChatMessage, Callable[[], None]]:
+        """Görüntü eki: OCR (ek yüklenirken okundu) + yerel görsel model; sayılar OCR metnine karşı kodla denetlenir."""
+        from ..perception.vision import MAX_IMAGES
+
+        images = images[:MAX_IMAGES]
+        reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent="vision", reply_to=user.id)
+        self._save_msg(reply)
+        history = [ChatMessage.model_validate(m) for m in self.store.list_messages(conv_id)]
+        convo = [{"role": m.role, "content": m.content[:HISTORY_CHARS]} for m in history
+                 if m.id not in (user.id, reply.id) and m.status == "done" and m.content.strip()][-4:]
+
+        def run_vision() -> None:
+            from ..perception.vision import VisionError, see
+
+            msg = ChatMessage.model_validate(self.store.get_message(reply.id))
+            msg.status = "running"
+            self._save_msg(msg)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": msg.id, "role": "assistant",
+                                             "status": "running"})
+            try:
+                datas, ocr = [], []
+                for ref in images:
+                    a, data = self.file_bytes(ref.id)
+                    datas.append(data)
+                    ocr.append((self.attach_dir / f"{a.id}.txt").read_text(encoding="utf-8"))
+                result = see(self.rt, datas, user.content, ocr_texts=ocr if any(ocr) else None, conversation=convo)
+                msg.content = result.markdown()
+                msg.warnings = list(result.warnings)
+                msg.job_id, msg.job_kind = result.task_id, "task"
+                msg.meta = {"vision": result.model_dump(mode="json", exclude={"answer"}), "agents": ["vision"],
+                            "vision_images": [r.model_dump() for r in images]}
+                msg.status = "done"
+            except (VisionError, ChatError) as exc:
+                msg.content, msg.status = str(exc), "failed"
+            except Exception as exc:  # noqa: BLE001 - mesaj her durumda kapanmalı
+                msg.content, msg.status = f"Beklenmeyen hata: {exc}", "failed"
+            self._save_msg(msg)
+            self.store.emit("chat.message", {"conv_id": conv_id, "message_id": msg.id, "role": "assistant",
+                                             "status": msg.status})
+        return reply, run_vision
 
     def _business(self, conv_id: str, user: ChatMessage, refs: list[AttachmentRef],
                   mode: BusinessMode) -> tuple[ChatMessage, Callable[[], None]]:

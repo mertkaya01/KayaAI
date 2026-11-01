@@ -142,10 +142,55 @@
       kimliği yalnız harf/rakam (yol gezinmesi yok)
 - [x] Akış grafiği yalnızca okuma; tüm yeni uçlar erişim anahtarı ister
 
+## Adım 12a'da uygulananlar (ekranı okuma)
+
+- [x] Ekran yalnızca sahibin açık eylemiyle yakalanır: tarayıcının `getDisplayMedia` seçim penceresi ve paylaşım
+      göstergesi; **tek kare** alınır, akış hemen kapatılır (sürekli kayıt yok). CLI `kayaai screen` yalnız komutla tek kare
+- [x] Ekran görüntüleri ve OCR metinleri Claude'a gitmez: vision ajanının Claude karşılığı yok, MCP aracı yok,
+      Claude'a devirde görüntü ekleri ve metinleri çıkarılır (uyarı gösterilir)
+- [x] Görüntüler doğrulanır (Pillow ile açılır; ≤10 MB, ≤40 MP); görev kaydına bayt değil dosya yolu yazılır; modele
+      giden geçici kopyalar iş bitince silinir
+- [x] Görsel modelin yazdığı sayılar OCR metnine karşı kodla denetlenir; OCR yoksa cevap "doğrulanmadı" olarak işaretlenir
+- [x] Yeni bağımlılıklar izin verici lisanslı: Pillow (MIT-CMU), pypdfium2 (Apache-2.0/BSD), mss (MIT), pywinrt (MIT);
+      görsel model qwen2.5vl:7b (Apache-2.0)
+
+## Adım 12b'de uygulananlar (bas-konuş, sesli okuma)
+
+- [x] Mikrofon yalnız sahip düğmeye bastığında açılır, kayıt bitince akış kapatılır; sayaç + tarayıcı göstergesi; 2 dk üst sınır
+- [x] Ses diske yazılmaz ve saklanmaz (bellekte çözülür); olay kaydına tanınan metin değil yalnız süre/aygıt yazılır
+- [x] Ses tanıma tamamen yerel (faster-whisper); model indirme sahip onayı ister (R2) ya da setup.ps1'de sahibe sorulur
+- [x] Sesli okuma yalnız yerel Windows sesleriyle (`localService`); çevrim içi (bulut) sesler kullanılmaz
+- [x] Bağımlılıklar: faster-whisper, ctranslate2 (MIT), PyAV (BSD-3; <19 — 19 faster-whisper'ı bozuyor);
+      isteğe bağlı NVIDIA cuBLAS/cuDNN (NVIDIA lisansı, yalnız yerel çalıştırma için, yeniden dağıtılmaz)
+
+## Adım 12c'de uygulananlar (canlı altyazı)
+
+- [x] Sistem sesi / mikrofon yalnız "Başlat" ile, tarayıcının izin/paylaşım penceresiyle açılır; sürekli görünür
+      "Dinleniyor" göstergesi; Durdur, paylaşımı durdurma ve 2 saat sınırı (sunucu da uygular) ile kapanır
+- [x] Ses saklanmaz; altyazı metni olay kaydına yazılmaz; döküm yalnız sahip "Kaydet" derse izinli klasöre (yeni dosya R1)
+- [x] WebSocket erişim anahtarıyla; ilk mesaj doğrulanır (dil/hedef beyaz liste); model yoksa anlaşılır hata ile kapanır
+- [x] AudioWorklet aynı kökenden (`/pcm-worklet.js`), CSP değişmedi
+
+## Adım 12d'de uygulananlar (tarayıcı otomasyonu)
+
+- [x] Ayrı ve boş tarayıcı profili (`data/browser_profile`): sahibin çerezleri, oturumları, şifreleri kullanılmaz;
+      görünür pencere; arka plan eşitleme/güncelleme bağlantıları kapalı bayraklarla başlatılır
+- [x] Risk sınıfını KOD belirler (model değil): okuma R0, aynı sitede tıklama R1, form girişi / yeni site R2, gönderme /
+      ödeme / satın alma / silme / yayınlama / kayıt R3 (her seferinde onay; toplu onay yok)
+- [x] Reddedilenler: parola/kart/kimlik/IBAN/OTP alanına yazma, dosya yükleme ve indirme (indirme kapalı), `file://`,
+      `javascript:`, yerel ağ ve bu bilgisayarın adresleri (ağ katmanında da engellenir)
+- [x] Önizleme: hedef öğe kırmızı çerçeveli ekran görüntüsü + açıklama + ajanın gerekçesi; reddedilirse iş durur;
+      onay 10 dk içinde verilmezse reddedilir; Durdur her an
+- [x] R3 eylemi yalnızca hedef açıkça istiyorsa önerilebilir; hedefte olumsuzluk ("satın alma", "gönderme", "don't")
+      varsa ya da hedef böyle bir eylem istemiyorsa kod sormadan reddeder (Windows gözlemi: model "Satın alma." hedefinde
+      "Satın Al"a tıklamayı önermişti)
+- [x] Döngü korumaları: en fazla 20 adım, aynı eylem tekrarı ve üst üste kural dışı adımlarda durur
+- [x] Playwright (Apache-2.0); tarayıcı indirmez, kurulu Edge'i kullanır
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
-Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü/tarayıcı eylem
-önizlemesi (Faz 12), hafıza hassasiyet kontrolleri (Faz 9).
+Dosya yükleme doğrulaması (Faz 9), hız sınırlama, sandbox'lı kod çalıştırma (Faz 7), masaüstü (tarayıcı dışı) eylem
+önizlemesi, hafıza hassasiyet kontrolleri (Faz 9).
 
 ## Güvenlik sorunu bildirimi
 

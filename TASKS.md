@@ -31,10 +31,10 @@ Durum işaretleri: `[x]` yapıldı ve test edildi · `[~]` kod hazır, hedef mak
 | 5 | Claude Code MCP ile yerel araçlara erişiyor | [x] 2026-10-31 — Claude Code `kayaai_ask` → qwen3:8b, görev geçmişinde doğrulandı |
 | 6 | PDF okunup özetleniyor | [x] 2026-10-31 — 3 sayfalık rapor, 4/4 anahtar bilgi, sayfa kaynaklı |
 | 7 | Excel analiz ediliyor | [x] 2026-10-31 — sayıları program hesaplar, uydurma sayı 0 (v0.10.2: toplam/maks yorumu düzeltildi) |
-| 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [ ] Faz 5 |
-| 9 | Seçilen ses kaynağı yazıya dökülüyor | [ ] Faz 6 |
-| 10 | Çeviri altyazı olarak gösteriliyor | [ ] Faz 6 |
-| 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [ ] Faz 7 |
+| 8 | Ekran görüntüsü yakalanıp analiz ediliyor | [x] 2026-11-01 — qwen2.5vl:7b 3/3, sayılar Windows OCR ile doğrulandı; gerçek ekran yorumlandı |
+| 9 | Seçilen ses kaynağı yazıya dökülüyor | [x] 2026-11-01 — Whisper large-v3-turbo CUDA'da, WER 0.0 (en); mikrofon + sistem sesi arayüzde |
+| 10 | Çeviri altyazı olarak gösteriliyor | [x] 2026-11-01 — canlı altyazı gecikmesi 0,55 sn; çeviri arayüzde |
+| 11 | Masaüstü otomasyonu önizlenip onaylanıyor | [x] 2026-11-01 — Edge ile tarayıcı görevi, R2/R3 önizlemeli onay (v0.12.4: istenmeyen R3 kodla reddedilir) |
 | 12 | İş raporu üretiliyor | [x] 2026-10-31 — xlsx / md / docx / pdf |
 | 13 | Yeniden başlatmada görev geçmişi geri yükleniyor | [x] |
 
@@ -145,8 +145,31 @@ yükle/boşalt, yeni model indirme, karşılaştırma testi.
   karşılaştır) hepsi çalıştı; v0.11.2 ısınma + think düzeltmesi + daha zor vakalar
 - [ ] Windows arayüz: Akış'ta gerçek çok adımlı iş; Modeller'de yükle/boşalt
 
+## Adım 12 — Algı ve eylem (kabul #8–#11)
+Sahip kararları (2026-11-01): dördü de; görsel model qwen2.5vl:7b; ses tanıma faster-whisper large-v3-turbo (GPU → CPU);
+tarayıcı kurulu Edge (ayrı boş profil); sesli okuma Windows yerel sesleri.
+- [x] 12a — Ekranı oku: 📷 Ekran (tek kare, alan seçimi), görüntü eki, Windows OCR, vision ajanı (qwen2.5vl:7b),
+  sayı denetimi, devam soruları, Claude'a gitmez; taranmış PDF (pypdfium2 + OCR); CLI `kayaai screen`; API
+- Testler: Python (algı 18), Playwright (ekran akışı 12 kontrol); Windows `perception_check` bekliyor
+- [x] 12b — Bas-konuş (🎤 basılı tut / tıkla, MediaRecorder → yerel faster-whisper, GPU → işlemci, model indirme R2,
+  ses saklanmaz) + 🔊 Oku (yalnız yerel Windows sesleri); CLI `kayaai speech`; setup.ps1 model + GPU kütüphaneleri
+- Testler: Python (ses 15; webm/wav gerçek çözme), Vitest 18, Playwright (bas-konuş 9 kontrol); Windows `perception_check` bekliyor
+- [x] 12c — Canlı çeviri altyazı: sistem sesi / mikrofon → AudioWorklet → WS → bölütleyici + Whisper + yerel çeviri;
+  küçük pencere (Document PiP); döküm .txt/.srt yalnız istenince; görsel model boşaltılır
+- Testler: Python (canlı 12: bölütleyici sentetik ses, oturum, WS), Playwright (altyazı 13 kontrol; sahte mikrofon dosyası
+  + sesli paylaşım); Windows `perception_check` (canlı altyazı gecikmesi) bekliyor
+- [x] 12d — Tarayıcı otomasyonu: Playwright + kurulu Edge (ayrı profil), kodla risk sınıfı (R0–R3 + reddedilenler),
+  hedef öğesi çerçeveli önizlemeyle onay, Tarayıcı sayfası (adımlar, satır içi onay, sayfa görüntüsü), CLI `kayaai browse`
+- Testler: Python (tarayıcı 42: risk tablosu, sahte sürücüyle onay/ret/kural/durdur/tekrar, gerçek Chromium sürücüsü, API),
+  Playwright (tarayıcı 10 kontrol)
+- Windows `perception_check --screen --browser` (2026-11-01, v0.12.3): görsel 3/3 (OCR doğrulamalı, ort. 2,1 sn), OCR
+  fatura 3/3 · hata penceresi 0/2 (`C:\` → `C:X`, l → I), gerçek ekran doğru özetlendi; Whisper CUDA'da, WER 0.0 (en;
+  Türkçe SAPI sesi yok), canlı altyazı 0,55 sn; tarayıcı görevi bitti. Bulgular → v0.12.4: istenmeyen R3 ("Satın alma."
+  hedefinde "Satın Al" önerildi) kodla reddedilir, aynı adım tekrarı atlanır; ses ölçümünde model yükleme ayrı; OCR küçük
+  görüntüyü 2 kat büyütür; test PDF'i düzeltildi; Türkçe OneCore sesi (WinRT) ile ölçüm
+
 ## Sıradaki adımlar
-Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 kodlandı (Windows doğrulaması bekliyor). Sıradaki: Adım 12 (algı ve eylem).
+Yol haritası: [`MASTER_PROMPT.md`](MASTER_PROMPT.md) v2 §13. Adım 3 tamamlandı (2026-10-31). Adım 4 tamamlandı (2026-10-31). Adım 10 tamamlandı (2026-10-31). Adım 11 tamamlandı (2026-11-01). Adım 12 tamamlandı (2026-11-01). Sıradaki: Adım 13 (zamanlama).
 
 - [~] Kapsam kontrolü (Opus'un gözlemi): planlayıcı `key_topics` + kodla kapsam; eksik konu "Ek" ile tamamlanır — Windows'ta
   2. tur (v0.4.2): 6/6, SaaS cevabı çok kiracılılığı kapsıyor (eksik konu yok) + Claude uyarısı; 1 yanlış alarm:

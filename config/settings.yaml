@@ -98,3 +98,19 @@ logging:
   file: logs/kayaai.log
   max_bytes: 5000000
   backup_count: 5
+
+speech:
+  # Adım 12b — ses tanıma (bas-konuş, canlı altyazı). Tamamen yerel: ses kaydı diske yazılmaz.
+  model: large-v3-turbo       # ~1,6 GB, MIT; ilk kullanımda sahip onayıyla data/models/whisper altına iner
+  device: auto                # auto: GPU (CUDA) dene, olmazsa işlemci
+  language: auto              # auto | tr | en
+  max_seconds: 120
+  idle_unload_s: 600
+
+browser:
+  # Adım 12d — tarayıcı otomasyonu: kurulu Edge, AYRI boş profil (data/browser_profile), görünür pencere.
+  # Okuma serbest; aynı sitede tıklama kayda geçer; form doldurma / yeni siteye gitme sahip onayı; gönder / öde / sil
+  # her seferinde onay; parola-kart alanı, dosya yükleme/indirme ve yerel ağ reddedilir.
+  channel: msedge
+  headless: false
+  max_steps: 20

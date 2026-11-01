@@ -15,6 +15,7 @@ import asyncio
 import logging
 import secrets
 import threading
+import time
 from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -181,6 +182,34 @@ class Accepted(BaseModel):
     id: str
     status: str
     message: str
+
+
+class ImageBody(BaseModel):
+    data_b64: str = Field(min_length=10, max_length=14_000_000)
+    question: str = Field("", max_length=4000)
+
+
+class AudioBody(BaseModel):
+    data_b64: str = Field(min_length=4, max_length=40_000_000)   # ≤ ~30 MB ses (120 sn webm/wav)
+    language: Literal["auto", "tr", "en"] | None = None
+
+
+class SubtitleLine(BaseModel):
+    start: float = 0
+    end: float = 0
+    text: str = Field("", max_length=4000)
+    translation: str | None = Field(None, max_length=4000)
+
+
+class TranscriptBody(BaseModel):
+    format: Literal["txt", "srt"] = "txt"
+    use_translation: bool = True
+    lines: list[SubtitleLine] = Field(min_length=1, max_length=20_000)
+
+
+class BrowserRunBody(BaseModel):
+    goal: str = Field(min_length=1, max_length=2000)
+    url: str = Field(min_length=1, max_length=2000)
 
 
 class ModelName(BaseModel):
@@ -542,6 +571,198 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     @app.post("/api/chat/{conv_id}/messages/{message_id}/report", dependencies=[Depends(auth)])
     def chat_report(conv_id: str, message_id: str, body: ReportBody) -> dict[str, Any]:
         return chat_call(chat.report, conv_id, message_id, body.format).model_dump(mode="json")
+
+    @app.post("/api/perception/image", dependencies=[Depends(auth)])
+    def perception_image(body: ImageBody) -> dict[str, Any]:
+        """Görüntü hakkında soru (OCR + yerel görsel model). Eşzamanlı; sonuç kaydedilmez."""
+        import base64
+        import binascii
+
+        from ..perception.vision import VisionError, see
+
+        try:
+            data = base64.b64decode(body.data_b64, validate=True)
+            res = see(rt, [data], body.question)
+        except (binascii.Error, VisionError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"result": res.model_dump(mode="json"), "markdown": res.markdown()}
+
+    @app.get("/api/perception/status", dependencies=[Depends(auth)])
+    def perception_status() -> dict[str, Any]:
+        from ..perception.ocr import available
+
+        ok, why = available()
+        spec = rt.registry.models.get("vision-7b")
+        return {"ocr": {"available": ok, "detail": why}, "vision_model": spec.name if spec else None}
+
+    # ---------------------------------------------------------------- ses (Adım 12b)
+
+    @app.get("/api/speech/status", dependencies=[Depends(auth)])
+    def speech_status() -> dict[str, Any]:
+        from ..speech.stt import download_state, status
+
+        return {**status(rt.settings), "download": download_state()}
+
+    @app.post("/api/speech/transcribe", dependencies=[Depends(auth)])
+    def speech_transcribe(body: AudioBody) -> dict[str, Any]:
+        """Bas-konuş: ses → metin (yerel Whisper). Ses diske yazılmaz, saklanmaz."""
+        import base64
+        import binascii
+
+        from ..speech.stt import SpeechError, SpeechUnavailable, transcribe
+
+        try:
+            audio = base64.b64decode(body.data_b64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise HTTPException(400, "Ses verisi bozuk (base64)") from exc
+        try:
+            t = transcribe(rt.settings, audio, body.language)
+        except SpeechUnavailable as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except SpeechError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        rt.store.emit("speech.transcribed", {"audio_seconds": t.audio_seconds, "seconds": t.seconds,
+                                             "device": t.device, "chars": len(t.text)})  # metin olaya yazılmaz
+        return t.model_dump(mode="json")
+
+    def _free_vision_vram() -> None:
+        """Altyazı sürerken GPU'da Whisper + çeviri modeline yer aç: görsel model yüklüyse boşalt (Adım 12c)."""
+        spec = rt.registry.models.get("vision-7b")
+        if spec is None:
+            return
+        try:
+            if any(m.get("name") == spec.name for m in rt.llm.running_models()):
+                rt.llm.unload_model(spec.name)
+                rt.store.emit("model.unloaded", {"name": spec.name, "reason": "canlı altyazı"})
+        except Exception:  # noqa: BLE001 - Ollama yoksa önemli değil
+            pass
+
+    @app.websocket("/api/speech/live")
+    async def speech_live(ws: WebSocket, token_: str = Query("", alias="token")) -> None:
+        """Canlı altyazı (Adım 12c): ilk mesaj JSON {type:start, source_lang, target}; sonra ikili 16 kHz mono PCM16;
+        {type:stop} ile biter. Sunucu partial/final/error/status mesajları gönderir. Ses ve metin saklanmaz."""
+        from ..speech.live import MAX_SESSION_S, LiveSession
+        from ..speech.stt import is_installed, status as speech_state
+
+        if not secrets.compare_digest(token_, token):
+            await ws.close(code=4401, reason="Geçersiz erişim anahtarı")
+            return
+        await ws.accept()
+        try:
+            start = await asyncio.wait_for(ws.receive_json(), timeout=30)
+        except (asyncio.TimeoutError, WebSocketDisconnect, ValueError, RuntimeError):
+            await ws.close(code=4400)
+            return
+        if not is_installed(rt.settings):
+            await ws.send_json({"type": "error", "fatal": True,
+                                "message": "Ses tanıma modeli kurulu değil: kayaai speech download (ya da 🎤 → İndir)"})
+            await ws.close()
+            return
+        await asyncio.to_thread(_free_vision_vram)
+        loop = asyncio.get_running_loop()
+        out: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        target = start.get("target") if start.get("target") in ("tr", "en", "none") else "tr"
+        src = start.get("source_lang") if start.get("source_lang") in ("auto", "tr", "en") else "auto"
+        session = LiveSession(rt, lambda m: loop.call_soon_threadsafe(out.put_nowait, m), src, target)
+        rt.store.emit("speech.live", {"status": "started", "target": target, "source": start.get("source", "?")})
+        await ws.send_json({"type": "status", "status": "listening", **{k: speech_state(rt.settings)[k] for k in ("model", "device")}})
+
+        async def sender() -> None:
+            while True:
+                await ws.send_json(await out.get())
+
+        send_task = asyncio.create_task(sender())
+        reason = "durduruldu"
+        try:
+            while True:
+                if time.monotonic() - session.started > MAX_SESSION_S:
+                    reason = "2 saat sınırı"
+                    break
+                msg = await ws.receive()
+                if msg.get("type") == "websocket.disconnect":
+                    reason = "bağlantı koptu"
+                    break
+                if msg.get("bytes"):
+                    await asyncio.to_thread(session.feed_pcm16, msg["bytes"])
+                elif msg.get("text") and '"stop"' in msg["text"]:
+                    break
+        except (WebSocketDisconnect, RuntimeError):
+            reason = "bağlantı koptu"
+        await asyncio.to_thread(session.stop, reason == "durduruldu" or reason == "2 saat sınırı")
+        await asyncio.sleep(0.05)  # son altyazılar kuyruğa düşsün
+        send_task.cancel()
+        try:
+            await send_task
+        except (asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
+            pass
+        try:
+            while not out.empty():
+                await ws.send_json(out.get_nowait())
+            await ws.send_json({"type": "status", "status": "stopped", "reason": reason})
+            await ws.close()
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+        rt.store.emit("speech.live", {"status": "stopped", "reason": reason, "lines": len(session.lines),
+                                      "seconds": round(time.monotonic() - session.started)})
+
+    @app.post("/api/speech/transcript", dependencies=[Depends(auth)])
+    def speech_transcript(body: TranscriptBody) -> dict[str, Any]:
+        """Altyazı dökümünü kaydet (yalnız sahip isteyince): ~/kayaAI-files/altyazilar/ (yeni dosya R1)."""
+        from datetime import datetime
+
+        from ..speech.live import to_srt, to_txt
+
+        assert rt.files is not None
+        lines = [ln.model_dump() for ln in body.lines]
+        content = to_srt(lines, body.use_translation) if body.format == "srt" else to_txt(lines)
+        name = f"altyazilar/altyazi-{datetime.now():%Y%m%d-%H%M%S}.{body.format}"
+        return rt.files.write(name, content, requested_by="api").model_dump(mode="json")
+
+    @app.post("/api/speech/download", dependencies=[Depends(auth)])
+    def speech_download() -> dict[str, Any]:
+        from ..speech import SpeechError, request_download
+
+        try:
+            return request_download(rt, requested_by="api").model_dump(mode="json")
+        except SpeechError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    # ---------------------------------------------------------------- tarayıcı (Adım 12d)
+
+    @app.post("/api/browser/run", dependencies=[Depends(auth)])
+    def browser_run(body: BrowserRunBody) -> dict[str, Any]:
+        from ..browser.agent import BrowserJobError, start_job
+
+        try:
+            return start_job(rt, body.goal, body.url, background=True).state.model_dump(mode="json")
+        except BrowserJobError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/browser/jobs", dependencies=[Depends(auth)])
+    def browser_jobs() -> list[dict[str, Any]]:
+        from ..browser.agent import list_jobs
+
+        return [s.model_dump(mode="json", exclude={"screenshot"}) for s in list_jobs()]
+
+    @app.get("/api/browser/jobs/{job_id}", dependencies=[Depends(auth)])
+    def browser_job(job_id: str) -> dict[str, Any]:
+        from ..browser.agent import BrowserJobError, get_job
+
+        try:
+            return get_job(job_id).state.model_dump(mode="json")
+        except BrowserJobError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
+    @app.post("/api/browser/jobs/{job_id}/stop", dependencies=[Depends(auth)])
+    def browser_stop(job_id: str) -> dict[str, Any]:
+        from ..browser.agent import BrowserJobError, get_job
+
+        try:
+            job = get_job(job_id)
+        except BrowserJobError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        job.stop_event.set()
+        return {"id": job_id, "stopping": True}
 
     @app.post("/api/business/run", dependencies=[Depends(auth)])
     def business_run(body: BusinessRunBody) -> dict[str, Any]:

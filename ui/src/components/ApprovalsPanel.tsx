@@ -7,6 +7,9 @@ function Preview({ a }: { a: Approval }) {
   return (
     <div className="preview">
       {a.action.reason && <p><strong>Neden riskli:</strong> {a.action.reason}</p>}
+      {typeof p.image === "string" && p.image.startsWith("data:image/") && (
+        <img className="preview-shot" src={p.image} alt="Eylemin yapılacağı sayfa — hedef öğe kırmızı çerçeveli" />
+      )}
       {p.old_head === undefined && p.new_head !== undefined && (
         <div className="diff single">
           <div>

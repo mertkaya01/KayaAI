@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kayaai"
-version = "0.11.3"
+version = "0.12.4"
 description = "kayaAI - yerel, çok-ajanlı kişisel yapay zeka sistemi"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,6 +22,23 @@ dependencies = [
     "openpyxl>=3.1,<4",
     "python-docx>=1.1,<2",
     "reportlab>=4,<5",
+    # Adım 12a — ekranı okuma
+    "pillow>=10",
+    "pypdfium2>=4.30,<6",
+    "mss>=9,<11",
+    # Adım 12b — ses tanıma (yerel)
+    "faster-whisper>=1.1,<2",
+    "av>=11,<19",
+    # Adım 12d — tarayıcı otomasyonu (kurulu Edge'i sürer; tarayıcı indirmez)
+    "playwright>=1.45,<2",   # PyAV 19 faster-whisper 1.2.1'i bozuyor (decode_audio: metadata_errors kaldırıldı)
+    "winrt-runtime>=2.3,<5; sys_platform == 'win32'",
+    "winrt-Windows.Foundation; sys_platform == 'win32'",
+    "winrt-Windows.Foundation.Collections; sys_platform == 'win32'",
+    "winrt-Windows.Globalization; sys_platform == 'win32'",
+    "winrt-Windows.Graphics.Imaging; sys_platform == 'win32'",
+    "winrt-Windows.Media.Ocr; sys_platform == 'win32'",
+    "winrt-Windows.Storage.Streams; sys_platform == 'win32'",
+    "winrt-Windows.Media.SpeechSynthesis; sys_platform == 'win32'",  # perception_check: Türkçe OneCore sesi
 ]
 
 [project.optional-dependencies]

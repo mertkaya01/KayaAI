@@ -2,6 +2,85 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.12.4] - 2026-11-01
+
+### Güvenlik (Windows doğrulaması bulgusu)
+- Tarayıcı: hedef "… fiyatlarını söyle. Satın alma." iken model "Satın Al"a tıklamayı önerdi (R3 olduğu için sahibe
+  soruldu). Artık geri alınamaz (R3) eylem yalnızca hedef açıkça istiyorsa önerilebilir; hedefte olumsuzluk
+  ("satın alma", "gönderme", "sakın", "don't") varsa ya da hedef istemiyorsa kod **sormadan reddeder**
+- Tarayıcı: az önce yapılmış adımın aynısı (ör. "Python" iki kez yazdırma) yapılmaz ve sorulmaz ("atlandı")
+
+### Düzeltildi
+- Ses ölçümü: ilk çağrıda modelin GPU'ya yüklenmesi tanıma süresine sayılıyordu (4,4 sn ses → "23 sn"); yükleme
+  süresi ayrı (`load_seconds`)
+- OCR: küçük görüntüler 2 kat büyütülerek okunur (hata penceresinde `C:\` → `C:X`, l → I karışıyordu); görsel ajana
+  OCR'ın kod benzeri metinde hata yapabileceği söylenir (sayı uydurma yasağı aynı)
+- `perception_check`: taranmış PDF örneği sayfa dışına taşıyordu (üretim kodu değil test); Türkçe cümleler için
+  OneCore (WinRT) sesleri; canlı altyazı en → tr çevirisini de ölçer
+
+### Doğrulandı (Windows, v0.12.3)
+- Görsel 3/3 OCR doğrulamalı, gerçek ekran özetlendi; Whisper large-v3-turbo CUDA'da WER 0.0; canlı altyazı 0,55 sn;
+  tarayıcı görevi tamamlandı (Edge, ayrı profil, R2/R3 onaylı)
+
+## [0.12.3] - 2026-11-01
+
+### Eklendi (Adım 12d — tarayıcı otomasyonu; kabul #11)
+- **Tarayıcı** sekmesi ve `kayaai browse "hedef" --url`: Playwright + kurulu Edge, ayrı boş profil, görünür pencere
+- Ajan her adımda bir eylem önerir (`browser.step`, şema + kod doğrulaması); risk sınıfını kod belirler: R0 okuma,
+  R1 aynı sitede tıklama, R2 form/yeni site, R3 gönder/öde/satın al/sil/yayınla/kaydol; parola-kart-kimlik alanı,
+  indirme/yükleme, `file://` ve yerel ağ reddedilir
+- Onay talebinde hedef öğe kırmızı çerçeveli ekran görüntüsü (Onay merkezi de gösterir); sayfada satır içi onay/ret;
+  durdurma, 20 adım, tekrar ve onay zaman aşımı korumaları; her adım görev geçmişinde
+- API `/api/browser/run|jobs|jobs/{id}|jobs/{id}/stop`; `doctor` satırı; `perception_check --browser`
+- Bağımlılık: playwright (Edge'i kullanır, tarayıcı indirmez)
+
+### Düzeltildi
+- Windows kurulumunda 2 birim testi düşüyordu: testler OCR olmayan ortamı varsayıyordu, sahibin bilgisayarında Windows OCR
+  çalıştı ve boş taranmış sayfada doğru biçimde "yazı bulamadı" dedi. Hata mesajları tutarlı ("metin içermiyor …"),
+  testler OCR'dan bağımsız; "OCR yazı bulamadı" durumu için ayrı test; tüm paket "OCR var" koşulunda da doğrulandı
+- Tarayıcı işinde `file:///…` gibi şemalı adreslerin önüne `https://` eklenip kabul edilmesi (artık reddedilir)
+
+## [0.12.2] - 2026-11-01
+
+### Eklendi (Adım 12c — canlı çeviri altyazı; kabul #9, #10)
+- **Altyazı** sekmesi: sistem sesi (paylaşımla) ya da mikrofon → AudioWorklet 16 kHz PCM → `WS /api/speech/live` →
+  enerji tabanlı bölütleyici (uyarlanır gürültü tabanı) → Whisper → gerekirse yerel qwen3:8b çevirisi; ara/kesin
+  altyazı, gecikme göstergesi, her zaman üstte **küçük pencere** (Document PiP)
+- Döküm yalnız istenince `POST /api/speech/transcript` → `~/kayaAI-files/altyazilar/*.txt|srt`
+- Altyazı başlarken görsel model GPU'dan boşaltılır; `perception_check` canlı altyazı gecikmesini ölçer
+
+## [0.12.1] - 2026-11-01
+
+### Eklendi (Adım 12b — bas-konuş ve sesli okuma)
+- Asistan'da **🎤** (basılı tut ya da tıkla-başlat/bitir): MediaRecorder → yerel **faster-whisper large-v3-turbo** →
+  metin yazı kutusuna; GPU (CUDA float16) → olmazsa işlemci (int8), nedeni raporlanır; 10 dk boşta kalınca bellekten çıkar
+- Model indirme sahip onayıyla (`speech.download`, R2) ya da setup.ps1'de; setup.ps1 GPU için NVIDIA cuBLAS + cuDNN'i
+  isteğe bağlı kurar; `kayaai doctor` ses durumunu gösterir
+- Cevaplarda **🔊 Oku**: yalnızca yerel Windows sesleri (çevrim içi sesler kullanılmaz)
+- API `GET /api/speech/status`, `POST /api/speech/transcribe`, `POST /api/speech/download`; CLI
+  `kayaai speech status|download|transcribe`; `perception_check` Windows sesiyle sentezlenen cümlelerle WER ölçer
+- Bağımlılıklar: faster-whisper, av (<19)
+
+### Düzeltildi
+- PyAV 19 faster-whisper 1.2.1'in ses çözmesini bozuyor (`metadata_errors` kaldırılmış): `av<19` sınırı
+
+## [0.12.0] - 2026-11-01
+
+### Eklendi (Adım 12a — ekranı okuma; kabul #8)
+- Asistan'da **📷 Ekran**: `getDisplayMedia` ile tek kare (paylaşım hemen kapanır), alan seçmeli önizleme, görüntü eki;
+  görüntü dosyaları (PNG/JPEG/WebP/BMP) da eklenebilir
+- `vision` ajanı (yerel **qwen2.5vl:7b**, kullanılmayınca 2 dk'da boşalır); Windows yerleşik OCR (pywinrt) ile yazı okuma;
+  cevaptaki sayılar OCR metnine karşı kodla denetlenir; devam soruları aynı görüntüyle; "Ekranda okunan yazı" bölümü
+- Taranmış PDF: metinsiz sayfalar pypdfium2 ile görüntüye çevrilip OCR'dan geçirilir (özet / fatura)
+- CLI `kayaai screen [soru] [--file] [--monitor] [--save]`; API `POST /api/perception/image`, `GET /api/perception/status`;
+  `kayaai doctor` görsel model ve OCR durumunu gösterir; setup.ps1 görsel modeli isteğe bağlı indirir
+- `scripts/perception_check.py` (gerçek modelle; örnek görüntüler + taranmış PDF + isteğe bağlı gerçek ekran)
+- Bağımlılıklar: pillow, pypdfium2, mss; Windows'ta pywinrt OCR paketleri
+
+### Güvenlik
+- Ekran görüntüleri Claude'a gitmez (Claude karşılığı yok, MCP aracı yok, devirde çıkarılır); planlayıcı vision ajanını
+  metin işlerine atamaz
+
 ## [0.11.3] - 2026-11-01
 
 ### Düzeltildi (Windows karşılaştırması, v0.11.2)

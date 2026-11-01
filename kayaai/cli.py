@@ -12,6 +12,9 @@
     kayaai inbox [run|cancel] [id]  Claude kutusu
     kayaai files roots|ls|read|write  Dosya araçları (izinli klasörler; üzerine yazma onay ister)
     kayaai approvals [show|approve|reject] [id]  Onay kuyruğu
+    kayaai browse "hedef" --url ADRES  Tarayıcı ajanı (ayrı Edge profili; form/gönder/öde onaylı)
+    kayaai speech [status|download|transcribe <dosya>]  Yerel ses tanıma (faster-whisper)
+    kayaai screen ["soru"]   Ekran görüntüsü (tek kare) + yerel görsel model (OCR ile doğrulama)
     kayaai api [token]       Yerel API sunucusu (127.0.0.1:8765) / erişim anahtarı
     kayaai mcp               MCP sunucusu (stdio) - Claude Code bunu kendisi başlatır
 """
@@ -127,6 +130,28 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                        "(yoksa hafıza yalnızca kelime aramasıyla çalışır)")
         except KeyError as exc:
             _print(f"[UYARI] Hafıza modeli tanımlı değil: {exc}")
+        vis = registry.models.get("vision-7b")  # Adım 12a: isteğe bağlı
+        if vis is not None:
+            if vis.name in installed or f"{vis.name}:latest" in installed:
+                _print(f"[OK] Görsel model kurulu: {vis.name}")
+            else:
+                _print(f"[UYARI] Görsel model kurulu değil: {vis.name} — ekranı okumak için: ollama pull {vis.name}")
+        from .perception.ocr import available as ocr_available
+
+        _print(("[OK] " if ocr_available()[0] else "[UYARI] ") + "OCR: " + ocr_available()[1])
+        from .speech.stt import is_installed as speech_installed
+
+        if speech_installed(settings):
+            _print(f"[OK] Ses tanıma modeli kurulu: whisper {settings.speech.model}")
+        else:
+            _print(f"[UYARI] Ses tanıma modeli kurulu değil (whisper {settings.speech.model}) — kayaai speech download")
+        import importlib.util as _iu
+
+        if _iu.find_spec("playwright") is not None:
+            _print(f"[OK] Tarayıcı otomasyonu: Playwright kurulu · tarayıcı: {settings.browser.channel or settings.browser.executable_path}"
+                   " (ayrı profil)")
+        else:
+            _print("[UYARI] Tarayıcı otomasyonu: Playwright kurulu değil (setup.ps1)")
         for m in client.running_models():
             vram = (m.get("size_vram") or 0) / 1024**3
             total = (m.get("size") or 0) / 1024**3
@@ -610,6 +635,121 @@ def cmd_files(args: argparse.Namespace) -> int:
             return 1
 
 
+def capture_screen(monitor: int = 1) -> bytes:
+    """Tek ekran görüntüsü (mss). Yalnızca açık komutla çağrılır; sürekli kayıt yok."""
+    import mss
+    import mss.tools
+
+    with mss.mss() as sct:
+        if not 0 <= monitor < len(sct.monitors):
+            raise ValueError(f"Ekran {monitor} yok (0: tümü, 1..{len(sct.monitors) - 1})")
+        shot = sct.grab(sct.monitors[monitor])
+        return mss.tools.to_png(shot.rgb, shot.size)
+
+
+def cmd_screen(args: argparse.Namespace) -> int:
+    from .perception.ocr import available
+    from .perception.vision import VisionError, see
+    from .runtime import build_runtime
+
+    question = " ".join(args.question)
+    try:
+        data = Path(args.file).read_bytes() if args.file else capture_screen(args.monitor)
+    except (OSError, ValueError) as exc:
+        _print(f"[HATA] Görüntü alınamadı: {exc}")
+        return 1
+    with build_runtime(load_settings()) as rt:
+        if args.save and not args.file:
+            out = rt.settings.data_dir / "perception" / f"ekran-{__import__('datetime').datetime.now():%Y%m%d-%H%M%S}.png"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(data)
+            _print(f"Kaydedildi: {out}")
+        ok, why = available()
+        _print(f"OCR: {why}")
+        _print("Görsel model düşünüyor…")
+        try:
+            res = see(rt, [data], question)
+        except VisionError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        if args.json:
+            _print(json.dumps(res.model_dump(mode="json"), ensure_ascii=False, indent=2))
+            return 0
+        _print(res.markdown())
+        for w in res.warnings:
+            _print(f"[UYARI] {w}")
+        _print(f"({res.seconds} sn)")
+    return 0
+
+
+def cmd_speech(args: argparse.Namespace) -> int:
+    from .speech import SpeechError, request_download
+    from .speech.stt import status, transcribe
+    from .runtime import build_runtime
+
+    settings = load_settings()
+    if args.action == "status":
+        st = status(settings)
+        _print(f"Model: whisper {st['model']} · {'kurulu' if st['installed'] else 'KURULU DEĞİL'} · {st['dir']}")
+        if not st["installed"]:
+            _print("İndir: kayaai speech download  (~%s MB, sahip onayı gerekir)" % (st["approx_mb"] or "?"))
+        return 0
+    if args.action == "download":
+        with build_runtime(settings) as rt:
+            try:
+                res = request_download(rt, requested_by="cli")
+            except SpeechError as exc:
+                _print(f"[HATA] {exc}")
+                return 1
+            _print(f"[ONAY BEKLİYOR] {res.message}")
+            _print(f"Onayla: kayaai approvals approve {res.approval_id}  (onaylayınca indirme başlar)")
+        return 0
+    if not args.file:
+        _print("Kullanım: kayaai speech transcribe <ses-dosyası> [--lang tr|en]")
+        return 2
+    try:
+        t = transcribe(settings, Path(args.file).read_bytes(), args.lang)
+    except (OSError, SpeechError) as exc:
+        _print(f"[HATA] {exc}")
+        return 1
+    _print(t.text or "(konuşma algılanmadı)")
+    _print(f"({t.audio_seconds} sn ses · {t.seconds} sn işlem · {t.device} · dil: {t.language})")
+    return 0
+
+
+def cmd_browse(args: argparse.Namespace) -> int:
+    """Tarayıcı ajanı: onay gereken adımlar onay kuyruğuna düşer (başka bir terminalde: kayaai approvals approve <id>)."""
+    from .browser.agent import BrowserJobError, start_job
+    from .runtime import build_runtime
+
+    goal = " ".join(args.goal)
+    with build_runtime(load_settings()) as rt:
+        try:
+            job = start_job(rt, goal, args.url, background=True)
+        except BrowserJobError as exc:
+            _print(f"[HATA] {exc}")
+            return 1
+        _print(f"Tarayıcı açıldı (ayrı profil). Hedef: {goal}")
+        seen = 0
+        while not job.finished.wait(0.5):
+            for s in job.state.steps[seen:]:
+                if s.status == "onay bekliyor":
+                    _print(f"  {s.n}. [{s.risk}] {s.description} — ONAY BEKLİYOR: kayaai approvals approve {s.approval_id}"
+                           f"  (reddet: kayaai approvals reject {s.approval_id})")
+                    if s is job.state.steps[-1]:
+                        break
+                else:
+                    _print(f"  {s.n}. [{s.risk}] {s.description} — {s.status}{' (' + s.reason + ')' if s.status == 'kural dışı' else ''}")
+                seen += 1
+        for s in job.state.steps[seen:]:
+            _print(f"  {s.n}. [{s.risk}] {s.description} — {s.status}")
+        st = job.state
+        _print(f"Sonuç: {st.status}" + (f" — {st.error}" if st.error else ""))
+        if st.answer:
+            _print(st.answer)
+    return 0 if job.state.status == "done" else 1
+
+
 def cmd_business(args: argparse.Namespace) -> int:
     """İş modülleri (Adım 10): kayaai analyze | summarize | invoice <dosya> [soru] [--report biçim]."""
     from .business import from_result, run_mode, save
@@ -1011,6 +1151,25 @@ def build_parser() -> argparse.ArgumentParser:
     apv.add_argument("--all", action="store_true", help="list: tüm talepler (yalnızca bekleyenler değil)")
     apv.add_argument("--note", default=None)
     apv.set_defaults(func=cmd_approvals)
+
+    br = sub.add_parser("browse", help="tarayıcı ajanı (Edge, ayrı profil): hedefi adım adım yapar, riskli adımlar onaylı")
+    br.add_argument("goal", nargs="+", help="ne yapılacak (ör. 'python kitaplarının fiyatlarını listele')")
+    br.add_argument("--url", required=True, help="başlangıç adresi")
+    br.set_defaults(func=cmd_browse)
+
+    sp = sub.add_parser("speech", help="ses tanıma: durum / modeli indir (onaylı) / dosyayı yazıya çevir")
+    sp.add_argument("action", nargs="?", choices=["status", "download", "transcribe"], default="status")
+    sp.add_argument("file", nargs="?")
+    sp.add_argument("--lang", choices=["auto", "tr", "en"], default=None)
+    sp.set_defaults(func=cmd_speech)
+
+    sc = sub.add_parser("screen", help="ekran görüntüsü al (tek kare) ve yerel görsel modelle yorumla")
+    sc.add_argument("question", nargs="*", help="soru (boşsa: ekranda ne var?)")
+    sc.add_argument("--file", default=None, help="ekran yerine bu görüntü dosyasını yorumla")
+    sc.add_argument("--monitor", type=int, default=1, help="ekran no (0: tümü, 1: birincil)")
+    sc.add_argument("--save", action="store_true", help="görüntüyü data/perception altına kaydet")
+    sc.add_argument("--json", action="store_true")
+    sc.set_defaults(func=cmd_screen)
 
     for name, help_text in (("analyze", "Excel/CSV analizi (sayıları program hesaplar)"),
                             ("summarize", "PDF özeti"), ("invoice", "PDF faturadan alanlar + tutar denetimi")):

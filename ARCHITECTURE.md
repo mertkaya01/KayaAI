@@ -229,6 +229,58 @@ Memory.recall(query, for_claude) → {memory: [...], documents: [{source: "ad:sa
   `hatırla: …` → `memory.classify` (iç worker) → `MemoryBook.add`.
 - Eşikler `memory.min_score_memory` (0.60) ve `memory.min_score_docs` (0.50) — bge-m3 kosinüs, `scripts/memory_check.py` ile gerçek modelde tür başına ölçülerek ayarlandı.
 
+## Algı: ekranı okuma (Adım 12a)
+
+```
+UI 📷 → getDisplayMedia (tarayıcı seçim penceresi + gösterge) → tek kare → akış kapatılır → [alan kırpma] → PNG ek
+ek yüklenirken: perception/ocr (Windows.Media.Ocr, pywinrt; motor arayüzü, testlerde sahte) → metin ekin .txt'si
+mesaj görüntü ekliyse (ya da son cevap vision ise devam sorusu): ChatBook._vision → perception/vision.see
+   görüntü → normalize (Pillow, uzun kenar 1600) → geçici kopya → vision ajanı (qwen2.5vl:7b, keep_alive 2m)
+   LLMWorker.build_messages: task.input["_images"] = dosya yolları (görev kaydında bayt yok) → Ollama `images`
+   cevap sayıları ↔ OCR metni (business/analysis.unverified_numbers) → verified True/False/None
+taranmış PDF: readers.read_pdf metinsizse → perception/ocr.ocr_pdf (pypdfium2 → sayfa görüntüsü → OCR) → PdfDoc(ocr=True)
+```
+- `vision` ajanı planlayıcıya sunulmaz (`FORBIDDEN_STEP_AGENTS`); yalnız görüntü ekiyle çalışır; Claude karşılığı yok.
+- CLI `kayaai screen` (mss, tek kare), API `POST /api/perception/image`, `GET /api/perception/status`.
+
+## Ses: bas-konuş ve sesli okuma (Adım 12b)
+
+```
+UI 🎤 (basılı tut / tıkla) → getUserMedia + MediaRecorder (webm/opus, kayıt bitince mikrofon kapanır)
+   → POST /api/speech/transcribe (base64) → speech/stt.decode (PyAV, bellekte 16 kHz mono) → faster-whisper
+   model: data/models/whisper/<ad> (speech.download R2 executor; faster_whisper.download_model; ilerleme klasör boyutundan)
+   aygıt: cuda float16 (Windows: pip nvidia-cublas/cudnn DLL klasörleri arama yoluna) → hata/aygıt yok → cpu int8
+   süreçte tek model, kilitli; idle_unload_s sonra bırakılır; olay kaydına metin değil yalnız süreler yazılır
+🔊 Oku → speechSynthesis, yalnız voice.localService (Markdown → düz metin, kod okunmaz)
+```
+
+## Canlı altyazı (Adım 12c)
+
+```
+UI /altyazi → getDisplayMedia(ses) | getUserMedia → AudioContext → AudioWorklet (public/pcm-worklet.js: karıştır +
+   16 kHz'e yeniden örnekle → 100 ms PCM16) → WS /api/speech/live (?token; ilk mesaj {start, source_lang, target})
+sunucu: LiveSession (iş parçacığı + kuyruk) ← feed_pcm16
+   Segmenter: 30 ms çerçeve RMS; gürültü tabanı = son 10 sn'nin 10. yüzdeliği ×3; 0,6 sn sessizlik ya da 8 sn → final,
+   1,5 sn'de bir partial (gerçek zamandan yavaşsa ya da kuyruk doluysa partial atlanır)
+   final → stt.transcribe_samples → (dil ≠ hedef) rt.llm.chat genel model, son 2 satır bağlam, yabancı yazı denetimi
+   → {type: partial|final|status|error} → UI; Document PiP penceresine React portal
+olay kaydı: speech.live başladı/bitti (satır sayısı) — metin yok; döküm yalnız POST /api/speech/transcript ile (R1)
+```
+
+## Tarayıcı otomasyonu (Adım 12d)
+
+```
+start_job(hedef, url) → BrowserJob (tek iş; arka plan iş parçacığı) → Task(worker=browser) + olaylar
+  BrowserDriver: Playwright senkron API kendi iş parçacığında (komut kuyruğu); launch_persistent_context(
+     data/browser_profile, channel=msedge, accept_downloads=False); ağ koruması: http/https dışı + yerel ağ → abort
+  döngü: snapshot (SNAPSHOT_JS: görünür etkileşimli öğelere data-kaya-id, ad/tür/href/form ipuçları; sayfa metni)
+     → browser.step worker (BrowserAction şeması; öğe no. ve alanlar kodla doğrulanır, hatalıysa yeniden)
+     → risk.classify (kod) → refuse: yapılmaz, modele bildirilir · R0/R1: PermissionEngine.submit → hemen
+       · R2/R3: submit → onay talebi (önizleme: hedef öğe kırmızı çerçeveli JPEG data URL) → karar beklenir
+     → "browser.action" yürütücüsü sürücüde eylemi yapar (onay hangi iş parçacığından gelirse gelsin)
+  korumalar: 20 adım, aynı eylem 3 kez → dur, 3 kural dışı adım → dur, onay zaman aşımı (10 dk) → reddedilir
+```
+
 ## İş modülleri (Adım 10)
 
 ```

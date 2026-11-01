@@ -20,7 +20,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 9 | Hafıza: kişisel hafıza + belge araması (RAG), yerel bge-m3, gizlilik sınıfları | **Tamamlandı** (Windows'ta doğrulandı) |
 | 10 | İş modülleri: Excel/CSV analizi (sayıları program hesaplar), PDF özeti, fatura, rapor (xlsx/md/docx/pdf) | **Tamamlandı** (Windows'ta doğrulandı) |
 | 11 | Canlı iş akışı grafiği (Akış) + model yönetimi (Modeller: yükle/boşalt, ajan modeli, indir, karşılaştır) | **Tamamlandı** (Windows doğrulaması bekliyor) |
-| 12+ | Ekran/ses, zamanlama | Planlandı |
+| 12 | Algı ve eylem: ekranı okuma (12a), bas-konuş + sesli okuma (12b), canlı çeviri altyazı (12c), tarayıcı otomasyonu (12d) | **Tamamlandı** (Windows'ta doğrulandı) |
+| 13 | Zamanlama, optimizasyon | Sırada |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -239,6 +240,59 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
   gider; özel notlar ve yerel belgeler gitmez.
 - CLI: `kayaai memory [list|add|rm|approve|search|index|status|export]`. Ölçüm: `python scripts\memory_check.py`
   (ayrı klasörde; gerçek bge-m3 ile benzerlik eşiğini önerir).
+
+## Ekranı oku (Adım 12a)
+
+- Asistan'da **📷 Ekran**: tarayıcı hangi ekranı/pencereyi/sekmeyi paylaşacağını sorar → **tek kare** alınır ve paylaşım
+  hemen kapanır (sürekli kayıt yok). Önizlemede istersen fareyle bir alan seç → "Seçili alanı ekle" → soru sor.
+  Görüntü dosyası (PNG/JPEG) da eklenebilir.
+- Yazılar Windows'un yerleşik **OCR** motoruyla okunur (ek indirme yok; Türkçe dil paketi varsa Türkçe), görüntü yerel
+  **qwen2.5vl:7b** görsel modeliyle yorumlanır. Cevaptaki sayılar ekranda okunan yazıyla **kodla** karşılaştırılır
+  ("doğrulandı" / "dikkat"). "Ekranda okunan yazı (OCR)" bölümü ham metni gösterir. Devam soruları aynı görüntüyle cevaplanır.
+- **Ekran görüntüleri Claude'a gönderilmez** (görsel ajanın Claude karşılığı yok; "Claude'a devret" yalnız metni devreder).
+- **Taranmış PDF**'ler artık okunur: sayfalar görüntüye çevrilip OCR'dan geçer (Özetle / Fatura olarak oku).
+- Görsel model kullanılmayınca 2 dk sonra GPU belleğinden çıkar. Kurulum: `ollama pull qwen2.5vl:7b` (setup.ps1 sorar).
+- CLI: `kayaai screen "ekranda ne var?"` (birincil ekrandan tek kare) · `kayaai screen --file ekran.png "toplam ne?"`.
+  Ölçüm: `python scripts\perception_check.py [--screen]`.
+
+## Bas-konuş ve sesli okuma (Adım 12b)
+
+- Asistan'da **🎤**: basılı tut ve konuş (bırakınca biter) ya da tıkla-başlat / tıkla-bitir. Konuşma yerel **Whisper
+  large-v3-turbo** ile yazıya çevrilip yazı kutusuna eklenir; düzeltip gönderirsin. Mikrofon yalnız kayıt sürerken açık
+  (kırmızı sayaç + tarayıcı göstergesi), en fazla 2 dakika; **ses diske yazılmaz, saklanmaz**.
+- İlk kullanımda model indirilmeli (~1,6 GB, MIT): setup.ps1 sorar ya da `kayaai speech download` / mikrofon → **İndir**
+  (sahip onayı). GPU'da çalışması için setup.ps1 NVIDIA cuBLAS + cuDNN'i (~1,3 GB, pip) isteğe bağlı kurar; yoksa ya da
+  çalışmazsa işlemciye düşer (nedeni `kayaai speech status` ve `/api/speech/status`'ta). 10 dk kullanılmazsa bellekten çıkar.
+- Cevaplarda **🔊 Oku**: yalnızca bu bilgisayardaki Windows sesleri (Türkçe için "Tolga"); metni Microsoft'a gönderen
+  çevrim içi sesler kullanılmaz. Türkçe ses yoksa düğme nasıl ekleneceğini söyler (Ayarlar → Saat ve dil → Konuşma).
+- CLI: `kayaai speech status|download|transcribe kayit.wav [--lang tr]`. Ölçüm: `python scripts\perception_check.py`
+  (Windows sesiyle sentezlenen Türkçe/İngilizce cümleler → kelime hata oranı).
+
+## Canlı çeviri altyazı (Adım 12c)
+
+- **Altyazı** sekmesi (`/altyazi`): kaynak **Sistem sesi** (izlediğin video, toplantı — tarayıcı ne paylaşılacağını sorar,
+  "Sistem sesini paylaş" kutusunu işaretle; görüntü kullanılmaz) ya da **Mikrofon**; konuşulan dil (otomatik/tr/en) ve
+  altyazı dili (Türkçe / İngilizce / çevirme). **▶ Başlat** → konuşma ifade ifade yazıya dökülür (yerel Whisper), gerekirse
+  yerel qwen3:8b ile çevrilir; ara sonuçlar italik, kesinleşen satır büyük. Gecikme ekranda gösterilir.
+- **Küçük pencere**: her zaman üstte duran altyazı penceresi (Edge/Chrome Document Picture-in-Picture) — videonun üstüne koy.
+- Dinleme yalnız Başlat ile açılır; kırmızı "Dinleniyor" sayacı, **■ Durdur**, tarayıcıdan "Paylaşımı durdur" ya da 2 saat
+  ile kapanır. **Ses kaydedilmez**; döküm yalnız bu sayfada tutulur, istersen **Kaydet .txt / .srt** →
+  `~\kayaAI-files\altyazilar\`. Altyazı sürerken görsel model GPU'dan boşaltılır.
+
+## Tarayıcı otomasyonu (Adım 12d)
+
+- **Tarayıcı** sekmesi (`/tarayici`) ya da `kayaai browse "hedef" --url adres`: kurulu **Edge**, senin profilinden
+  **ayrı ve boş bir profille** (`data\browser_profile`; çerezlerin/şifrelerin yok) görünür pencerede açılır. Ajan her
+  adımda sayfayı okur, bir sonraki eylemi önerir; **riski kod belirler**:
+  - okuma / kaydırma: serbest · aynı sitede tıklama: hemen yapılır, kayda geçer
+  - forma yazma, seçim, başka siteye gitme: **onayın gerekir**
+  - gönder / öde / satın al / sipariş / sil / yayınla / kaydol: **her seferinde onayın gerekir** — ve yalnızca hedefte
+    açıkça istediysen önerilir ("satın alma", "gönderme" gibi olumsuz ifadede kod hiç sormadan reddeder)
+  - parola, kart, kimlik numarası alanına yazma; dosya indirme/yükleme; `file://` ve yerel ağ: **yapılmaz**
+- Onay talebinde ajanın tıklayacağı/yazacağı yer **kırmızı çerçeveli ekran görüntüsüyle** gösterilir; Tarayıcı sayfasında
+  ya da Onay merkezinde onayla/reddet. Reddedersen iş durur. **■ Durdur** her an kapatır. En fazla 20 adım.
+- Her adım görev geçmişine kaydedilir (model kararları alt görev). Ölçüm: `python scripts\perception_check.py --browser`
+  (yerel test mağazası; onayları terminalde sana sorar).
 
 ## İş modülleri (Adım 10)
 

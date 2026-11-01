@@ -88,7 +88,7 @@ class PlannerWorker(LLMWorker):
         return ValidationResult(passed=not errors, validator="planner.structure", errors=errors)
 
 
-FORBIDDEN_STEP_AGENTS = {"planner", "reviewer"}
+FORBIDDEN_STEP_AGENTS = {"planner", "reviewer", "vision"}  # vision: yalnız görüntü ekli isteklerde (Adım 12a)
 
 
 NEW_AGENT_NAME = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")

@@ -3,6 +3,8 @@ import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, 
 import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { Markdown } from "../markdown";
+import { CapturePreview, grabScreenFrame } from "./ScreenCapture";
+import { MicButton, SpeakButton } from "./Voice";
 
 const STATUS_TEXT: Record<string, string> = {
   pending: "sırada…",
@@ -16,9 +18,9 @@ function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-const BINARY = /\.(pdf|xlsx|xlsm)$/i;
+const BINARY = /\.(pdf|xlsx|xlsm|png|jpe?g|webp|bmp)$/i;
 const REPORT_FORMATS: [string, string][] = [["xlsx", "Excel"], ["pdf", "PDF"], ["docx", "Word"], ["md", "Markdown"]];
-const KIND_ICON: Record<string, string> = { pdf: "📕", table: "📊", text: "📎" };
+const KIND_ICON: Record<string, string> = { pdf: "📕", table: "📊", text: "📎", image: "🖼️" };
 
 function readBase64(f: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -71,6 +73,12 @@ function MessageView({ m, claude, onHandoff, onRemember, onReport, onOpenFlow, b
           </div>
         </>
       )}
+      {m.role === "assistant" && m.status === "done" && !!m.meta.vision?.ocr_text && (
+        <details className="recall">
+          <summary className="muted">Ekranda okunan yazı (OCR)</summary>
+          <pre className="ocr-text">{m.meta.vision.ocr_text}</pre>
+        </details>
+      )}
       {m.role === "assistant" && m.status === "done" && (sources.length > 0 || memories.length > 0) && (
         <div className="recall">
           {sources.length > 0 && (
@@ -93,6 +101,7 @@ function MessageView({ m, claude, onHandoff, onRemember, onReport, onOpenFlow, b
           {!!m.meta.revised && <span className="badge state-waiting">düzeltildi</span>}
           {!!m.meta.disputes && <span className="badge state-failed">{m.meta.disputes} anlaşmazlık</span>}
           {m.meta.duration_s != null && <span className="muted">{m.meta.duration_s} sn</span>}
+          {m.meta.vision && <span className="muted">{m.meta.vision.seconds} sn</span>}
           <span className="spacer" />
           {m.job_kind === "conductor" && m.job_id && (
             <button className="ghost small" onClick={() => onOpenFlow(m.job_id!)} title="Bu cevabın ajanlar arasında nasıl üretildiğini göster">Akışı göster</button>
@@ -107,6 +116,7 @@ function MessageView({ m, claude, onHandoff, onRemember, onReport, onOpenFlow, b
             <option value="">Rapor oluştur…</option>
             {REPORT_FORMATS.map(([f, label]) => <option key={f} value={f}>{label} (.{f})</option>)}
           </select>
+          <SpeakButton text={m.content} />
           <button className="ghost small" onClick={() => { void navigator.clipboard?.writeText(m.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
             {copied ? "Kopyalandı" : "Kopyala"}
           </button>
@@ -156,6 +166,7 @@ export function ChatView({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [capture, setCapture] = useState<HTMLCanvasElement | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   const lastRecall = [...(view?.messages ?? [])].reverse().find((m) => m.role === "assistant" && m.status === "done")?.recall;
@@ -180,7 +191,7 @@ export function ChatView({
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [view?.messages.length, pending]);
 
   const choices = useMemo(
-    () => (agents.data ?? []).filter((a) => a.output === "GeneralAnswer"),
+    () => (agents.data ?? []).filter((a) => a.output === "GeneralAnswer" && a.name !== "vision"),
     [agents.data],
   );
 
@@ -227,6 +238,27 @@ export function ChatView({
       }
     }
     if (fileInput.current) fileInput.current.value = "";
+  }
+
+  async function captureScreen() {
+    setError(null);
+    try {
+      setCapture(await grabScreenFrame());
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "NotAllowedError") return; // sahip vazgeçti
+      setError(errText(e));
+    }
+  }
+
+  async function addCapture(b64: string, name: string) {
+    setCapture(null);
+    try {
+      const a = await post<AttachmentRef>("/api/attachments", { name, data_b64: b64 });
+      setAttachments((prev) => [...prev, a]);
+      if (!text.trim()) setText("Bu ekranda ne var?");
+    } catch (e) {
+      setError(errText(e));
+    }
   }
 
   async function addFromFolder() {
@@ -345,6 +377,7 @@ export function ChatView({
         </div>
         {error && <p className="error">{error}</p>}
         {notice && <p className="notice" role="status" onClick={() => setNotice(null)}>{notice}</p>}
+        {capture && <CapturePreview canvas={capture} onAdd={(b, n) => void addCapture(b, n)} onCancel={() => setCapture(null)} />}
         <div className="composer">
           {attachments.length > 0 && (
             <div className="chips">
@@ -382,6 +415,9 @@ export function ChatView({
             <input ref={fileInput} type="file" multiple hidden onChange={(e) => void addFiles(e.target.files)} />
             <button className="ghost" onClick={() => fileInput.current?.click()}>Dosya ekle</button>
             <button className="ghost" onClick={() => void addFromFolder()}>Klasörden ekle</button>
+            <button className="ghost" onClick={() => void captureScreen()} title="Ekrandan tek kare al (yerel görsel model yorumlar)">📷 Ekran</button>
+            <MicButton disabled={busy} onNotice={setNotice}
+              onText={(t) => setText((prev) => (prev.trim() ? `${prev.trimEnd()} ${t}` : t))} />
             {attachments.some((a) => a.kind === "table") && (
               <button className="ghost" disabled={busy} onClick={() => void send("analyze")} title="Sayıları program hesaplar">Analiz et</button>
             )}
@@ -391,7 +427,7 @@ export function ChatView({
                 <button className="ghost" disabled={busy} onClick={() => void send("invoice")}>Fatura olarak oku</button>
               </>
             )}
-            <span className="muted hint">Metin, PDF, Excel/CSV · ses sonra</span>
+            <span className="muted hint">Metin, PDF, Excel/CSV, görüntü, ses</span>
             <span className="spacer" />
             <button className="toggle" disabled={busy || !text.trim()} onClick={() => void send()}>Gönder</button>
           </div>
