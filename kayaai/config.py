@@ -112,6 +112,9 @@ class MemorySettings(BaseModel):
     top_chunks: int = Field(4, ge=0, le=20)
     # Kosinüs benzerliği eşikleri (bge-m3); altındaki sonuçlar "ilgisiz" sayılır. Windows ölçümü (memory_check,
     # 2026-10-31): hafıza ilgili 0.655–0.831 / ilgisiz ≤0.541; belge ilgili 0.553–0.679 / ilgisiz ≤0.389.
+    # Adım 19b: vektör deposu — "sqlite" (masaüstü, varsayılan) ya da "qdrant" (büyük havuzlar / sunucu)
+    vector_backend: Literal["sqlite", "qdrant"] = "sqlite"
+    qdrant_url: str = "http://127.0.0.1:6333"   # anahtar yalnız ortam değişkeninde: KAYAAI_QDRANT_API_KEY
     min_score_memory: float = Field(0.60, ge=0, le=1)
     min_score_docs: float = Field(0.50, ge=0, le=1)
     chunk_chars: int = Field(900, ge=200, le=4000)
@@ -240,6 +243,10 @@ def load_settings(config_dir: Path | None = None) -> Settings:
         raw["data_dir"] = data_dir
     if files_dir := os.environ.get("KAYAAI_FILES_DIR"):
         raw.setdefault("files", {})["home_dir"] = files_dir
+    if backend := os.environ.get("KAYAAI_VECTOR_BACKEND"):
+        raw.setdefault("memory", {})["vector_backend"] = backend
+    if qurl := os.environ.get("KAYAAI_QDRANT_URL"):
+        raw.setdefault("memory", {})["qdrant_url"] = qurl
     if level := os.environ.get("KAYAAI_LOG_LEVEL"):
         raw.setdefault("logging", {})["level"] = level
 

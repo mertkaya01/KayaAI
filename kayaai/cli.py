@@ -1114,6 +1114,28 @@ def cmd_memory(args: argparse.Namespace) -> int:
                 _print(f"Belgeler: {st['documents']} dosya, {st['chunks']} parça; vektörsüz: {st['not_embedded']}; "
                        f"model: {st['embed_model']}")
                 _print("Kökler: " + ", ".join(st["roots"]))
+                if mem.db.vectors is not None:
+                    h = mem.db.vectors.health()
+                    _print(f"Vektör deposu: Qdrant {settings.memory.qdrant_url} · "
+                           + (f"çalışıyor (sürüm {h.get('version')}, {h.get('points')} vektör)" if h.get("ok") else f"ULAŞILAMIYOR: {h.get('error')}"))
+                else:
+                    _print("Vektör deposu: SQLite (bu bilgisayar; büyük havuzlar için: kayaai memory migrate)")
+                return 0
+            if args.action == "migrate":
+                from .memory import migrate_to_qdrant
+                from .memory.qdrant import QdrantError
+
+                url = args.text[0] if args.text else None
+                _print(f"SQLite vektörleri Qdrant'a kopyalanıyor ({url or settings.memory.qdrant_url})…")
+                try:
+                    res = migrate_to_qdrant(rt, url)
+                except QdrantError as exc:
+                    _print(f"[HATA] {exc}")
+                    return 1
+                _print(f"[OK] Kopyalandı: {res['copied'] or 'vektör yok'} · Qdrant'ta toplam {res['qdrant_points']} vektör")
+                _print("Kullanmaya başlamak için config\\settings.local.yaml dosyasına ekle:\n"
+                       "  memory:\n    vector_backend: qdrant" + (f"\n    qdrant_url: {url}" if url else "")
+                       + "\nSQLite'taki vektörler silinmedi; geri dönmek için ayarı kaldırman yeterli.")
                 return 0
             if args.action == "export":
                 out = Path(args.out or (settings.data_dir / "memory_export.json"))
@@ -1481,7 +1503,7 @@ def build_parser() -> argparse.ArgumentParser:
         bp.set_defaults(func=cmd_business)
 
     mp = sub.add_parser("memory", help="hafıza: listele / ekle / sil / ara / belgeleri dizinle / dışa aktar")
-    mp.add_argument("action", nargs="?", choices=["list", "add", "rm", "approve", "search", "index", "status", "export", "scan"],
+    mp.add_argument("action", nargs="?", choices=["list", "add", "rm", "approve", "search", "index", "status", "export", "scan", "migrate"],
                     default="list")
     mp.add_argument("text", nargs="*")
     mp.add_argument("--category", choices=["preference", "project", "decision", "instruction", "file", "note"])

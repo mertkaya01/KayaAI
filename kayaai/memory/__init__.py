@@ -42,17 +42,54 @@ class RecallResult(BaseModel):
         return out
 
 
+def make_vector_store(settings: Any) -> Any:
+    """Adım 19b: ayarlarda qdrant seçiliyse Qdrant deposu; yoksa None (SQLite + numpy)."""
+    if settings.memory.vector_backend != "qdrant":
+        return None
+    import os
+
+    from .qdrant import QdrantStore
+
+    return QdrantStore(settings.memory.qdrant_url, api_key=os.environ.get("KAYAAI_QDRANT_API_KEY") or None)
+
+
+def migrate_to_qdrant(rt: "Runtime", url: str | None = None) -> dict[str, Any]:
+    """SQLite'taki tüm vektörleri Qdrant'a kopyalar (SQLite'tan silmez; geri dönüş mümkün). Sonra ayarda
+    `memory.vector_backend: qdrant` yapılır."""
+    import os
+
+    from .qdrant import QdrantStore
+
+    target = QdrantStore(url or rt.settings.memory.qdrant_url, api_key=os.environ.get("KAYAAI_QDRANT_API_KEY") or None)
+    src = MemoryDB(rt.settings.db_path)
+    counts: dict[str, int] = {}
+    try:
+        for batch in src.sqlite_vectors():
+            by_kind: dict[str, list[tuple[str, str, list[float]]]] = {}
+            for kind, item_id, model, vec in batch:
+                by_kind.setdefault(kind, []).append((item_id, model, vec))
+            for kind, items in by_kind.items():
+                target.upsert(kind, items)
+                counts[kind] = counts.get(kind, 0) + len(items)
+        return {"copied": counts, "qdrant_points": target.count(), "url": str(target._http.base_url)}
+    finally:
+        src.close()
+        target.close()
+
+
 class Memory:
     """Kişisel hafıza + belge dizini için tek giriş noktası (aynı veritabanı bağlantısını paylaşırlar)."""
 
     def __init__(self, rt: "Runtime"):
         self.rt = rt
-        self.db = MemoryDB(rt.settings.db_path)
+        self.db = MemoryDB(rt.settings.db_path, vectors=make_vector_store(rt.settings))
         self.book = MemoryBook(rt, self.db)
         self.docs = DocumentIndex(rt, self.db)
 
     def close(self) -> None:
         self.db.close()
+        if self.db.vectors is not None:
+            self.db.vectors.close()
 
     def recall(self, query: str, *, for_claude: bool = False) -> RecallResult:
         """İlgili hafıza öğeleri ve belge parçaları. for_claude: özel/gizli öğeler ve yerel belgeler dahil edilmez."""

@@ -5,6 +5,9 @@
 - `vectors`: (kind, item_id) → float32 vektör (bge-m3, normalize). Arama numpy ile bellekte (kişisel ölçek: on binlerce
   parça); vektörler yalnızca değiştiğinde yeniden yüklenir.
 - `mem_fts`: SQLite FTS5 kelime araması (anlam aramasını tamamlar; embedding modeli yoksa tek başına çalışır).
+- Adım 19b: `vectors` yerine **Qdrant** (büyük havuzlar, sunucu). Vektörler işlem boyunca biriktirilir, SQLite işlemi
+  başarıyla bitince toplu gönderilir (geri alınan işlem Qdrant'a hiç gitmez). Qdrant'a ulaşılamazsa anlam araması boş
+  döner, kelime araması (FTS) çalışmaya devam eder.
 """
 
 from __future__ import annotations
@@ -17,7 +20,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
+import logging
+
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS memories (
@@ -54,7 +61,7 @@ _STOP = {"ve", "ile", "için", "bir", "bu", "şu", "the", "and", "for", "with", 
 
 
 class MemoryDB:
-    def __init__(self, db_path: Path | str):
+    def __init__(self, db_path: Path | str, vectors: Any = None):
         self.path = str(db_path)
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
@@ -69,6 +76,9 @@ class MemoryDB:
         except sqlite3.OperationalError:  # FTS5'siz SQLite: yalnızca anlam araması
             self.fts = False
         self._cache: dict[str, tuple[int, list[str], np.ndarray]] = {}
+        self.vectors = vectors            # Adım 19b: QdrantStore | None (None: SQLite + numpy)
+        self._pending: list[tuple[str, str, Any]] | None = None  # (işlem, kind, veri) — commit sonrası Qdrant'a
+        self.last_vector_error: str | None = None
 
     def close(self) -> None:
         with self._lock:
@@ -78,13 +88,37 @@ class MemoryDB:
     def tx(self) -> Iterator[sqlite3.Connection]:
         with self._lock:
             self._conn.execute("BEGIN IMMEDIATE")
+            self._pending = [] if self.vectors is not None else None
             try:
                 yield self._conn
             except BaseException:
                 self._conn.execute("ROLLBACK")
+                self._pending = None
                 raise
             else:
                 self._conn.execute("COMMIT")
+                pending, self._pending = self._pending, None
+                if pending:
+                    self._flush(pending)
+
+    def _flush(self, pending: list[tuple[str, str, Any]]) -> None:
+        """İşlem sırasıyla Qdrant'a: ardışık ekleme/silmeler türüne göre toplanır."""
+        batch: list[tuple[str, str, list[Any]]] = []
+        for op, kind, data in pending:
+            if batch and batch[-1][0] == op and batch[-1][1] == kind:
+                batch[-1][2].extend(data)
+            else:
+                batch.append((op, kind, list(data)))
+        try:
+            for op, kind, data in batch:
+                if op == "put":
+                    self.vectors.upsert(kind, data)
+                else:
+                    self.vectors.delete(kind, data)
+            self.last_vector_error = None
+        except Exception as exc:
+            self.last_vector_error = str(exc)[:300]
+            raise
 
     def query(self, sql: str, args: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
         with self._lock:
@@ -102,10 +136,19 @@ class MemoryDB:
         arr = np.asarray(vec, dtype=np.float32)
         n = float(np.linalg.norm(arr)) or 1.0
         arr = arr / n
+        if self.vectors is not None:
+            if self._pending is None:
+                raise RuntimeError("put_vector yalnız tx() içinde")
+            self._pending.append(("put", kind, [(item_id, model, arr.tolist())]))
+            return
         c.execute("INSERT OR REPLACE INTO vectors(kind, item_id, model, dim, vec) VALUES (?, ?, ?, ?, ?)",
                   (kind, item_id, model, int(arr.shape[0]), arr.tobytes()))
 
     def delete_vectors(self, c: sqlite3.Connection, kind: str, ids: list[str]) -> None:
+        if self.vectors is not None:
+            if ids and self._pending is not None:
+                self._pending.append(("delete", kind, list(ids)))
+            return
         for i in range(0, len(ids), 500):
             part = ids[i:i + 500]
             c.execute(f"DELETE FROM vectors WHERE kind = ? AND item_id IN ({','.join('?' * len(part))})", (kind, *part))
@@ -133,6 +176,15 @@ class MemoryDB:
         return ids, mat
 
     def nearest(self, kind: str, model: str, query: list[float], k: int) -> list[tuple[str, float]]:
+        if self.vectors is not None:
+            try:
+                out = self.vectors.search(kind, model, query, k)
+                self.last_vector_error = None
+                return out
+            except Exception as exc:  # noqa: BLE001 - Qdrant kapalıysa kelime araması yine çalışır
+                self.last_vector_error = str(exc)[:300]
+                log.warning("Qdrant araması başarısız (kelime aramasıyla devam): %s", exc)
+                return []
         ids, mat = self._matrix(kind, model)
         if not ids:
             return []
@@ -143,6 +195,17 @@ class MemoryDB:
         scores = mat @ q
         top = np.argsort(-scores)[:k]
         return [(ids[i], float(scores[i])) for i in top]
+
+    def sqlite_vectors(self, batch: int = 500) -> Iterator[list[tuple[str, str, str, list[float]]]]:
+        """SQLite'taki vektörler (kind, item_id, model, vektör) — Qdrant'a taşımak için, parça parça."""
+        last = 0
+        while True:
+            rows = self.query("SELECT rowid, kind, item_id, model, dim, vec FROM vectors WHERE rowid > ? ORDER BY rowid LIMIT ?",
+                              (last, batch))
+            if not rows:
+                return
+            last = rows[-1]["rowid"]
+            yield [(r["kind"], r["item_id"], r["model"], np.frombuffer(r["vec"], dtype=np.float32).tolist()) for r in rows]
 
     def vector_ids(self, kind: str, model: str) -> set[str]:
         return {r["item_id"] for r in self.query("SELECT item_id FROM vectors WHERE kind = ? AND model = ?", (kind, model))}
