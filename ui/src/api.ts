@@ -102,6 +102,7 @@ export interface ClaudeStatus {
   minutes_since_contact: number | null;
   waiting_tasks: number;
   label: string;
+  inbox_timeout_min?: number;
 }
 
 export interface Gpu {
@@ -342,6 +343,7 @@ export interface JobSummary {
   duration_s: number | null;
   mode: string | null;
   steps: number;
+  conv_id?: string | null;  // işi başlatan sohbet (Ofis → "Sohbete dön")
 }
 
 // ---------------------------------------------------------------- model yönetimi (Adım 11)

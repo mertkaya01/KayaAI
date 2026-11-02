@@ -246,10 +246,22 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     jobs = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kayaai-api-job")
     lock = threading.Lock()
 
+    stop_sweep = threading.Event()
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        sweeper = threading.Thread(target=_inbox_sweeper, name="kayaai-inbox-sweep", daemon=True)
+        sweeper.start()
         yield
+        stop_sweep.set()
         jobs.shutdown(wait=False, cancel_futures=True)
+
+    def _inbox_sweeper() -> None:
+        while not stop_sweep.wait(60):
+            try:
+                inbox_sweep()
+            except Exception:  # noqa: BLE001 - süpürücü sunucuyu düşürmemeli
+                log.exception("Claude kutusu süre aşımı denetimi başarısız")
 
     app = FastAPI(
         lifespan=lifespan,
@@ -447,6 +459,21 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
                 submit(inbox.release, item.job_id)
                 handed_back.append(item.job_id)
         return {"status": st.model_dump(mode="json"), "handed_back_to_local": handed_back}
+
+    swept: set[str] = set()
+
+    def inbox_sweep(now: Any = None) -> list[str]:
+        """Claude kutusunda süre aşan (Claude Code o sırada bağlı değilken kimsenin almadığı) işleri yerel ekibe verir."""
+        ids = [i for i in ClaudeInbox(rt).overdue(now) if i not in swept]
+        for jid in ids:
+            swept.add(jid)
+            info = {"job_id": jid, "minutes": settings.claude.inbox_timeout_min}
+            rt.store.log_event(jid, "claude.timeout", info)
+            rt.store.emit("claude.timeout", info, task_id=jid)
+            submit(ClaudeInbox(rt).release, jid)
+        return ids
+
+    app.state.inbox_sweep = inbox_sweep
 
     @app.get("/api/inbox", dependencies=[Depends(auth)])
     def inbox() -> dict[str, Any]:

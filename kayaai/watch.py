@@ -18,7 +18,7 @@ AGENT = {"general": "Genel", "data": "Veri", "document": "Belge", "coder": "Kod"
 # renk adları → ANSI
 _C = {"dim": "2", "green": "32", "red": "31", "yellow": "33", "blue": "34", "magenta": "35", "cyan": "36", "bold": "1"}
 
-IMPORTANT = ("task.status", "approval.", "chat.message", "schedule.run", "dispute.", "automation.", "claude.mode",
+IMPORTANT = ("task.status", "approval.", "chat.message", "schedule.run", "dispute.", "automation.", "claude.mode", "claude.timeout",
              "model.pull", "agent.", "memory.indexed", "browser.step", "sandbox.")
 
 
@@ -99,6 +99,8 @@ def describe(ev: dict[str, Any]) -> tuple[str, str] | None:
         return "red", "⏸ Otomasyon duraklatıldı"
     if t == "automation.resumed":
         return "green", "▶ Otomasyon sürdürüldü"
+    if t == "claude.timeout":
+        return "yellow", f"⌛ Claude kutusunda {d.get('minutes')} dk kimse almadı; iş yerel ekibe verildi"
     if t == "claude.mode":
         return "magenta", f"Claude modu {'açıldı' if d.get('enabled') else 'kapatıldı'}"
     if t == "model.pull":

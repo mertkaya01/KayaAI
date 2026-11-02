@@ -2,6 +2,28 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.19.2] - 2026-11-02
+
+### Düzeltildi (sahibin ekran görüntüleri: iş "Claude kutusunda" takılı kaldı)
+- Claude modu açık ama **Claude Code oturumu bağlı değilken** şef işi artık Claude kutusuna bırakmıyor: yerel ekip
+  yapıyor ve sebebiyle uyarıyor ("Claude Code oturumu bağlı olmadığı için yerel ekip yaptı"). Anlaşmazlıklar bu
+  durumda sana gelir (Sistem → Anlaşmazlıklar), yerel hata kutuya değil "başarısız"a düşer. Açıkça **Claude'a devret**
+  yine kutuya gider
+- Kutuda bekleyen işte sohbette ve Ofis'te **Yerel ekip yapsın / İptal et** düğmeleri ve ne olduğunu anlatan not
+- Kutuda 30 dk kimse almayan iş (Claude Code o sırada bağlı değilse) yerel ekibe verilir (`claude.inbox_timeout_min`;
+  `claude.timeout` olayı, `kayaai watch`'ta görünür)
+- Uyarı metni gerçek sebebi söylüyor (Claude modu açıkken "Claude modu kapalı" yazmıyor); yerel ekibin cevapladığı
+  devredilmiş mesaj artık "Claude" diye görünmüyor
+- Seçili sohbetin tarih yazısı açık temada yeterli kontrastta (axe)
+
+### Eklendi
+- Ofis'te **Sohbete dön** düğmesi: işi başlatan sohbete gider (sohbetsiz işte Asistan); `/api/jobs` her işin sohbetini
+  (`conv_id`) verir. Başarısız/kesilmiş cevapta **↻ Tekrar dene** (aynı soru, aynı ajan ve eklerle)
+
+### Doğrulandı (Windows, sahip)
+- `kayaai qdrant test`: gerçek Qdrant 1.12.4 + bge-m3 — en yakın sonuç doğru, süzgeç, silme, SQLite ile birebir aynı
+  skorlar (0.8054 / 0.4493 / 0.3436)
+
 ## [0.19.1] - 2026-11-02
 
 ### Değişti

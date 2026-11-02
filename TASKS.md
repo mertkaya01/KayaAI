@@ -255,8 +255,11 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   smoke 0.19.0 geçti
 - [x] 19b+ — `kayaai qdrant start|status|test|stop` (yalnız 127.0.0.1, hata sebebi rapora) — ilk Windows denemesi
   rapor vermedi — Python 9
-- [ ] Windows: `kayaai qdrant start` → `kayaai qdrant test` (qdrant_check.json); Asistan'da veri ajanına CSV ekleyip
-  hesap sorusu; ofis animasyonları
+- [x] Windows (sahip): `kayaai qdrant test` geçti (gerçek Qdrant + bge-m3, SQLite ile aynı skorlar)
+- [x] Sahip geri bildirimi (ekran görüntüleri): Claude Code bağlı değilken iş kutuya bırakılmıyor (yerel + uyarı);
+  kutudaki işe Yerel ekip yapsın / İptal et (sohbet + Ofis); 30 dk süre aşımında yerel ekibe; Ofis → Sohbete dön;
+  ↻ Tekrar dene — Python 8, Playwright (yerel uyarı → devret → Ofis → Yerel ekip yapsın → Sohbete dön), axe 0
+- [ ] Windows: Asistan'da veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı
 - [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk

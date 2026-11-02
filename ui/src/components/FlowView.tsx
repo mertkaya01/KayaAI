@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiError, type FlowNode, type JobGraph, type JobSummary } from "../api";
+import { api, post, ApiError, type ClaudeStatus, type FlowNode, type JobGraph, type JobSummary } from "../api";
 import { NODE_H, NODE_W, layout } from "../dag";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { OfficeView } from "./OfficeView";
 import { OfficeArtPanel } from "./OfficeArtPanel";
 import { EmptyState } from "./EmptyState";
+import { InboxWait } from "./ChatView";
+import { Icon } from "../icons";
 
 const STATUS_TEXT: Record<string, string> = {
   pending: "bekliyor", running: "çalışıyor", succeeded: "tamamlandı", failed: "başarısız", waiting: "bekletiliyor", skipped: "atlandı",
@@ -65,7 +67,14 @@ function readPref(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
 }
 
-export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId: string | null; onSelect: (id: string | null) => void; refreshKey: number; approvalsKey: number }) {
+export function FlowView({ jobId, onSelect, onOpenChat, claude, refreshKey, approvalsKey }: {
+  jobId: string | null;
+  onSelect: (id: string | null) => void;
+  onOpenChat: (convId: string | null) => void;  // Ofis → işi başlatan sohbete dön (yoksa Asistan)
+  claude: ClaudeStatus | null;
+  refreshKey: number;
+  approvalsKey: number;
+}) {
   const [mode, setMode] = useState<"office" | "graph">(() => (readPref("kayaai.flowMode") === "graph" ? "graph" : "office"));
   const [art, setArt] = useState(false);
   const pick = (m: "office" | "graph") => { setMode(m); try { localStorage.setItem("kayaai.flowMode", m); } catch { /* özel pencere */ } };
@@ -75,6 +84,24 @@ export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId:
   const [selected, setSelected] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const active = jobId ?? jobs.data?.[0]?.id ?? null;
+  const activeJob = jobs.data?.find((j) => j.id === active) ?? null;
+  const [actBusy, setActBusy] = useState(false);
+  const [actNote, setActNote] = useState<string | null>(null);
+
+  async function inboxAct(id: string, action: "run" | "cancel") {
+    if (action === "cancel" && !window.confirm("Bu iş iptal edilsin mi? (Cevap üretilmez.)")) return;
+    setActBusy(true);
+    try {
+      await post(`/api/inbox/${id}/${action}`, {});
+      setActNote(action === "run" ? "İş yerel ekibe verildi; ofiste çalışmaya başlayacaklar." : "İş iptal edildi.");
+      setTick((t) => t + 1);
+      void jobs.reload();
+    } catch (e) {
+      setActNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setActBusy(false);
+    }
+  }
   const live = graph?.status === "running" || graph?.status === "pending";
 
   useEffect(() => {
@@ -118,7 +145,15 @@ export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId:
             <button aria-pressed={mode === "graph"} onClick={() => pick("graph")}>Akış grafiği</button>
           </div>
           {mode === "office" && <button className="ghost small" aria-expanded={art} onClick={() => setArt((v) => !v)}>🎨 Çizimler</button>}
+          <button className="primary small chat-back" onClick={() => onOpenChat(activeJob?.conv_id ?? null)}
+                  title={activeJob?.conv_id ? "Bu işi başlatan sohbete dön" : "Asistan'a dön"}>
+            <Icon name="chat" size={15} /> {activeJob?.conv_id ? "Sohbete dön" : "Asistan"}
+          </button>
         </div>
+        {actNote && <p className="notice" role="status" onClick={() => setActNote(null)}>{actNote}</p>}
+        {(graph?.status ?? activeJob?.status) === "waiting_claude" && active && (
+          <div className="flow-wait"><InboxWait jobId={active} claude={claude} busy={actBusy} onAct={(id, a) => void inboxAct(id, a)} /></div>
+        )}
         {mode === "office" && art && <OfficeArtPanel onClose={() => setArt(false)} />}
         {mode === "office" ? <OfficeView jobId={active} refreshKey={refreshKey} approvalsKey={approvalsKey} /> : <>
         {error && <p className="error">{error}</p>}

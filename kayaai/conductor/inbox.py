@@ -6,7 +6,7 @@ sonucu `complete` ile geri yazar. Claude kapatılırsa ya da kullanıcı isterse
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -107,6 +107,32 @@ class ClaudeInbox:
 
     def release(self, job_id: str) -> ConductorResult:
         return Conductor(self.rt).resume_local(job_id)
+
+    # ------------------------------------------------------------------ süre aşımı (kimse almadıysa)
+
+    def waiting_since(self, job_id: str, fallback: datetime) -> datetime:
+        """İşin kutuya bırakıldığı an (son `waiting_claude` kaydı); yoksa işin oluşturulma zamanı."""
+        for ev in reversed(self.rt.store.events(job_id)):
+            if ev["event"] == "waiting_claude":
+                try:
+                    dt = datetime.fromisoformat(ev["ts"])
+                    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    break
+        return fallback
+
+    def overdue(self, now: datetime | None = None) -> list[str]:
+        """`claude.inbox_timeout_min` dakikadır bekleyen ve o sırada Claude Code bağlı DEĞİLKEN alınmamış işler.
+        Claude Code bağlıysa dokunulmaz (Claude üzerinde çalışıyor olabilir)."""
+        minutes = self.rt.settings.claude.inbox_timeout_min
+        if not minutes or (self.rt.claude is not None and self.rt.claude.connected(now)):
+            return []
+        now = now or utcnow()
+        out = []
+        for job in self.rt.store.list_tasks(limit=200, status=TaskStatus.WAITING_CLAUDE):
+            if (now - self.waiting_since(job.id, job.created_at)).total_seconds() >= minutes * 60:
+                out.append(job.id)
+        return out
 
     def cancel(self, job_id: str) -> bool:
         job = self.rt.store.get(job_id)

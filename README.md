@@ -109,6 +109,11 @@ claude                # Opus burada şef: CLAUDE.md kurallarını ve kayaai-* al
 Kurallar: her iki modda da önce yerel model; Claude yalnızca gerektiğinde. Claude gerektiren işler
 `kayaai inbox`'ta bekler; Claude Code oturumunda "kutuyu işle" de. `kayaai claude off` bekleyenleri yerelde yapar.
 
+Şef işi kendiliğinden yalnız **Claude Code bağlıyken** (sol menüde "açık · bağlı") Claude kutusuna bırakır; oturum
+kapalıyken yerel ekip yapar ve uyarı ekler (istersen cevabın altından **Claude'a devret**). Kutuda bekleyen işin
+altında **Yerel ekip yapsın / İptal et** düğmeleri var (sohbette ve Ofis'te); 30 dk kimse almazsa ve Claude Code bağlı
+değilse yerel ekip kendiliğinden yapar (`claude.inbox_timeout_min`, 0 = kapalı).
+
 Doğrulama: Claude Code'da `/mcp` → `kayaai` connected. Alt ajanlar (`kayaai-general`, `kayaai-coder`,
 `kayaai-reviewer`) `.claude/agents/` klasöründen otomatik okunur; güncel Claude Code sürümlerinde `/agents` komutu
 yok — Claude'a "hangi alt ajanların var?" diye sorabilirsin. Pro planında Opus 5.5 kullanılabildiği doğrulandı.

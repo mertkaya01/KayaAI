@@ -85,11 +85,13 @@ def _plan_from_events(events: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 def list_jobs(store: TaskStore, limit: int = 30) -> list[dict[str, Any]]:
     out = []
-    for j in store.list_by_worker("conductor", limit):
+    jobs = store.list_by_worker("conductor", limit)
+    convs = store.conversations_for_jobs([j.id for j in jobs])
+    for j in jobs:
         res = j.result or {}
         out.append({"id": j.id, "objective": j.objective[:200], "status": j.status.value,
                     "created_at": j.created_at.isoformat(), "duration_s": res.get("duration_s"),
-                    "mode": res.get("mode"), "steps": len(res.get("steps", []))})
+                    "mode": res.get("mode"), "steps": len(res.get("steps", [])), "conv_id": convs.get(j.id)})
     return out
 
 

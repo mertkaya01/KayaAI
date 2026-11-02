@@ -202,7 +202,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
       ) : route.page === "models" ? (
         <ModelsView refreshKey={modelsKey} events={events} />
       ) : route.page === "flow" ? (
-        <FlowView jobId={route.jobId} onSelect={(id) => navigate({ page: "flow", jobId: id })} refreshKey={flowKey} approvalsKey={keys.approvals} />
+        <FlowView jobId={route.jobId} onSelect={(id) => navigate({ page: "flow", jobId: id })} refreshKey={flowKey} approvalsKey={keys.approvals}
+                  onOpenChat={(convId) => go({ page: "chat", convId })} claude={claude.data} />
       ) : (
         <ControlCenter keys={keys} bump={bump} events={events} health={health.data} onUnauthorized={onUnauthorized}
                        notifyKey={notifyKey} onNotifyChanged={() => setNotifyKey((k) => k + 1)} />

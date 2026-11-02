@@ -256,6 +256,17 @@ class TaskStore:
             ).fetchall()
         return [json.loads(r["data"]) for r in rows]
 
+    def conversations_for_jobs(self, job_ids: list[str]) -> dict[str, str]:
+        """İş → onu başlatan sohbet (Ofis'ten sohbete dönmek için). Sohbetten gelmeyen işler sözlükte yok."""
+        if not job_ids:
+            return {}
+        marks = ",".join("?" * len(job_ids))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT conv_id, json_extract(data, '$.job_id') AS job FROM messages "
+                f"WHERE json_extract(data, '$.job_id') IN ({marks})", tuple(job_ids)).fetchall()
+        return {r["job"]: r["conv_id"] for r in rows}
+
     def list_messages_by_status(self, statuses: tuple[str, ...], limit: int = 200) -> list[dict[str, Any]]:
         marks = ",".join("?" * len(statuses))
         with self._lock:

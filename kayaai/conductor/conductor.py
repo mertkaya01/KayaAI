@@ -34,6 +34,12 @@ Origin = Literal["user", "claude"]
 
 CLAUDE_WARNING_TR = "Bu iş Claude ile muhtemelen daha iyi olurdu (Claude modu kapalı, yerel modelle yapıldı)."
 CLAUDE_WARNING_EN = "This task would likely be done better by Claude (Claude mode is off; done with the local model)."
+LOCAL_CHOICE_TR = "Bu iş Claude ile muhtemelen daha iyi olurdu; yerel ekip yaptı."
+LOCAL_CHOICE_EN = "This task would likely be done better by Claude; the local team did it."
+NOT_CONNECTED_TR = ("Bu iş Claude ile muhtemelen daha iyi olurdu; Claude Code oturumu bağlı olmadığı için yerel ekip yaptı "
+                    "(istersen cevabın altındaki ‘Claude'a devret’ ile Claude kutusuna gönder).")
+NOT_CONNECTED_EN = ("This task would likely be done better by Claude; no Claude Code session is connected, so the local team "
+                    "did it (use ‘Hand off to Claude’ under the answer to send it to the Claude inbox).")
 
 
 class StepReviewView(BaseModel):
@@ -173,8 +179,8 @@ class Conductor:
             log.exception("şef işi %s beklenmeyen hata", job.id)
             result.status, result.error = TaskStatus.FAILED.value, f"{type(exc).__name__}: {exc}"
         if released and result.status == TaskStatus.SUCCEEDED.value:
-            warning = _lang_note(request, CLAUDE_WARNING_TR, CLAUDE_WARNING_EN)
-            if warning not in result.warnings:
+            warning = self._claude_warning(request)
+            if not any("Claude ile muhtemelen daha iyi" in w or "likely be done better by Claude" in w for w in result.warnings):
                 result.warnings.append(warning)  # D16: Claude gerekli görülmüştü
         result.duration_s = round(time.perf_counter() - t0, 3)
         self._close_job(job, result)
@@ -202,7 +208,7 @@ class Conductor:
                 "(see it with kayaai inbox, run it locally with kayaai inbox run <id>)."))
             return
         if result.routing.decision == "local_with_warning":
-            result.warnings.append(_lang_note(request, CLAUDE_WARNING_TR, CLAUDE_WARNING_EN))
+            result.warnings.append(self._claude_warning(request))
 
         # Yürütme
         outputs = self._execute(run)
@@ -323,6 +329,18 @@ class Conductor:
 
     # ------------------------------------------------------------------ yönlendirme
 
+    def _claude_warning(self, request: str) -> str:
+        """D16 uyarısı, gerçek sebebiyle: Claude modu kapalı / Claude Code bağlı değil / yerel ekip seçildi."""
+        if not (self.rt.claude and self.rt.claude.is_enabled()):
+            return _lang_note(request, CLAUDE_WARNING_TR, CLAUDE_WARNING_EN)
+        if not self._claude_reachable():
+            return _lang_note(request, NOT_CONNECTED_TR, NOT_CONNECTED_EN)
+        return _lang_note(request, LOCAL_CHOICE_TR, LOCAL_CHOICE_EN)
+
+    def _claude_reachable(self) -> bool:
+        """İşi kendiliğinden Claude'a bırakmak için Claude Code oturumu bağlı olmalı (yoksa iş kutuda takılı kalır)."""
+        return bool(self.rt.claude and self.rt.claude.connected())
+
     def _route(self, plan: RoutePlan, force: Force, origin: Origin, request: str) -> Routing:
         claude_on = bool(self.rt.claude and self.rt.claude.is_enabled())
         score, signals = complexity_signals(request, plan)
@@ -342,8 +360,11 @@ class Conductor:
             r.decision, r.why = "local", "istek zaten Claude'dan geldi; yerel ekip çalışır, görüş uyarı olarak döner"
         elif force == "local":
             r.decision, r.why = "local_with_warning", "kullanıcı yerelde yapılmasını istedi"
+        elif claude_on and (force == "claude" or self._claude_reachable()):
+            r.decision, r.why = "claude_inbox", ("kullanıcı Claude'a devretti" if force == "claude"
+                                                 else "Claude gerekli, Claude modu açık ve Claude Code bağlı")
         elif claude_on:
-            r.decision, r.why = "claude_inbox", "Claude gerekli ve Claude modu açık"
+            r.decision, r.why = "local_with_warning", "Claude gerekli ama Claude Code oturumu bağlı değil (kutuda beklemesin)"
         else:
             r.decision, r.why = "local_with_warning", "Claude gerekli ama Claude modu kapalı (D16)"
         return r
@@ -468,8 +489,8 @@ class Conductor:
         """Anlaşmazlığa kim karar verir: Claude şef mi (kutu ya da çağıran), yoksa sahip mi."""
         if run.origin == "claude":
             return "claude"  # isteği zaten Claude şef gönderdi: iki görüş ona döner
-        claude_on = bool(self.rt.claude and self.rt.claude.is_enabled())
-        if self.settings.disputes == "claude_first" and claude_on and run.force != "local":
+        if self.settings.disputes == "claude_first" and run.force != "local" and (
+                self._claude_reachable() or (run.force == "claude" and self.rt.claude and self.rt.claude.is_enabled())):
             return "claude"
         return "owner"
 
@@ -596,7 +617,7 @@ class Conductor:
     # ------------------------------------------------------------------ hata / kapanış
 
     def _fail_or_escalate(self, result: ConductorResult, request: str, why: str) -> None:
-        if self.rt.claude and self.rt.claude.is_enabled():
+        if self._claude_reachable():
             result.routing.decision = "claude_inbox"
             result.routing.why = f"yerel sonuç üretilemedi ({why}); Claude modu açık"
             result.status = TaskStatus.WAITING_CLAUDE.value

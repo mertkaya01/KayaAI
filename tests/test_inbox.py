@@ -17,14 +17,14 @@ from kayaai.core.task import TaskStatus
 from kayaai.mcp_server import create_server
 from kayaai.runtime import build_runtime
 
-from .conductor_helpers import Script, answer, plan_direct
+from .conductor_helpers import Script, answer, plan_direct, connect_claude
 from .test_conductor import rt  # noqa: F401  (fixture)
 
 HARD = plan_direct("general", needs_claude=True, reason="karmaşık mimari")
 
 
 def _waiting_job(rt, fake_ollama, request="Zor bir mimari iş"):
-    rt.claude.enable()
+    connect_claude(rt)
     fake_ollama.chat_replies = [Script(planner=[HARD], answers=[])] * 5
     res = Conductor(rt).run(request)
     assert res.status == "waiting_claude"

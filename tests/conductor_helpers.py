@@ -68,3 +68,9 @@ class Script:
         if q:
             return q.pop(0)
         return APPROVE if title == "StepReview" else "{}"
+
+
+def connect_claude(rt) -> None:
+    """Claude modu açık VE Claude Code oturumu bağlı (son temas şimdi): şef işi kendiliğinden kutuya bırakabilir."""
+    rt.claude.enable()
+    rt.claude.record_contact()

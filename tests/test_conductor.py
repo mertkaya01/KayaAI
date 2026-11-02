@@ -18,7 +18,7 @@ from kayaai.mcp_server import create_server
 from kayaai.runtime import build_runtime
 from kayaai.workers.planner import RoutePlan, validate_plan
 
-from .conductor_helpers import Script, answer, plan_direct, plan_steps, review
+from .conductor_helpers import Script, answer, plan_direct, plan_steps, review, connect_claude
 
 
 @pytest.fixture
@@ -216,7 +216,7 @@ def test_needs_claude_but_off_runs_local_with_warning(rt, fake_ollama):
 
 
 def test_needs_claude_and_on_goes_to_inbox(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[_needs_claude()], answers=[])
     res = run(rt, fake_ollama, s, "Büyük bir dağıtık sistem mimarisi tasarla")
     assert res.status == "waiting_claude" and res.routing.decision == "claude_inbox"
@@ -228,14 +228,14 @@ def test_needs_claude_and_on_goes_to_inbox(rt, fake_ollama):
 
 
 def test_claude_on_but_not_needed_stays_local(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[plan_direct("general")], answers=[answer("Yerel.")])
     res = run(rt, fake_ollama, s, "Merhaba")
     assert res.status == "succeeded" and res.routing.decision == "local"
 
 
 def test_force_local_and_force_claude(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[_needs_claude()], answers=[answer("Yerel.")])
     res = run(rt, fake_ollama, s, "Zor iş", force="local")
     assert res.status == "succeeded" and res.routing.decision == "local_with_warning"
@@ -245,14 +245,14 @@ def test_force_local_and_force_claude(rt, fake_ollama):
 
 
 def test_origin_claude_never_goes_to_inbox(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[_needs_claude()], answers=[answer("Yerel.")])
     res = run(rt, fake_ollama, s, "Zor iş", origin="claude")
     assert res.status == "succeeded" and res.routing.decision == "local"
 
 
 def test_local_failure_escalates_to_inbox_when_claude_on(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[plan_direct("general")], answers=["bozuk"] * 3)
     res = run(rt, fake_ollama, s, "Bir şey")
     assert res.status == "waiting_claude" and "yerel sonuç üretilemedi" in res.routing.why
@@ -321,7 +321,7 @@ def test_planner_says_no_but_signals_say_claude(rt, fake_ollama):
 
 
 def test_signals_route_to_inbox_when_claude_on(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[plan_steps([(f"s{i}", "general", f"bölüm {i}", []) for i in range(1, 5)])], answers=[])
     res = run(rt, fake_ollama, s, SAAS)
     assert res.status == "waiting_claude" and s.calls["GeneralAnswer"] == 0

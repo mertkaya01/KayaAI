@@ -14,7 +14,7 @@ from kayaai.config import load_settings
 from kayaai.core.task import Task, TaskStatus
 from kayaai.runtime import build_runtime
 
-from .conductor_helpers import Script, answer, plan_direct, plan_steps, review, revision, step_review
+from .conductor_helpers import Script, answer, plan_direct, plan_steps, review, revision, step_review, connect_claude
 
 GOOD = "Fonksiyon şöyle:\n\n```python\ndef f(x):\n    return x\n```"
 BAD = "Fonksiyon şöyle:\n\n```python\ndef f(x:\n    return x\n```"
@@ -79,7 +79,7 @@ def test_graph_while_running_uses_plan_event(rt):
 
 
 def test_claude_inbox_graph(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     fake_ollama.chat_replies = [Script(planner=[plan_direct("general", needs_claude=True, reason="karmaşık")],
                                        answers=[])] * 5
     res = Conductor(rt).run("Karmaşık bir mimari tasarla.")

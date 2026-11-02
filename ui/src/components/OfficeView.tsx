@@ -292,6 +292,11 @@ function Inspector({ a, graph, onClose, onChanged }: { a: Actor; graph: JobGraph
   );
 }
 
+const HEAD_STATUS: Record<string, string> = {
+  succeeded: "bitti", failed: "başarısız", waiting_claude: "Claude kutusunda bekliyor", cancelled: "iptal edildi",
+  timed_out: "zaman aşımı", pending: "sırada",
+};
+
 export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvalsKey, compact = false, onExpand }: {
   jobId: string | null;
   jobKind?: "conductor" | "task";
@@ -401,7 +406,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
         <strong>Ofis</strong>
         {graph ? (
           <span className={`pill ${graph.status === "succeeded" ? "ok" : graph.status === "failed" ? "bad" : "warn"}`}>
-            {live && <span className="dot" />} {live ? `${busyCount} ajan çalışıyor` : graph.status === "succeeded" ? "bitti" : graph.status}
+            {live && <span className="dot" />} {live ? `${busyCount} ajan çalışıyor` : HEAD_STATUS[graph.status] ?? graph.status}
           </span>
         ) : <span className="muted small">{jobId ? "" : "şefe iş ver, ekip burada çalışsın"}</span>}
         {onExpand && <button className="ghost small" onClick={onExpand} title="Ofisi tam ekran aç">Büyüt ⤢</button>}

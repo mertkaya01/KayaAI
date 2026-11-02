@@ -67,10 +67,38 @@ function jobLine(jobId: string, progress: Record<string, Progress>): string | nu
   return p.field === "answer" && p.tail ? `${who}: “${p.tail}”` : `${who}…`;
 }
 
-function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onOpenFlow, busy }: {
+/** Claude kutusunda bekleyen iş: ne olduğunu söyle, sahibe karar düğmeleri ver (Claude Code kapalıysa iş takılı kalmasın). */
+export function InboxWait({ jobId, claude, busy, onAct }: {
+  jobId: string;
+  claude: ClaudeStatus | null;
+  busy: boolean;
+  onAct: (jobId: string, action: "run" | "cancel") => void;
+}) {
+  const connected = claude?.state === "on_recent_contact";
+  const mins = claude?.inbox_timeout_min ?? 0;
+  return (
+    <div className="inbox-wait" role="group" aria-label="Claude kutusundaki iş">
+      <p className="small">
+        {connected
+          ? "Claude Code bağlı: oturumda “kayaAI kutusundaki işleri yap” de, Claude işi alır."
+          : "Claude Code şu an bağlı değil, işi alacak kimse yok."}
+        {" "}İstersen yerel ekip hemen yapsın.
+        {mins > 0 && ` ${mins} dk içinde kimse almazsa yerel ekip kendiliğinden yapar.`}
+      </p>
+      <div className="row-actions start">
+        <button className="primary small" disabled={busy} onClick={() => onAct(jobId, "run")}>Yerel ekip yapsın</button>
+        <button className="ghost small" disabled={busy} onClick={() => onAct(jobId, "cancel")}>İptal et</button>
+      </div>
+    </div>
+  );
+}
+
+function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onOpenFlow, onInbox, onRetry, busy }: {
   m: ChatMessage;
   claude: ClaudeStatus | null;
   progress: Record<string, Progress>;
+  onInbox: (jobId: string, action: "run" | "cancel") => void;
+  onRetry: (m: ChatMessage) => void;
   onHandoff: (m: ChatMessage) => void;
   onRemember: (m: ChatMessage) => void;
   onReport: (m: ChatMessage, format: string) => void;
@@ -82,7 +110,8 @@ function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onO
   const memories = m.recall?.memories ?? [];
   const waiting = m.status === "pending" || m.status === "running" || m.status === "waiting_claude";
   const agents = m.meta.agents?.length ? m.meta.agents.map(agentName).join(" → ") : m.agent === "auto" ? "" : agentName(m.agent);
-  const isClaude = m.agent === "claude" || m.handoff;
+  // Devredilen iş yerel ekibe verildiyse cevabı yerel ajan yazdı: Claude etiketi yalnız beklerken ve Claude yazdıysa
+  const isClaude = m.handoff ? (waiting || (m.meta.agents?.length ?? 0) === 0) : m.agent === "claude";
   const live = waiting && m.job_kind === "task" && m.job_id ? progress[m.job_id]?.answer : undefined;
   const line = waiting && m.job_kind === "conductor" && m.job_id ? jobLine(m.job_id, progress) : null;
 
@@ -126,6 +155,14 @@ function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onO
           )
         ) : (
           <Markdown text={m.content} />
+        )}
+        {m.status === "waiting_claude" && m.job_kind === "conductor" && m.job_id && (
+          <InboxWait jobId={m.job_id} claude={claude} busy={busy} onAct={onInbox} />
+        )}
+        {(m.status === "failed" || m.status === "cancelled") && m.reply_to && (
+          <div className="row-actions start">
+            <button className="ghost small" disabled={busy} onClick={() => onRetry(m)}>↻ Tekrar dene</button>
+          </div>
         )}
         {m.status === "done" && !!m.meta.vision?.ocr_text && (
           <details className="recall">
@@ -337,6 +374,39 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
     }
   }
 
+  async function inboxAct(jobId: string, action: "run" | "cancel") {
+    if (action === "cancel" && !window.confirm("Bu iş iptal edilsin mi? (Cevap üretilmez.)")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await post(`/api/inbox/${jobId}/${action}`, {});
+      setNotice(action === "run" ? "İş yerel ekibe verildi; cevap burada akacak." : "İş iptal edildi.");
+      setViewKey((k) => k + 1);
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Başarısız/kesilmiş cevap: aynı soruyu (aynı ajan ve eklerle) yeniden gönder. */
+  async function retry(m: ChatMessage) {
+    const q = view?.messages.find((x) => x.id === m.reply_to);
+    if (!q || !convId || busy) return;
+    setBusy(true);
+    setError(null);
+    stick.current = true;
+    try {
+      await post(`/api/chat/${convId}/messages`, { text: q.content, agent: q.agent, attachments: q.attachments.map((a) => a.id), mode: null });
+      setListKey((k) => k + 1);
+      setViewKey((k) => k + 1);
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handoff(m: ChatMessage) {
     if (!convId) return;
     const ok = window.confirm(
@@ -464,7 +534,8 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
             )}
             {view?.messages.map((m) => (
               <MessageView key={m.id} m={m} claude={claude} progress={progress} onHandoff={(x) => void handoff(x)} onRemember={(x) => void rememberMsg(x)}
-                onReport={(x, f) => void report(x, f)} onOpenFlow={onOpenFlow} busy={busy} />
+                onReport={(x, f) => void report(x, f)} onOpenFlow={onOpenFlow} busy={busy}
+                onInbox={(j, a) => void inboxAct(j, a)} onRetry={(x) => void retry(x)} />
             ))}
           </div>
         </div>

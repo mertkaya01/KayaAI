@@ -69,6 +69,8 @@ class ClaudeSettings(BaseModel):
     enabled: bool = False
     # Claude Code'un MCP sunucusunu en son kullanmasından bu kadar dakika geçtiyse "yakın temas" sayılır.
     contact_window_min: int = Field(15, ge=1, le=24 * 60)
+    # Claude kutusunda bu kadar dakika bekleyen iş, Claude Code o sırada bağlı değilse yerel ekibe verilir (0: hiç)
+    inbox_timeout_min: int = Field(30, ge=0, le=7 * 24 * 60)
     # Şef (Opus) Claude Code oturumunun açılacağı klasör; boşsa ~/kayaAI-workspace. Repo'nun içinde olamaz.
     workspace_dir: str | None = None
 

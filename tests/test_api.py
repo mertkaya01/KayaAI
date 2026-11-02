@@ -17,7 +17,7 @@ from kayaai.core.store import TaskStore
 from kayaai.core.task import Task, TaskStatus
 from kayaai.runtime import build_runtime
 
-from .conductor_helpers import Script, answer, plan_direct
+from .conductor_helpers import Script, answer, plan_direct, connect_claude
 
 
 @pytest.fixture
@@ -104,8 +104,9 @@ def test_do_job_with_children(api, fake_ollama):
 
 
 def test_claude_toggle_inbox_and_handback(api, fake_ollama):
-    client, _, _ = api
+    client, rt, _ = api
     assert client.post("/api/claude", json={"enabled": True}).json()["status"]["enabled"]
+    rt.claude.record_contact()  # Claude Code oturumu bağlı
     hard = plan_direct("general", needs_claude=True, reason="zor")
     fake_ollama.chat_replies = [Script(planner=[hard], answers=[])] * 5
     job_id = client.post("/api/do", json={"request": "Zor iş"}).json()["id"]
@@ -120,7 +121,7 @@ def test_claude_toggle_inbox_and_handback(api, fake_ollama):
 
 def test_inbox_run_and_cancel_and_task_cancel(api, fake_ollama):
     client, rt, _ = api
-    rt.claude.enable()
+    connect_claude(rt)
     hard = plan_direct("general", needs_claude=True, reason="zor")
     fake_ollama.chat_replies = [Script(planner=[hard], answers=[])] * 10
     a = client.post("/api/do", json={"request": "A"}).json()["id"]

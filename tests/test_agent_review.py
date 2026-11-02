@@ -18,7 +18,7 @@ from kayaai.llm.registry import ModelRegistry
 from kayaai.runtime import build_runtime
 from kayaai.workers.step_review import Revision, RevisionWorker, evidence_in
 
-from .conductor_helpers import Script, answer, plan_direct, revision, step_review
+from .conductor_helpers import Script, answer, plan_direct, revision, step_review, connect_claude
 
 GOOD_CODE = "Fonksiyon şöyle çalışır:\n\n```python\ndef topla(a, b):\n    return a + b\n```\n\nİki sayıyı toplar."
 BAD_CODE = "Fonksiyon şöyle çalışır:\n\n```python\ndef topla(a, b:\n    return a + b\n```\n\nİki sayıyı toplar."
@@ -173,7 +173,7 @@ def test_dispute_with_claude_off_goes_to_owner(rt, fake_ollama):
 
 
 def test_dispute_with_claude_on_goes_to_inbox(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[plan_direct("coder")], answers=[answer(GOOD_CODE)],
                step_reviews=[step_review([("major", "Toplama yerine çıkarma yapıyor", "return a + b")])],
                revisions=[revision(GOOD_CODE, disputed=[("i1", "Kod toplama yapıyor.")])])
@@ -190,7 +190,7 @@ def test_dispute_with_claude_on_goes_to_inbox(rt, fake_ollama):
 
 
 def test_dispute_owner_policy_ignores_claude(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     rt.settings.conductor.disputes = "owner"
     s = Script(planner=[plan_direct("coder")], answers=[answer(GOOD_CODE)],
                step_reviews=[step_review([("major", "Hatalı", "return a + b")])],
@@ -200,7 +200,7 @@ def test_dispute_owner_policy_ignores_claude(rt, fake_ollama):
 
 
 def test_dispute_from_claude_origin_returns_to_caller(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[plan_direct("coder")], answers=[answer(GOOD_CODE)],
                step_reviews=[step_review([("major", "Hatalı", "return a + b")])],
                revisions=[revision(GOOD_CODE, disputed=[("i1", "Hata yok.")])])
@@ -211,7 +211,7 @@ def test_dispute_from_claude_origin_returns_to_caller(rt, fake_ollama):
 
 
 def test_release_supersedes_old_disputes(rt, fake_ollama):
-    rt.claude.enable()
+    connect_claude(rt)
     s = Script(planner=[plan_direct("coder"), plan_direct("coder")], answers=[answer(GOOD_CODE), answer(GOOD_CODE)],
                step_reviews=[step_review([("major", "Hatalı", "return a + b")]), step_review()],
                revisions=[revision(GOOD_CODE, disputed=[("i1", "Hata yok.")])])

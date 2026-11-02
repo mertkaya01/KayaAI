@@ -261,6 +261,9 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 /* küçük düğmeler */
 button.small { padding: 2px 8px; font-size: 12px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, var(--text)); border-color: var(--accent); }
+button.primary.small { padding: 4px 10px; }
 button.danger { color: var(--bad); }
 .spacer { flex: 1; }
 
@@ -595,6 +598,8 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .conv-group li.active .conv { background: color-mix(in srgb, var(--accent) 13%, transparent); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
 .conv-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
 .conv .when { font-size: 11px; }
+/* seçili sohbette soluk yazı vurgulu zeminde de okunsun (açık temada 4.5:1) */
+.conv-group li.active .conv .when, .conv.activej .when { color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
 .conv-actions { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
 .conv-group li:hover .conv-actions, .conv-group li:focus-within .conv-actions, .conv-group li.active .conv-actions { opacity: 1; }
 .icon-btn.sm { width: 28px; height: 28px; border-radius: 8px; }
@@ -619,6 +624,10 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .msg.status-failed .msg-body > .md { color: var(--bad); }
 .msg.handoff .msg-body { border-left: 3px solid #d97757; padding-left: 12px; }
 .thinking { color: var(--muted); margin: 6px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.inbox-wait { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0; background: var(--hover); }
+.inbox-wait p { margin: 0 0 8px; color: var(--text); }
+.flow-top .chat-back { margin-left: auto; }
+.flow-wait { margin: 0 0 10px; }
 .dots { display: inline-flex; gap: 4px; }
 .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: dotpulse 1.2s ease-in-out infinite; }
 .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }

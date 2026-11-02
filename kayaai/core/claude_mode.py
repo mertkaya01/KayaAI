@@ -36,6 +36,7 @@ class ClaudeStatus(BaseModel):
     minutes_since_contact: float | None = None
     waiting_tasks: int = 0
     label: str
+    inbox_timeout_min: int = 0  # kutuda bu kadar dk kimse almazsa yerel ekip yapar (0: hiç)
 
 
 class ClaudeMode:
@@ -82,6 +83,11 @@ class ClaudeMode:
             return None
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
+    def connected(self, now: datetime | None = None) -> bool:
+        """Claude modu açık VE Claude Code yakın zamanda kayaAI'yi kullandı (arayüzde "açık · bağlı").
+        Şef işi yalnız o zaman kendiliğinden Claude kutusuna bırakır; yoksa iş kimsenin almadığı kutuda bekler."""
+        return self.status(now).state == "on_recent_contact"
+
     # ------------------------------------------------------------------ durum
 
     def status(self, now: datetime | None = None) -> ClaudeStatus:
@@ -112,6 +118,7 @@ class ClaudeMode:
             minutes_since_contact=minutes,
             waiting_tasks=waiting,
             label=label,
+            inbox_timeout_min=self.settings.inbox_timeout_min,
         )
 
 
