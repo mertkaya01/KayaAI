@@ -259,7 +259,12 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
 - [x] Sahip geri bildirimi (ekran görüntüleri): Claude Code bağlı değilken iş kutuya bırakılmıyor (yerel + uyarı);
   kutudaki işe Yerel ekip yapsın / İptal et (sohbet + Ofis); 30 dk süre aşımında yerel ekibe; Ofis → Sohbete dön;
   ↻ Tekrar dene — Python 8, Playwright (yerel uyarı → devret → Ofis → Yerel ekip yapsın → Sohbete dön), axe 0
-- [ ] Windows: Asistan'da veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı
+- [x] Sahip videosu ("bu nasıl bir çalışma"): tekrar döngüsü yakalayıcı (akış kesilir, sıkı ayarla yeniden), plan ve
+  gözden geçirme çıktı sınırı, en çok 5 adım, planlayıcıya kısa geçmiş, "neler yapabilirsiniz" için gerçek ekip ve
+  özellikler, bilgisayar sorularında anlık yalnız okunur ölçüm (Claude'a gitmez), ofiste "plan yapılamadı" notu —
+  Python 18, Vitest 41
+- [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
+  açıklar mısın"); veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı
 - [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk

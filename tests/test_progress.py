@@ -121,5 +121,9 @@ def test_retry_resets_progress(make_orchestrator, fake_ollama, store):
 
 def test_progress_can_be_turned_off(make_orchestrator, fake_ollama):
     fake_ollama.chat_replies = [good_answer()]
-    task = make_orchestrator(settings=OrchestratorSettings(default_timeout_s=10, live_progress=False)).ask("Merhaba")
-    assert task.status == TaskStatus.SUCCEEDED and fake_ollama.chat_paths()[-1]["stream"] is False
+    orch = make_orchestrator(settings=OrchestratorSettings(default_timeout_s=10, live_progress=False))
+    task = orch.ask("Merhaba")
+    assert task.status == TaskStatus.SUCCEEDED
+    # Model yine akışlı okunur (tekrar döngüsü yakalansın diye), ama canlı ilerleme olayı gönderilmez
+    assert fake_ollama.chat_paths()[-1]["stream"] is True
+    assert not [e for e in orch.store.events_since(0, 500) if e["type"] == "task.progress"]

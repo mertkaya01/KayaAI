@@ -57,7 +57,7 @@ memory:
 
 conductor:
   # Yerel şef (`kayaai do`): en fazla adım, gözden geçirme (never | plan | always), düzeltme turu
-  max_steps: 4
+  max_steps: 5
   review: plan
   max_revisions: 1
   # Çok adımlı işte nihai cevap: assemble (adım cevapları başlıklarla, LLM'siz) | llm (genel ajan yeniden yazar)

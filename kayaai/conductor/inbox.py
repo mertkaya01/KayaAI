@@ -16,6 +16,7 @@ from ..runtime import Runtime
 from .conductor import Conductor, ConductorResult
 
 CLAUDE_MODEL_LABEL = "claude (Claude Code)"
+LOCAL_ONLY_CONTEXT = {"this_computer"}
 MAX_ANSWER_CHARS = 20_000
 
 
@@ -53,7 +54,8 @@ class ClaudeInbox:
             ]
             out.append(InboxItem(
                 local_draft=str(res.get("answer", ""))[:MAX_ANSWER_CHARS] if disputes else "",
-                context=dict(job.input.get("context") or {}),
+                # Bilgisayarın anlık ölçümü yalnız yerel modeller içindir; Claude'a gitmez
+                context={k: v for k, v in (job.input.get("context") or {}).items() if k not in LOCAL_ONLY_CONTEXT},
                 disputes=disputes,
                 job_id=job.id,
                 request=job.objective,

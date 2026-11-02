@@ -99,6 +99,13 @@ class ConductorResult(BaseModel):
     error: str | None = None
 
 
+PLANNER_HISTORY_CHARS = 400
+
+
+def _clip(text: str, n: int) -> str:
+    return text if len(text) <= n else text[:n].rstrip() + " …"
+
+
 def _lang_note(request: str, tr: str, en: str) -> str:
     return en if detect_language(request) == "en" else tr
 
@@ -277,7 +284,10 @@ class Conductor:
             "allow_new_agent": self._new_agents_allowed()}
         if context:
             # Yönlendirme için: kısa sohbet geçmişi ("bunu Python'a çevir" gibi devam mesajları) ve ek ADLARI
-            planner_input["conversation"] = context.get("conversation", [])[-4:]
+            # Mesajlar kısaltılır: uzun (ve kendini tekrar eden) eski cevaplar küçük modeli döngüye sokuyordu
+            planner_input["conversation"] = [
+                {**m, "content": _clip(str(m.get("content", "")), PLANNER_HISTORY_CHARS)}
+                for m in context.get("conversation", [])[-4:]]
             planner_input["attachment_names"] = [a.get("name") for a in context.get("attachments", [])]
         task = self._ask(job, "planner", request, planner_input)
         if task.status != TaskStatus.SUCCEEDED or not task.result:

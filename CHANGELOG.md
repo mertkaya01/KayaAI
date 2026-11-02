@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.19.3] - 2026-11-02
+
+### Düzeltildi (sahibin videosu: "bu nasıl bir çalışma")
+- **Tekrar döngüsü**: model aynı cümleyi durmadan yazınca (videoda Şef 120 sn boyunca "…eksik bilgilerin belirtilmesi
+  istenen rapor kapsamında…") akış artık birkaç yüz karakterde kesiliyor ve daha sıkı ayarla (tekrar cezası, "tekrar
+  etme" notu) yeniden deneniyor. Model her zaman akışlı okunur; planlayıcı ve gözden geçiricinin çıktısına üst sınır
+  (1500 / 2000 token) kondu — döngüye girerse saniyeler içinde düşer
+- **Planlayıcı**: en çok 5 adım (sen 5 ajan istemiştin, 4 sınırı planı reddettiriyordu); fazlası istenirse birleştirir.
+  Planlayıcıya giden eski mesajlar 400 karakterle kısaltıldı (uzun, kendini tekrar eden eski cevap onu döngüye soktu)
+- **"Neler yapabilirsiniz?"**: model kayaAI'yi bilmiyor, uyduruyordu. Bu tür soruda gerçek ekip (kayıtlı ajanlar) ve
+  özellik listesi veri olarak veriliyor; ajan ajan, özellik özellik ve sınırlarıyla anlatıyor
+- **Bilgisayar analizi**: "bilgisayarım / CPU / GPU / RAM / ekran kartı" geçen istekte ajanlara bilgisayarın anlık,
+  yalnız okunur ölçümü veriliyor (işletim sistemi, işlemci, bellek, ekran kartı ve VRAM, disk, bellekteki modeller —
+  Sistem sayfasındakinin aynısı). "Süreci anlatma, analizi yap; ölçüm uydurma" talimatıyla. Bu ölçüm Claude kutusuna
+  gitmez
+- Ofis: plan yapılamayıp iş tek ajanla bittiyse Şef'in balonu "Hata" yerine bunu söylüyor
+
 ## [0.19.2] - 2026-11-02
 
 ### Düzeltildi (sahibin ekran görüntüleri: iş "Claude kutusunda" takılı kaldı)

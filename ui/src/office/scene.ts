@@ -116,7 +116,14 @@ export function deriveActors(graph: JobGraph | null, progress: Record<string, Pr
           if (p && p.attempt > 1) bubble = `(${p.attempt}. deneme) ${bubble}`;
         }
       } else if (active.status === "waiting") { state = "waiting"; bubble = "bekliyor…"; }
-      else if (active.status === "failed") { state = "error"; bubble = active.error ? `Hata: ${active.error}` : "Hata"; }
+      else if (active.status === "failed") {
+        state = "error";
+        const why = active.error ? ` (${active.error})` : "";
+        // İş yine de bittiyse (ör. plan olmadı → tek ajan cevapladı) bunu söyle; "Hata" tek başına yanıltıyordu
+        bubble = graph?.status === "succeeded"
+          ? (active.kind === "planner" ? `Plan yapılamadı${why}; iş tek ajanla bitti` : `Bu adım olmadı${why}; iş yine de bitti`)
+          : active.error ? `Hata: ${active.error}` : "Hata";
+      }
       else if (active.status === "succeeded" && d.kind !== "owner") state = "done";
     }
     if (approval) { state = "waiting"; bubble = `Onay bekliyor: ${approval.action.summary}`; }

@@ -22,6 +22,7 @@ from ..core.lang import LANGUAGE_NAMES, expected_answer_language
 from ..core.task import Permission, Task, ValidationResult
 from ..llm.ollama_client import OllamaClient
 from ..llm.registry import ModelRegistry
+from .loopguard import LoopGuard, ModelLooping
 
 log = logging.getLogger(__name__)
 
@@ -73,10 +74,17 @@ class Worker(ABC):
         return ValidationResult(passed=True, validator=f"{self.name}.schema")
 
 
+LOOP_NOTE = ("Your previous attempt got stuck repeating the same phrase over and over, so it was stopped. "
+             "Start again from scratch: be concise, write each point once and never repeat a sentence.")
+
+
 class LLMWorker(Worker):
     """Yerel LLM'i JSON-schema kısıtlı çıktı ile çağıran worker."""
 
     system_prompt: ClassVar[str] = ""
+    # Çıktı üst sınırı (token). Kısa JSON üreten iç ajanlarda (planlayıcı, gözden geçirici) döngü süre sınırını
+    # beklemeden düşsün diye; None: modelin ayarı.
+    max_output_tokens: ClassVar[int | None] = None
 
     def build_messages(self, task: Task) -> list[dict[str, Any]]:
         # Not: Sistem promptu İngilizcedir; küçük modeller İngilizce talimatı daha tutarlı izler
@@ -100,6 +108,21 @@ class LLMWorker(Worker):
                 "\n\nThe input data contains 'tool_runs': REAL results of code that was executed in an isolated sandbox "
                 "for this request. Base your answer on them, quote numbers exactly as printed, and never contradict "
                 "them. If a run failed or was refused, say so briefly."
+            )
+        if task.input and task.input.get("about_kayaai"):
+            system += (
+                "\n\nThe input data contains 'about_kayaai': the TRUE description of you (kayaAI) and your team of agents. "
+                "If the user asks what you can do or who you are, answer as kayaAI from it: go through the team agent by "
+                "agent and the features one by one, in plain words, with a short example for each. Never invent "
+                "features or agents that are not listed, and mention the limits honestly."
+            )
+        if task.input and task.input.get("this_computer"):
+            system += (
+                "\n\nThe input data contains 'this_computer': a REAL, read-only snapshot of the user's computer taken just "
+                "now (OS, CPU, RAM, GPU/VRAM, disk, AI models in memory). Base any statement about the computer on these "
+                "numbers and quote them exactly. Say clearly what this data cannot show (temperatures, background apps, "
+                "disk health). Never invent measurements, and do not describe the process of analysing; give the "
+                "analysis itself."
             )
         if task.input and ("memory" in task.input or "documents" in task.input):
             system += (
@@ -186,23 +209,40 @@ class LLMWorker(Worker):
         errors: list[str] = []
         last_output: str | None = None
         ctx.metrics["model"] = spec.name
+        options = spec.ollama_options()
+        if self.max_output_tokens and "num_predict" not in options:
+            options["num_predict"] = self.max_output_tokens
 
         for attempt in range(1, ctx.max_output_attempts + 1):
             ctx.check_cancelled()
             ctx.metrics["output_attempts"] = attempt
             if ctx.progress is not None and attempt > 1:
                 ctx.progress.reset(attempt)
-            result = ctx.llm.chat(
-                spec.name,
-                messages,
-                format=schema,
-                options=spec.ollama_options(),
-                think=spec.think,
-                keep_alive=spec.keep_alive,
-                timeout=task.timeout_s,
-                cancel_event=ctx.cancel_event,
-                on_token=ctx.progress.feed if ctx.progress is not None else None,
-            )
+            # Her zaman akışlı oku: tekrar döngüsü süre sınırını beklemeden kesilsin (canlı ofis de aynı akışı görür)
+            guard = LoopGuard(ctx.progress.feed if ctx.progress is not None else None)
+            try:
+                result = ctx.llm.chat(
+                    spec.name,
+                    messages,
+                    format=schema,
+                    options=options,
+                    think=spec.think,
+                    keep_alive=spec.keep_alive,
+                    timeout=task.timeout_s,
+                    cancel_event=ctx.cancel_event,
+                    on_token=guard.feed,
+                )
+            except ModelLooping as exc:
+                if ctx.progress is not None:
+                    ctx.progress.flush()
+                errors.append(f"deneme {attempt}: {exc}")
+                ctx.metrics["loops"] = ctx.metrics.get("loops", 0) + 1
+                log.warning("%s tekrar döngüsüne girdi (deneme %d, %d karakter): %s", self.name, attempt, exc.chars, exc)
+                options = {**options, "repeat_penalty": 1.3, "repeat_last_n": 512,
+                           "temperature": max(float(options.get("temperature", 0.4)), 0.7)}
+                if not any(m.get("content") == LOOP_NOTE for m in messages):
+                    messages = messages + [{"role": "user", "content": LOOP_NOTE}]
+                continue
             if ctx.progress is not None:
                 ctx.progress.flush()
             ctx.metrics.update(result.metrics())
@@ -229,6 +269,10 @@ class LLMWorker(Worker):
                 {"role": "assistant", "content": result.content},
                 {"role": "user", "content": feedback},
             ]
+        if ctx.metrics.get("loops", 0) >= ctx.max_output_attempts:
+            raise WorkerOutputInvalid(
+                f"{self.name}: model {ctx.max_output_attempts} denemede de aynı metni tekrar etmeye başladı (döngü); "
+                "soruyu kısaltıp ya da başka sözlerle yeniden dene", errors, last_output)
         raise WorkerOutputInvalid(
             f"{self.name} {ctx.max_output_attempts} denemede geçerli çıktı üretemedi", errors, last_output
         )

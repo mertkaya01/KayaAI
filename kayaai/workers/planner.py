@@ -62,6 +62,7 @@ class PlannerWorker(LLMWorker):
     description: ClassVar[str] = "İsteği tek ajana yönlendirir ya da kısa bir plana böler"
     required_permissions: ClassVar[tuple[Permission, ...]] = (Permission.LLM_INFERENCE,)
     output_model: ClassVar[type[BaseModel]] = RoutePlan
+    max_output_tokens: ClassVar[int | None] = 1500  # plan kısa bir JSON; döngüye girerse saniyeler içinde düşsün
     system_prompt: ClassVar[str] = (
         "You are the planner of kayaAI, a local multi-agent system. Decide how to handle the user's request "
         "using ONLY the agents listed in the input data.\n"
@@ -70,7 +71,8 @@ class PlannerWorker(LLMWorker):
         "translations, summaries, a single piece of code.\n"
         "- Use mode 'plan' only when the request has clearly separate parts that need different agents or "
         "build on each other (e.g. write code AND then explain it for a non-technical reader AND draft an email). "
-        "Use 2-4 steps; each step depends only on earlier steps.\n"
+        "Use 2 to max_steps steps (max_steps is in the input data); each step depends only on earlier steps. If the "
+        "user asks for more agents than max_steps, combine related parts so the plan fits.\n"
         "- Never use the agent 'planner' or 'reviewer' in steps; reviewing is done automatically afterwards.\n"
         "- Set needs_claude true only when a small local model would very likely fail; otherwise false.\n"
         "- Write step objectives in the user's language.\n"

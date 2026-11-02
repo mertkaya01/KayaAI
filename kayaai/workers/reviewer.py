@@ -24,6 +24,7 @@ class ReviewerWorker(LLMWorker):
     description: ClassVar[str] = "Bir cevabı isteğe göre kontrol eder: doğru mu, eksik mi, isteğe uyuyor mu"
     required_permissions: ClassVar[tuple[Permission, ...]] = (Permission.LLM_INFERENCE,)
     output_model: ClassVar[type[BaseModel]] = ReviewResult
+    max_output_tokens: ClassVar[int | None] = 2000
     system_prompt: ClassVar[str] = (
         "You are the reviewer agent of kayaAI. You receive a user's request and another agent's answer as data. "
         "Your job is a COMPLETENESS check: split the request into its parts (e.g. 'write code', 'explain it', "

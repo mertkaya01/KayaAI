@@ -62,6 +62,7 @@ class StepReviewWorker(LLMWorker):
     description: ClassVar[str] = "Bir uzman ajanın cevabını kanıta dayalı inceler"
     required_permissions: ClassVar[tuple[Permission, ...]] = (Permission.LLM_INFERENCE,)
     output_model: ClassVar[type[BaseModel]] = StepReview
+    max_output_tokens: ClassVar[int | None] = 2000
     system_prompt: ClassVar[str] = (
         "You are the reviewer agent of kayaAI. You receive a request and a specialist agent's answer as data, "
         "plus the results of automatic checks. Review the answer against the request:\n"

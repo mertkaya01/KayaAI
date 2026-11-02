@@ -78,7 +78,7 @@ class ClaudeSettings(BaseModel):
 class ConductorSettings(BaseModel):
     """Yerel şef (`kayaai do`)."""
 
-    max_steps: int = Field(4, ge=1, le=8)
+    max_steps: int = Field(5, ge=1, le=8)
     # Gözden geçirme: never | plan (yalnızca çok adımlı işlerde) | always
     review: Literal["never", "plan", "always"] = "plan"
     max_revisions: int = Field(1, ge=0, le=3)

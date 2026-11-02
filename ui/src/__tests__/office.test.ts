@@ -178,3 +178,20 @@ it("iso projection", () => {
   expect(iso({ x: 1, y: 0 })).toEqual({ x: 48, y: 24 });
   expect(iso({ x: 0, y: 1 })).toEqual({ x: -48, y: 24 });
 });
+
+describe("biten işte başarısız plan notu (sahip videosu)", () => {
+  it("plan zaman aşımına uğrayıp iş tek ajanla bittiyse bunu söyler", () => {
+    const g = {
+      job_id: "j", objective: "neler yapabilirsiniz", status: "succeeded", mode: "direct", routing: null, duration_s: 130, warnings: [],
+      nodes: [
+        { id: "request", kind: "request", label: "İstek", status: "succeeded", agent: null, model: null, task_id: null, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null },
+        { id: "planner", kind: "planner", label: "Planlayıcı", status: "failed", agent: "planner", model: null, task_id: "p1", duration_s: 120, tokens_per_second: null, detail: "", error: "120 sn zaman aşımı", review: null },
+        { id: "s1", kind: "step", label: "general", status: "succeeded", agent: "general", model: null, task_id: "t1", duration_s: 5, tokens_per_second: null, detail: "", error: null, review: null },
+      ],
+      edges: [],
+    } as unknown as JobGraph;
+    const chef = deriveActors(g, {}, []).find((a) => a.id === "chef")!;
+    expect(chef.state).toBe("error");
+    expect(chef.bubble).toBe("Plan yapılamadı (120 sn zaman aşımı); iş tek ajanla bitti");
+  });
+});

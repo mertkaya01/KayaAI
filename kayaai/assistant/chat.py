@@ -293,6 +293,18 @@ class ChatBook:
                 ctx["exchange_rates"] = {"date": r["date"], "source": r["source"], "1_unit_in_TRY": r["per_try"]}
             except IntegrationError as exc:
                 warnings.append(f"Güncel kurlar alınamadı: {exc}")
+        # "Neler yapabilirsin?": gerçek ekip ve özellikler (model kayaAI'yi bilmiyor, uyduruyordu)
+        from ..about import about_kayaai, wants_about
+        from ..system.snapshot import computer_snapshot, wants_computer_info
+
+        if wants_about(before.content):
+            ctx["about_kayaai"] = about_kayaai(self.rt)
+        # Bilgisayarla ilgili istek: anlık, yalnız okunur ölçüm (Sistem sayfasındakinin aynısı); yalnız yerel modellere
+        if wants_computer_info(before.content):
+            try:
+                ctx["this_computer"] = computer_snapshot(self.rt)
+            except Exception as exc:  # noqa: BLE001 - ölçüm alınamazsa cevap yine gelir
+                warnings.append(f"Bilgisayarın anlık durumu okunamadı: {exc}")
         return ctx, warnings
 
     # ------------------------------------------------------------------ gönderme
