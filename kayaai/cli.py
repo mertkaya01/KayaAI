@@ -967,6 +967,38 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
     return 0 if rep["ok"] else 1
 
 
+def cmd_qdrant(args: argparse.Namespace) -> int:
+    """Qdrant vektör deposu (Adım 19b): bu bilgisayarda başlat / durdur / durum / gerçek denetim."""
+    from .memory import qdrant_check as qc
+
+    s = load_settings()
+    url = s.memory.qdrant_url
+    if args.action == "start":
+        ok = qc.start(url, docker=s.sandbox.docker, log=_print)
+        if ok and s.memory.vector_backend != "qdrant":
+            _print("Not: kayaAI şu an SQLite kullanıyor. Denemek için: kayaai qdrant test · taşımak için: kayaai memory migrate")
+        return 0 if ok else 1
+    if args.action == "stop":
+        return 0 if qc.stop(docker=s.sandbox.docker, log=_print) else 1
+    if args.action == "status":
+        state = qc.container_state(docker=s.sandbox.docker)
+        h = qc.wait_healthy(url, 0)
+        _print(f"Konteyner {qc.CONTAINER}: {state}")
+        _print(f"Qdrant {url}: " + (f"HAZIR (sürüm {h.get('version')}, {h.get('points', 0)} nokta)" if h.get("ok")
+                                    else f"ulaşılamıyor ({h.get('error', '?')})"))
+        _print(f"kayaAI vektör deposu: {s.memory.vector_backend}")
+        return 0 if h.get("ok") else 1
+    rep = qc.run_check(s, log=_print)
+    for k, v in rep["steps"].items():
+        mark = "" if not isinstance(v, bool) else ("✓ " if v else "✗ ")
+        _print(f"  {mark}{k}: {v}")
+    if rep.get("error"):
+        _print(f"[HATA] {rep['error']}")
+    path = qc.write_report(rep, s.data_dir / "qdrant_check.json")
+    _print(("[OK] Qdrant denetimi geçti." if rep["ok"] else "[HATA] Qdrant denetimi geçmedi.") + f" Rapor: {path}")
+    return 0 if rep["ok"] else 1
+
+
 def cmd_bench(args: argparse.Namespace) -> int:
     from .bench import run_bench
 
@@ -1484,6 +1516,10 @@ def build_parser() -> argparse.ArgumentParser:
     sbp = sub.add_parser("sandbox", help="kod kum havuzu (Docker): durum / imajı kur / yalıtım denetimi")
     sbp.add_argument("action", nargs="?", choices=["status", "build", "test"], default="status")
     sbp.set_defaults(func=cmd_sandbox)
+
+    qp = sub.add_parser("qdrant", help="Qdrant vektör deposu (Docker, yalnız 127.0.0.1): başlat / durdur / durum / denetim")
+    qp.add_argument("action", nargs="?", choices=["status", "start", "stop", "test"], default="status")
+    qp.set_defaults(func=cmd_qdrant)
 
     wp = sub.add_parser("watch", help="olayları terminalde canlı izle (işler, onaylar, sohbet, zamanlanmış görevler)")
     wp.add_argument("--onay", action="store_true", help="yalnız onay talepleri ve kararları")

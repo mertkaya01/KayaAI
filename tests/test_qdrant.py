@@ -172,3 +172,122 @@ def test_migrate_from_sqlite(env, fq, monkeypatch, capsys):
     got = store.search("memory", model, qv, 2)
     assert [i for i, _ in got] == [i for i, _ in want]  # aynı sonuçlar, aynı sıra
     assert [round(x, 4) for _, x in got] == [round(x, 4) for _, x in want]
+
+
+# ---------------------------------------------------------------- kayaai qdrant start|status|test (sahip denetimi)
+
+def _fixed(settings, log):
+    def v(i):
+        return [math.sin(i * 7 + j) for j in range(64)]
+    return [v(i) for i in range(5)], [x + 0.01 for x in v(0)], "check-vec"
+
+
+class FakeDockerCLI:
+    def __init__(self, state="yok", run_rc=0, run_err=""):
+        self.state, self.run_rc, self.run_err = state, run_rc, run_err
+        self.calls: list[list[str]] = []
+
+    def __call__(self, args, timeout):
+        self.calls.append(args)
+        if args[1] == "inspect":
+            if self.state == "docker-yok":
+                return 1, "", "error during connect: open //./pipe/dockerDesktopLinuxEngine"
+            return (0, self.state + "\n", "") if self.state != "yok" else (1, "", "Error: No such object: kayaai-qdrant")
+        if args[1] == "run":
+            return self.run_rc, "abc123" if self.run_rc == 0 else "", self.run_err
+        if args[1] == "logs":
+            return 0, "panic: depolama kilitli", ""
+        return 0, "", ""
+
+
+@pytest.fixture
+def qsettings(tmp_path, monkeypatch):
+    monkeypatch.setenv("KAYAAI_DATA_DIR", str(tmp_path / "data"))
+    return load_settings()
+
+
+def test_check_passes_with_qdrant(qsettings):
+    from kayaai.memory import qdrant_check as qc
+
+    fq = FakeQdrant()
+    rep = qc.run_check(qsettings, transport=httpx.MockTransport(fq), vectors=_fixed, log=lambda m: None)
+    assert rep["ok"], rep
+    assert all(rep["steps"][k] for k in ("top_is_atlas", "filter_other_kind_empty", "same_as_sqlite", "deleted"))
+    assert rep["steps"]["top"][0][0] == "check-0" and rep["health"]["version"] == "1.12.0"
+    assert not any(fq.cols[c]["points"] for c in fq.cols)  # deneme vektörleri silindi
+
+
+@pytest.mark.parametrize("state,expect", [
+    ("yok", "kayaai qdrant start"), ("docker-yok", "Docker Desktop açık mı"), ("exited", "çalışmıyor (exited)"),
+    ("running", "cevap vermiyor"),
+])
+def test_check_explains_why_qdrant_is_unreachable(qsettings, state, expect):
+    from kayaai.memory import qdrant_check as qc
+
+    fq = FakeQdrant()
+    fq.down = True
+    rep = qc.run_check(qsettings, transport=httpx.MockTransport(fq), exec_fn=FakeDockerCLI(state), log=lambda m: None)
+    assert not rep["ok"] and expect in rep["error"]
+    if state == "running":
+        assert "depolama kilitli" in rep["container_logs"]
+
+
+def test_check_records_unexpected_errors(qsettings):
+    from kayaai.memory import qdrant_check as qc
+
+    def broken(settings, log):
+        raise ValueError("vektör boyutu bozuk")
+    rep = qc.run_check(qsettings, transport=httpx.MockTransport(FakeQdrant()), vectors=broken, log=lambda m: None)
+    assert not rep["ok"] and "ValueError: vektör boyutu bozuk" in rep["error"] and "Traceback" in rep["traceback"]
+
+
+def test_start_binds_only_localhost_and_reuses_container():
+    from kayaai.memory import qdrant_check as qc
+
+    t = httpx.MockTransport(FakeQdrant())
+    logs: list[str] = []
+    d = FakeDockerCLI("yok")
+    assert qc.start("http://127.0.0.1:6333", exec_fn=d, log=logs.append, wait_s=0, transport=t)
+    run = next(c for c in d.calls if c[1] == "run")
+    assert run[run.index("-p") + 1] == "127.0.0.1:6333:6333" and "kayaai-qdrant:/qdrant/storage" in run
+    assert run[-1] == qc.IMAGE and "--network" not in run and "[OK] Qdrant hazır" in logs[-1]
+    d = FakeDockerCLI("exited")
+    assert qc.start("http://localhost:6400", exec_fn=d, log=logs.append, wait_s=0, transport=t)
+    assert ["docker", "start", "kayaai-qdrant"] in d.calls and not any(c[1] == "run" for c in d.calls)
+    d = FakeDockerCLI("running")
+    assert qc.start("http://127.0.0.1:6333", exec_fn=d, log=logs.append, wait_s=0, transport=t)
+    assert [c[1] for c in d.calls] == ["inspect"]
+
+
+def test_start_refuses_or_explains():
+    from kayaai.memory import qdrant_check as qc
+
+    logs: list[str] = []
+    d = FakeDockerCLI("yok")
+    assert not qc.start("http://qdrant:6333", exec_fn=d, log=logs.append, wait_s=0)
+    assert "bu bilgisayar değil" in logs[-1] and d.calls == []
+    assert not qc.start("http://127.0.0.1:6333", exec_fn=FakeDockerCLI("docker-yok"), log=logs.append, wait_s=0)
+    assert "Docker Desktop açık mı" in logs[-1]
+    busy = FakeDockerCLI("yok", run_rc=125, run_err="Bind for 127.0.0.1:6333 failed: port is already allocated")
+    assert not qc.start("http://127.0.0.1:6333", exec_fn=busy, log=logs.append, wait_s=0)
+    assert "portunu başka bir program" in logs[-1]
+
+
+def test_cli_qdrant_test_writes_report(qsettings, monkeypatch, capsys):
+    from kayaai import cli
+    from kayaai.memory import qdrant_check as qc
+
+    fq = FakeQdrant()
+    real = qc.QdrantStore
+    monkeypatch.setattr(qc, "QdrantStore", lambda url, **kw: real(url, transport=httpx.MockTransport(fq)))
+    monkeypatch.setattr(qc, "_vectors", _fixed)
+    assert cli.main(["qdrant", "test"]) == 0
+    out = capsys.readouterr().out
+    assert "✓ same_as_sqlite: True" in out and "[OK] Qdrant denetimi geçti" in out
+    rep = json.loads((qsettings.data_dir / "qdrant_check.json").read_text(encoding="utf-8"))
+    assert rep["ok"] and rep["model"] == "check-vec"
+    fq.down = True
+    monkeypatch.setattr(qc.runner, "execute", FakeDockerCLI("yok"))
+    assert cli.main(["qdrant", "test"]) == 1
+    assert "kayaai qdrant start" in capsys.readouterr().out
+    assert "kayaai qdrant start" in json.loads((qsettings.data_dir / "qdrant_check.json").read_text(encoding="utf-8"))["error"]

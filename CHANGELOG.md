@@ -2,6 +2,18 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.19.1] - 2026-11-02
+
+### Değişti
+- Qdrant denetimi tek komuta indi: `kayaai qdrant start|status|test|stop`. `start` konteyneri yalnız 127.0.0.1'e açık
+  başlatır (varsa yeniden kullanır, port doluysa söyler); `test` Qdrant'a ulaşamazsa sebebini (konteyner yok, Docker
+  kapalı, konteyner durmuş, cevap vermiyor + son kayıt satırları) ve beklenmeyen hataları `data/qdrant_check.json`'a
+  yazar (sahibin Windows denemesi sonuç vermedi). `scripts/qdrant_check.py` aynı denetimi çağırır
+
+### Doğrulandı (Windows, sahip)
+- `kayaai sandbox test`: 9/9 — ağ yok, salt-okunur kök, root değil (10001), yalnız verilen dosyalar, `/out` yazılır,
+  bellek sınırı (137), süre sınırı (8 sn'de 124); smoke kabul testleri 0.19.0'da geçti
+
 ## [0.19.0] - 2026-11-02
 
 ### Eklendi (Adım 19 — kurumsal modüller, sahip planı)

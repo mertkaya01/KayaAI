@@ -367,9 +367,10 @@ Docker ya da imaj yoksa araç kendiliğinden kapalıdır; ajanlar eskisi gibi ko
 Masaüstünde vektörler SQLite'ta kalır (önerilen). Çok büyük belge havuzunda Qdrant kullanılabilir:
 
 ```powershell
-docker run -d --name kayaai-qdrant -p 127.0.0.1:6333:6333 -v kayaai-qdrant:/qdrant/storage qdrant/qdrant:v1.12.4
-python scripts\qdrant_check.py      # gerçek Qdrant ile denetim → data\qdrant_check.json
-kayaai memory migrate               # var olan vektörleri Qdrant'a kopyalar, ayar satırını gösterir
+kayaai qdrant start      # Docker'da başlatır (yalnız 127.0.0.1; ilk seferde imaj indirilir)
+kayaai qdrant test       # gerçek Qdrant ile denetim → data\qdrant_check.json (hata olursa sebebi de yazılır)
+kayaai qdrant status     # konteyner + bağlantı durumu · kayaai qdrant stop: durdurur (veriler kalır)
+kayaai memory migrate    # var olan vektörleri Qdrant'a kopyalar, ayar satırını gösterir
 ```
 
 ## Olayları terminalde izle (Adım 18)

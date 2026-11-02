@@ -251,8 +251,12 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
 - [x] 19c — Docker kum havuzu: politika (AST), kilitli konteyner, süre/bellek sınırı, R1 kayıt + `sandbox.run`,
   `coder`/`data` araç döngüsü (en çok 3 tur, sonuç veri olarak), `kayaai sandbox build|test|status`, `/api/sandbox` —
   Python 28 (sahte Docker; kod bilgisayarda hiç çalışmaz)
-- [ ] Windows: `kayaai sandbox build` → `kayaai sandbox test` (sandbox_check.json); Asistan'da veri ajanına CSV ekleyip
-  hesap sorusu; Qdrant `docker run` + `python scripts\qdrant_check.py`; ofis animasyonları
+- [x] Windows (sahip, 2026-11-02): `kayaai sandbox test` 9/9 (ağ yok, salt-okunur, uid 10001, bellek 137, süre 124);
+  smoke 0.19.0 geçti
+- [x] 19b+ — `kayaai qdrant start|status|test|stop` (yalnız 127.0.0.1, hata sebebi rapora) — ilk Windows denemesi
+  rapor vermedi — Python 9
+- [ ] Windows: `kayaai qdrant start` → `kayaai qdrant test` (qdrant_check.json); Asistan'da veri ajanına CSV ekleyip
+  hesap sorusu; ofis animasyonları
 - [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
