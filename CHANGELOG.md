@@ -16,6 +16,8 @@ Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: S
   16×16 karo. `/api/office/assets` PNG boyutlarını da verir. Rehber: `docs/OFIS_CIZIM.md` (hazır çizimi kalıp yap)
 
 ### Düzeltildi
+- Bağlantı testinden sonra varsayılan model artık bir sohbet modeli (Groq listesindeki ses/koruma modelleri atlanır;
+  bilinen iyi modeller — llama-3.3-70b, gpt-oss, qwen3 — önce)
 - Ofis'te açık bir iş varken sayfa yenilenince (`/ofis/<iş>`) "Çizim bulunamadı" hatası geliyordu; artık yalnız resim
   uzantılı adresler çizim olarak sunulur
 

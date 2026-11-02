@@ -211,3 +211,11 @@ def test_cli_list_add_keytest(rt, monkeypatch, capsys):
     assert main(["providers", "keytest"]) == 0
     assert "yaz/oku ✓ · sil ✓" in capsys.readouterr().out
     assert main(["providers", "test"]) == 2
+
+
+def test_default_model_is_a_chat_model():
+    groq_like = ["allam-2-7b", "distil-whisper-large-v3-en", "llama-3.1-8b-instant", "llama-3.3-70b-versatile",
+                 "meta-llama/llama-guard-4-12b", "playai-tts", "qwen/qwen3-32b", "whisper-large-v3"]
+    assert prov.pick_default_model(groq_like) == "llama-3.3-70b-versatile"
+    assert prov.pick_default_model(["whisper-1", "tts-1", "some-chat"]) == "some-chat"
+    assert prov.pick_default_model(["auto", "groq/llama-3.3-70b"]) == "groq/llama-3.3-70b"

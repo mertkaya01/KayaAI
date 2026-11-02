@@ -364,6 +364,21 @@ def _http_error(p: Provider, r: httpx.Response) -> ProviderError:
     return ProviderError(f"{p.label} HTTP {r.status_code}{hint}: {str(msg)[:200]}")
 
 
+NOT_CHAT = ("whisper", "tts", "guard", "embed", "playai", "distil", "moderation", "audio", "transcribe", "image", "vision-")
+PREFERRED = ("llama-3.3-70b", "gpt-oss-120b", "qwen3-32b", "kimi-k2", "gpt-oss", "qwen3", "llama-4", "llama-3.1-70b",
+             "mistral", "gemma", "llama", "qwen", "auto")
+
+
+def pick_default_model(models: list[str]) -> str:
+    """Bağlantı testinden sonra varsayılan: sohbet modeli (ses/koruma/gömme modelleri değil), bilinen iyi modeller önce."""
+    chat = [m for m in models if not any(k in m.lower() for k in NOT_CHAT)] or models
+    for pref in PREFERRED:
+        for m in chat:
+            if pref in m.lower():
+                return m
+    return chat[0]
+
+
 def test_connection(rt: "Runtime", provider_id: str, transport: httpx.BaseTransport | None = None) -> dict[str, Any]:
     """Model listesini ister (GET /models). Senin hiçbir verin gitmez; yalnız anahtar doğrulanır."""
     p = get_provider(rt, provider_id)
@@ -387,7 +402,7 @@ def test_connection(rt: "Runtime", provider_id: str, transport: httpx.BaseTransp
             items[p.id].models = models[:500]
             items[p.id].tested_at = time.strftime("%Y-%m-%dT%H:%M:%S")
             if not items[p.id].default_model and models:
-                items[p.id].default_model = models[0]
+                items[p.id].default_model = pick_default_model(models)
             _save(rt, items)
     ms = int((time.monotonic() - t0) * 1000)
     rt.store.emit("provider.test", {"id": p.id, "ok": True, "models": len(models), "ms": ms})
