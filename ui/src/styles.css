@@ -683,3 +683,48 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
 .hint { font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .agent:hover, .suggestion:hover { transform: none; } .sched-list li, .mem-item, .agent { transition: none; } }
+
+/* Ofis animasyonları (Adım 19a) */
+.flow-line .flow-base { fill: none; stroke: var(--line); stroke-width: 2; opacity: .55; }
+.flow-line.done .flow-base { stroke: color-mix(in srgb, var(--ok) 55%, var(--line)); opacity: .5; }
+.flow-line.pending .flow-base { stroke-dasharray: 3 5; opacity: .45; }
+.flow-line.active .flow-base { stroke: var(--accent); opacity: .35; stroke-width: 5; filter: blur(2px); }
+.flow-line .flow-dash { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 8; animation: flowdash .9s linear infinite; }
+.flow-line.dispute .flow-base { stroke: var(--bad); opacity: .5; stroke-width: 4; filter: blur(1.5px); }
+.flow-line.dispute .flow-dash { stroke: var(--bad); stroke-dasharray: 4 4; animation-duration: 1.6s; }
+.flow-spark { fill: #fff; filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
+@keyframes flowdash { to { stroke-dashoffset: -28; } }
+
+.fx .fx-screen { fill: #0d1117; stroke: #1f2a37; stroke-width: 1; }
+.fx .fx-line { transform-box: fill-box; transform-origin: left center; animation: fxtype 1.4s ease-in-out infinite; fill: #c9d1d9; }
+.fx-board .fx-line { fill: #3a4656; }
+.fx-paper .fx-line { fill: #5b677a; }
+.fx .fx-sheet { fill: #f6f8fa; stroke: #c8d1dc; stroke-width: .8; }
+.fx .fx-bar { transform-box: fill-box; transform-origin: bottom center; animation: fxbar 1.2s ease-in-out infinite alternate; }
+.fx .fx-caret { fill: #7ee787; animation: blink 1s steps(2, start) infinite; }
+.fx .fx-float { font: 700 6px "Cascadia Code", Consolas, monospace; fill: #f07ca8; animation: fxfloat 1.8s ease-out infinite; }
+.fx-review .fx-glass circle { fill: rgba(121, 192, 255, .25); stroke: #3a4656; stroke-width: 1.2; }
+.fx-review .fx-glass line { stroke: #3a4656; stroke-width: 1.6; stroke-linecap: round; }
+.fx-review .fx-glass { animation: fxscan 2.4s ease-in-out infinite alternate; }
+.fx-vision .fx-eye { fill: #e6f6ff; }
+.fx-vision .fx-pupil { fill: #0d1117; animation: fxlook 2.2s ease-in-out infinite alternate; }
+.fx.slow .fx-line, .fx.slow .fx-bar { animation-duration: 2.8s; opacity: .55; }
+@keyframes fxtype { 0% { transform: scaleX(.1); } 60%, 100% { transform: scaleX(1); } }
+@keyframes fxbar { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+@keyframes fxfloat { from { opacity: 0; transform: translateY(4px); } 30% { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
+@keyframes fxscan { from { transform: translate(-2px, 0); } to { transform: translate(3px, 6px); } }
+@keyframes fxlook { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+
+.thought .thought-cloud { fill: #f3f6f9; stroke: #c8d2dd; stroke-width: 1; }
+.thought .thought-dot { fill: #5b677a; animation: dotpulse 1.2s ease-in-out infinite; }
+.person.thinking .body { animation: think 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom; }
+.person.typing .body { animation: typing .28s ease-in-out infinite alternate; }
+@keyframes think { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-3deg); } }
+.person .mark.done { fill: var(--ok); font-size: 13px; }
+.person .mark.dispute { fill: var(--bad); font-size: 14px; }
+.person .mark.idle { fill: var(--muted); font-size: 10px; font-style: italic; opacity: .7; animation: zzz 3s ease-in-out infinite; }
+@keyframes zzz { 0%, 100% { opacity: .2; transform: translateY(0); } 50% { opacity: .8; transform: translateY(-4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-line .flow-dash, .fx *, .thought .thought-dot, .person.thinking .body, .person.typing .body, .person .mark.idle { animation: none !important; }
+}

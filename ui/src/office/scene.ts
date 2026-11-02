@@ -14,8 +14,20 @@ export type ActorState = "idle" | "working" | "waiting" | "error" | "done";
 
 export interface ActorDef { id: string; label: string; color: string; desk: Pt; kind: "agent" | "chef" | "owner" | "claude" }
 
+/** Ajanın masasındaki iş animasyonu (Adım 19a): kod satırları, grafik, kâğıt/daktilo, pano, büyüteç, göz, klavye. */
+export type WorkStyle = "code" | "chart" | "paper" | "board" | "review" | "vision" | "type";
+const STYLE: Record<string, WorkStyle> = {
+  coder: "code", data: "chart", document: "paper", chef: "board", reviewer: "review", vision: "vision",
+};
+export function workStyle(id: string): WorkStyle {
+  return STYLE[id] ?? "type";
+}
+
 export interface Actor extends ActorDef {
   state: ActorState;
+  activity: "thinking" | "typing" | null;  // çalışırken: ilk kelime gelmeden düşünüyor, kelimeler akarken yazıyor
+  style: WorkStyle;
+  dispute: boolean;           // bu işte bir anlaşmazlığın tarafı (⚖)
   bubble: string | null;      // balonda gösterilen kısa metin
   nodes: FlowNode[];          // bu karakterin bu işteki düğümleri (inceleme paneli için)
   active: FlowNode | null;    // şu an çalışan / son düğüm
@@ -72,7 +84,7 @@ const FIELD_VALUES: Record<string, string> = {
 };
 
 // Tek kelimelik seçim alanları: yarım değer ("a", "appr") gösterilmez
-const ENUM_FIELDS = new Set(["verdict", "mode", "language", "task_type", "severity", "agent", "category", "sensitivity"]);
+const ENUM_FIELDS = new Set(["verdict", "mode", "language", "task_type", "severity", "agent", "category", "sensitivity", "id", "depends_on"]);
 
 const RANK: Record<string, number> = { running: 5, waiting: 4, failed: 3, pending: 2, succeeded: 1, skipped: 0 };
 
@@ -85,27 +97,64 @@ export function deriveActors(graph: JobGraph | null, progress: Record<string, Pr
   const nodes = graph?.nodes ?? [];
   const ids = [...new Set(nodes.map(actorOf)), ...approvals.map(approvalActor).filter((x): x is string => !!x)];
   const defs = layout(ids);
+  const disputeActors = new Set(disputePairs(nodes).flat());
   return defs.map((d) => {
     const mine = nodes.filter((n) => actorOf(n) === d.id);
     const active = [...mine].sort((a, b) => (RANK[b.status] ?? 0) - (RANK[a.status] ?? 0))[0] ?? null;
     const approval = approvals.find((a) => approvalActor(a) === d.id) ?? null;
     let state: ActorState = "idle";
     let bubble: string | null = null;
+    let activity: Actor["activity"] = null;
     if (active) {
       if (active.status === "running") {
         state = "working";
         const p = active.task_id ? progress[active.task_id] : undefined;
-        const enumField = p?.field ? ENUM_FIELDS.has(p.field) : false;
-        bubble = p?.tail && !(enumField && !FIELD_VALUES[p.tail]) ? (FIELD_VALUES[p.tail] ?? p.tail) : `${active.label}…`;
-        if (p && p.attempt > 1) bubble = `(${p.attempt}. deneme) ${bubble}`;
+        activity = p && p.chars > 0 ? "typing" : "thinking";
+        if (activity === "typing") {
+          const enumField = p?.field ? ENUM_FIELDS.has(p.field) : false;
+          bubble = p?.tail && !(enumField && !FIELD_VALUES[p.tail]) ? (FIELD_VALUES[p.tail] ?? p.tail) : `${active.label}…`;
+          if (p && p.attempt > 1) bubble = `(${p.attempt}. deneme) ${bubble}`;
+        }
       } else if (active.status === "waiting") { state = "waiting"; bubble = "bekliyor…"; }
       else if (active.status === "failed") { state = "error"; bubble = active.error ? `Hata: ${active.error}` : "Hata"; }
       else if (active.status === "succeeded" && d.kind !== "owner") state = "done";
     }
     if (approval) { state = "waiting"; bubble = `Onay bekliyor: ${approval.action.summary}`; }
     if (d.id === "owner" && approvals.length && !approval) { state = "waiting"; bubble = `${approvals.length} onay bekliyor`; }
-    return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval };
+    const dispute = disputeActors.has(d.id);
+    return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval,
+             activity, style: workStyle(d.id), dispute };
   });
+}
+
+/** Anlaşmazlık tarafları: gözden geçirmesinde anlaşmazlık çıkan adımın ajanı ve denetçi. */
+function disputePairs(nodes: FlowNode[]): [string, string][] {
+  return nodes.filter((n) => n.kind === "step" && (n.review?.disputes ?? 0) > 0).map((n) => [actorOf(n), "reviewer"]);
+}
+
+/** İş akışı çizgisi (Adım 19a): iki masa arasında; durum ışığın görünüşünü belirler. */
+export interface Flow { key: string; from: string; to: string; status: "active" | "done" | "pending" | "dispute" }
+const FLOW_RANK: Record<Flow["status"], number> = { dispute: 4, active: 3, pending: 2, done: 1 };
+
+export function flows(graph: JobGraph | null): Flow[] {
+  if (!graph) return [];
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const out = new Map<string, Flow>();
+  const put = (f: Flow) => {
+    const old = out.get(f.key);
+    if (!old || FLOW_RANK[f.status] > FLOW_RANK[old.status]) out.set(f.key, f);
+  };
+  for (const e of graph.edges) {
+    const src = byId.get(e.source), dst = byId.get(e.target);
+    if (!src || !dst) continue;
+    const from = actorOf(src), to = actorOf(dst);
+    if (from === to) continue;
+    const status: Flow["status"] = dst.status === "running" || dst.status === "waiting" ? "active"
+      : src.status === "succeeded" && dst.status === "succeeded" ? "done" : "pending";
+    put({ key: `${from}>${to}`, from, to, status });
+  }
+  for (const [a, b] of disputePairs(graph.nodes)) put({ key: `${a}>${b}`, from: a, to: b, status: "dispute" });
+  return [...out.values()];
 }
 
 /** Önceki ve yeni grafik arasında yeni başlayan/biten düğümler → yürüyüşler. */

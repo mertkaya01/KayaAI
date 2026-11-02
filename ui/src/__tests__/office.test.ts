@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Approval, FlowNode, JobGraph } from "../api";
-import { actorOf, deriveActors, diffVisits, iso, layout, pickArt, taskGraph, type OfficeAssets } from "../office/scene";
+import { actorOf, deriveActors, diffVisits, flows, iso, layout, pickArt, taskGraph, workStyle, type OfficeAssets } from "../office/scene";
 
 function node(id: string, kind: FlowNode["kind"], status: FlowNode["status"], agent: string | null = null, task_id: string | null = null): FlowNode {
   return { id, kind, label: id, status, agent, model: "qwen3:8b", task_id, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null };
@@ -129,6 +129,48 @@ it("picks owner-drawn art by state with fallbacks", () => {
   expect(pickArt(assets, { id: "coder", kind: "agent", state: "idle" }, true)).toBe("/ofis/ajan-yuruyor.png");
   expect(pickArt(assets, { id: "chef", kind: "chef", state: "idle" })).toBeNull();  // "ajan" resmi yalnız ajanlar için
   expect(pickArt(null, { id: "data", kind: "agent", state: "idle" })).toBeNull();
+});
+
+describe("Adım 19a: animasyon bilgisi", () => {
+  const g = graph(
+    [node("request", "request", "succeeded"), node("planner", "planner", "succeeded", "planner"),
+     node("step-s1", "step", "succeeded", "data", "t1"), node("check-s1", "check", "succeeded", null, "t2"),
+     node("step-s2", "step", "running", "coder", "t3"), node("step-s3", "step", "pending", "document"),
+     node("result", "result", "pending")],
+    [["request", "planner"], ["planner", "step-s1"], ["step-s1", "check-s1"], ["check-s1", "step-s2"],
+     ["planner", "step-s3"], ["step-s2", "result"], ["step-s3", "result"]],
+  );
+
+  it("thinking before the first token, typing after", () => {
+    expect(deriveActors(g, {}, []).find((a) => a.id === "coder")!.activity).toBe("thinking");
+    expect(deriveActors(g, {}, []).find((a) => a.id === "coder")!.bubble).toBeNull();
+    const p = { t3: { task_id: "t3", worker: "coder", chars: 12, field: "answer", tail: "def f():", attempt: 1, at: 0 } };
+    const c = deriveActors(g, p, []).find((a) => a.id === "coder")!;
+    expect(c.activity).toBe("typing");
+    expect(c.bubble).toBe("def f():");
+    expect(deriveActors(g, p, []).find((a) => a.id === "data")!.activity).toBeNull();
+  });
+
+  it("work styles per agent", () => {
+    expect([workStyle("coder"), workStyle("data"), workStyle("document"), workStyle("chef"), workStyle("reviewer"), workStyle("satisci")])
+      .toEqual(["code", "chart", "paper", "board", "review", "type"]);
+  });
+
+  it("flows between desks with status, deduplicated", () => {
+    const f = Object.fromEntries(flows(g).map((x) => [x.key, x.status]));
+    expect(f).toEqual({ "owner>chef": "done", "chef>data": "done", "data>reviewer": "done", "reviewer>coder": "active",
+                        "chef>document": "pending", "coder>chef": "pending", "document>chef": "pending" });
+    expect(flows(null)).toEqual([]);
+  });
+
+  it("disputes mark both sides and add a dispute line", () => {
+    const d = graph([{ ...node("step-s1", "step", "succeeded", "data", "t1"), review: { verdict: "request_changes", issues: 1, disputes: 1 } },
+                     node("check-s1", "check", "succeeded", null, "t2")], [["step-s1", "check-s1"]]);
+    const a = deriveActors(d, {}, []);
+    expect(a.find((x) => x.id === "data")!.dispute && a.find((x) => x.id === "reviewer")!.dispute).toBe(true);
+    expect(a.find((x) => x.id === "coder")!.dispute).toBe(false);
+    expect(flows(d).find((x) => x.key === "data>reviewer")!.status).toBe("dispute");
+  });
 });
 
 it("iso projection", () => {

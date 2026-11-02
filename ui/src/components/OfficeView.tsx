@@ -3,8 +3,8 @@ import { api, ApiError, post, type Approval, type FlowNode, type JobGraph } from
 import { usePolling } from "../hooks";
 import { useProgress } from "../office/progress";
 import {
-  deriveActors, diffVisits, GRID, iso, pickArt, seat, STATE_TEXT, taskGraph, TILE, visitorSpot,
-  type Actor, type OfficeAssets, type Pt, type TaskLite, type Visit,
+  deriveActors, diffVisits, flows, GRID, iso, pickArt, seat, STATE_TEXT, taskGraph, TILE, visitorSpot,
+  type Actor, type Flow, type OfficeAssets, type Pt, type TaskLite, type Visit,
 } from "../office/scene";
 
 /**
@@ -89,6 +89,109 @@ function Desk({ a, lit, art }: { a: Actor; lit: boolean; art?: string | null }) 
   );
 }
 
+/** Masanın ekranındaki/panosundaki iş animasyonu (Adım 19a). Yalnız çalışırken; "hareketi azalt"ta CSS durdurur. */
+function WorkFx({ a }: { a: Actor }) {
+  if (a.state !== "working" || a.kind === "claude" || a.kind === "owner") return null;
+  const c = iso({ x: a.desk.x + 0.3, y: a.desk.y + 0.3 });
+  const h = TILE.h * 0.36, z = 14;
+  const mx = c.x + 8, my = c.y + h - z - 20;  // monitör (18×13)
+  const think = a.activity === "thinking";
+  switch (a.style) {
+    case "board": {  // şef: panoya madde yazar
+      const bx = c.x + 14, by = c.y - z - 30;
+      return (
+        <g className={`fx fx-board${think ? " slow" : ""}`} aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => <rect key={i} className="fx-line" x={bx + 5} y={by + 5 + i * 5} width={i === 3 ? 18 : 28} height={2} rx={1}
+                                          style={{ animationDelay: `${i * 0.35}s`, fill: i === 0 ? a.color : undefined }} />)}
+        </g>
+      );
+    }
+    case "code":  // kod: monitörde akan renkli satırlar + yükselen </>
+      return (
+        <g className={`fx fx-code${think ? " slow" : ""}`} aria-hidden="true">
+          <rect x={mx} y={my} width={18} height={13} rx={2} className="fx-screen" />
+          {[0, 1, 2].map((i) => <rect key={i} className="fx-line" x={mx + 2 + (i === 1 ? 3 : 0)} y={my + 2.5 + i * 3.3} width={i === 1 ? 10 : 13} height={1.6} rx={0.8}
+                                       style={{ animationDelay: `${i * 0.25}s`, fill: ["#7ee787", "#79c0ff", "#ff7b72"][i] }} />)}
+          {!think && <text className="fx-float" x={mx + 9} y={my - 3} textAnchor="middle">{"</>"}</text>}
+        </g>
+      );
+    case "chart":  // veri: büyüyen çubuklar
+      return (
+        <g className={`fx fx-chart${think ? " slow" : ""}`} aria-hidden="true">
+          <rect x={mx} y={my} width={18} height={13} rx={2} className="fx-screen" />
+          {[0, 1, 2, 3].map((i) => <rect key={i} className="fx-bar" x={mx + 2.5 + i * 3.6} y={my + 2} width={2.4} height={9}
+                                          style={{ animationDelay: `${i * 0.2}s`, fill: a.color }} />)}
+        </g>
+      );
+    case "paper":  // belge: daktilodan çıkan kâğıt, satırlar beliriyor
+      return (
+        <g className={`fx fx-paper${think ? " slow" : ""}`} aria-hidden="true">
+          <rect x={mx - 3} y={my - 9} width={14} height={18} rx={1.5} className="fx-sheet" />
+          {[0, 1, 2, 3].map((i) => <rect key={i} className="fx-line" x={mx - 1} y={my - 6 + i * 3.6} width={i === 3 ? 6 : 10} height={1.4} rx={0.7}
+                                          style={{ animationDelay: `${i * 0.3}s` }} />)}
+        </g>
+      );
+    case "review":  // denetçi: büyüteç kâğıdın üstünde gezer
+      return (
+        <g className={`fx fx-review${think ? " slow" : ""}`} aria-hidden="true">
+          <rect x={mx} y={my - 4} width={14} height={16} rx={1.5} className="fx-sheet" />
+          <g className="fx-glass"><circle cx={mx + 6} cy={my + 2} r={3.4} /><line x1={mx + 8.5} y1={my + 4.5} x2={mx + 11.5} y2={my + 7.5} /></g>
+        </g>
+      );
+    case "vision":  // görsel: ekranda göz
+      return (
+        <g className={`fx fx-vision${think ? " slow" : ""}`} aria-hidden="true">
+          <rect x={mx} y={my} width={18} height={13} rx={2} className="fx-screen" />
+          <ellipse className="fx-eye" cx={mx + 9} cy={my + 6.5} rx={5.5} ry={3.2} />
+          <circle className="fx-pupil" cx={mx + 9} cy={my + 6.5} r={1.6} />
+        </g>
+      );
+    default:  // genel: yazılan satırlar + yanıp sönen imleç
+      return (
+        <g className={`fx fx-type${think ? " slow" : ""}`} aria-hidden="true">
+          <rect x={mx} y={my} width={18} height={13} rx={2} className="fx-screen" />
+          {[0, 1].map((i) => <rect key={i} className="fx-line" x={mx + 2} y={my + 3 + i * 3.5} width={13} height={1.6} rx={0.8} style={{ animationDelay: `${i * 0.4}s` }} />)}
+          <rect className="fx-caret" x={mx + 2} y={my + 9.2} width={2} height={2.2} />
+        </g>
+      );
+  }
+}
+
+/** Masalar arası iş akışı (Adım 19a): yay biçimli çizgi; aktifte ışık akar, anlaşmazlıkta kırmızı kesikli. */
+function FlowLine({ f, actors, still }: { f: Flow; actors: Actor[]; still: boolean }) {
+  const a = actors.find((x) => x.id === f.from), b = actors.find((x) => x.id === f.to);
+  if (!a || !b) return null;
+  const p = iso({ x: a.desk.x + 0.5, y: a.desk.y + 0.5 }), q = iso({ x: b.desk.x + 0.5, y: b.desk.y + 0.5 });
+  const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2 - Math.max(18, Math.hypot(q.x - p.x, q.y - p.y) * 0.22);
+  const d = `M ${p.x} ${p.y} Q ${mx} ${my} ${q.x} ${q.y}`;
+  return (
+    <g className={`flow-line ${f.status}`} aria-hidden="true">
+      <path d={d} className="flow-base" />
+      {(f.status === "active" || f.status === "dispute") && <path d={d} className="flow-dash" />}
+      {f.status === "active" && !still && [0, 1, 2].map((i) => (
+        <circle key={i} r={2.6} className="flow-spark">
+          <animateMotion dur="1.6s" begin={`${i * 0.53}s`} repeatCount="indefinite" path={d} />
+        </circle>
+      ))}
+    </g>
+  );
+}
+
+/** Düşünce balonu: ilk kelime gelmeden (model hazırlanıyor / düşünüyor). */
+function ThoughtBubble({ a, at, scale }: { a: Actor; at: Pt; scale: number }) {
+  if (a.activity !== "thinking" || a.state !== "working") return null;
+  const p = iso(at);
+  const y = p.y - 52 * scale;
+  return (
+    <g className="thought" aria-hidden="true" transform={`translate(${p.x + 10 * scale} ${y}) scale(${scale})`}>
+      <circle cx={-6} cy={8} r={2} className="thought-cloud" />
+      <circle cx={-2} cy={3} r={3} className="thought-cloud" />
+      <rect x={0} y={-16} width={30} height={15} rx={7.5} className="thought-cloud" />
+      {[0, 1, 2].map((i) => <circle key={i} cx={8 + i * 7} cy={-8.5} r={1.8} className="thought-dot" style={{ animationDelay: `${i * 0.2}s` }} />)}
+    </g>
+  );
+}
+
 function bubbleOf(a: Actor, note: string | null): string | null {
   return note ?? (a.state === "working" || a.state === "waiting" || a.state === "error" ? a.bubble : null);
 }
@@ -110,10 +213,10 @@ function Bubble({ a, at, note, scale, bounds }: { a: Actor; at: Pt; note: string
 
 function Person({ a, at, selected, onSelect, scale, art }: { a: Actor; at: Pt; selected: boolean; onSelect: () => void; scale: number; art?: string | null }) {
   const p = iso(at);
-  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.bubble ? ` — ${a.bubble}` : ""}`;
+  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.activity === "thinking" ? " (düşünüyor)" : ""}${a.dispute ? " (anlaşmazlık)" : ""}${a.bubble ? ` — ${a.bubble}` : ""}`;
   return (
     <g
-      className={`person ${a.state}${selected ? " selected" : ""}`}
+      className={`person ${a.state}${a.activity ? ` ${a.activity}` : ""}${selected ? " selected" : ""}`}
       transform={`translate(${p.x} ${p.y}) scale(${scale})`}
       role="button"
       tabIndex={0}
@@ -134,6 +237,9 @@ function Person({ a, at, selected, onSelect, scale, art }: { a: Actor; at: Pt; s
       )}
       {a.state === "waiting" && <text x={12} y={-40} className="mark" aria-hidden="true">🔔</text>}
       {a.state === "error" && <text x={12} y={-40} className="mark" aria-hidden="true">!</text>}
+      {a.dispute && <text x={-24} y={-40} className="mark dispute" aria-hidden="true">⚖</text>}
+      {a.state === "done" && <text x={12} y={-40} className="mark done" aria-hidden="true">✓</text>}
+      {a.state === "idle" && a.kind === "agent" && <text x={10} y={-40} className="mark idle" aria-hidden="true">z</text>}
     </g>
   );
 }
@@ -286,6 +392,8 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
   const scale = compact ? 1.45 : 1;
   const minX = -GRID.h * (TILE.w / 2) - (compact ? 10 : 40), maxX = GRID.w * (TILE.w / 2) + (compact ? 10 : 40);
   const busyCount = actors.filter((a) => a.state === "working").length;
+  const flowList = useMemo(() => flows(graph), [graph]);
+  const still = reducedMotion();
 
   return (
     <div className={`office${compact ? " compact" : ""}`}>
@@ -314,8 +422,9 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
             <polygon className="wall" points={`${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y} ${iso({ x: GRID.w, y: 0 }).x},${iso({ x: GRID.w, y: 0 }).y} ${iso({ x: GRID.w, y: 0 }).x},${iso({ x: GRID.w, y: 0 }).y - 60} ${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y - 60}`} />
             <polygon className="wall dark" points={`${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y} ${iso({ x: 0, y: GRID.h }).x},${iso({ x: 0, y: GRID.h }).y} ${iso({ x: 0, y: GRID.h }).x},${iso({ x: 0, y: GRID.h }).y - 60} ${iso({ x: 0, y: 0 }).x},${iso({ x: 0, y: 0 }).y - 60}`} />
           </g>
+          <g className="flows">{flowList.map((fl) => <FlowLine key={fl.key} f={fl} actors={actors} still={still} />)}</g>
           {layers.map((l) => l.kind === "desk"
-            ? <Desk key={`d-${l.a.id}`} a={l.a} lit={l.a.state === "working"} art={assets.data?.desk} />
+            ? <g key={`d-${l.a.id}`}><Desk a={l.a} lit={l.a.state === "working"} art={assets.data?.desk} /><WorkFx a={l.a} /></g>
             : <Person key={l.a.id} a={l.a} at={l.at} scale={scale} selected={l.a.id === selected}
                       art={pickArt(assets.data, l.a, "walking" in l && !!l.walking)}
                       onSelect={() => setSelected(l.a.id === selected ? null : l.a.id)} />)}
@@ -324,7 +433,9 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
             return <text key={`n-${a.id}`} x={p.x} y={p.y + 40 * scale} className={`name${a.id === selected ? " sel" : ""}`}
                          textAnchor="middle" aria-hidden="true" style={{ fontSize: `${11 * scale}px` }}>{a.label}</text>;
           })}
-          {placed.map(({ a, at, note }) => <Bubble key={`b-${a.id}`} a={a} at={at} note={note} scale={scale} bounds={[minX, maxX]} />)}
+          {placed.map(({ a, at, note }) => note || a.activity !== "thinking"
+            ? <Bubble key={`b-${a.id}`} a={a} at={at} note={note} scale={scale} bounds={[minX, maxX]} />
+            : <ThoughtBubble key={`t-${a.id}`} a={a} at={at} scale={scale} />)}
         </svg>
         {sel && <Inspector a={sel} graph={graph} onClose={() => setSelected(null)} onChanged={() => { setLocalKey((k) => k + 1); void approvals.reload(); }} />}
       </div>
