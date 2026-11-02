@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EmptyState } from "./EmptyState";
 import { post, type SubmitResult } from "../api";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
@@ -69,7 +70,11 @@ export function ScheduleView({ refreshKey = 0 }: { refreshKey?: number }) {
         {d && d.sync.supported && (d.sync.missing.length > 0 || d.sync.orphans.length > 0) && (
           <p className="warn-text small">Tutarsızlık: Windows'ta eksik {d.sync.missing.join(", ") || "—"} · kayaAI'de olmayan {d.sync.orphans.join(", ") || "—"}</p>
         )}
-        {d?.schedules.length === 0 && <p className="muted">Henüz görev yok. Aşağıdan ekle; ekleme senin onayınla Windows'a kaydedilir.</p>}
+        {d?.schedules.length === 0 && (
+          <EmptyState icon="schedule" title="Henüz zamanlanmış görev yok">
+            Aşağıdan ekle — örneğin her sabah belge klasörü özeti. Ekleme senin onayınla Windows'a kaydedilir.
+          </EmptyState>
+        )}
         <ul className="sched-list">
           {d?.schedules.map((s) => (
             <li key={s.id} className={s.enabled ? "" : "off"}>

@@ -5,6 +5,7 @@ import { ago } from "../format";
 import { usePolling } from "../hooks";
 import { OfficeView } from "./OfficeView";
 import { OfficeArtPanel } from "./OfficeArtPanel";
+import { EmptyState } from "./EmptyState";
 
 const STATUS_TEXT: Record<string, string> = {
   pending: "bekliyor", running: "çalışıyor", succeeded: "tamamlandı", failed: "başarısız", waiting: "bekletiliyor", skipped: "atlandı",
@@ -96,7 +97,9 @@ export function FlowView({ jobId, onSelect, refreshKey, approvalsKey }: { jobId:
     <main className="flow">
       <aside className="panel flow-list">
         <h2>İşler</h2>
-        {jobs.data?.length === 0 && <p className="muted">Henüz şef işi yok. Asistan'da "Otomatik" ile bir soru sor ya da <code>kayaai do "…"</code>.</p>}
+        {jobs.data?.length === 0 && (
+          <EmptyState icon="office" title="Henüz iş yok">Asistan'da bir şey sor; ekip burada çalışırken görünür.</EmptyState>
+        )}
         <ul>
           {jobs.data?.map((j) => (
             <li key={j.id}>

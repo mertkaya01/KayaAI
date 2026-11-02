@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { EmptyState } from "./EmptyState";
 import { api, post, type DocumentsView, type MemCategory, type MemoryItem, type RecallView, type Sensitivity } from "../api";
 import { MEM_CATEGORY_LABEL, SENSITIVITY_LABEL, ago } from "../format";
 import { usePolling } from "../hooks";
@@ -227,7 +228,11 @@ export function MemoryView({ refreshKey }: { refreshKey: number }) {
               {CATEGORIES.map((c) => <option key={c} value={c}>{MEM_CATEGORY_LABEL[c]}</option>)}
             </select>
           </div>
-          {items.data && active.length === 0 && <p className="muted">Gösterilecek öğe yok.</p>}
+          {items.data && active.length === 0 && (
+            <EmptyState icon="memory" title="Burada henüz bir şey yok">
+              Yukarıdan ekle ya da sohbette <code>hatırla: …</code> yaz. Süzgeç açıksa onu temizle.
+            </EmptyState>
+          )}
           <ul className="mem-list">{active.map((m) => <ItemRow key={m.id} m={m} onChanged={changed} />)}</ul>
         </section>
       </div>
@@ -245,7 +250,7 @@ export function MemoryView({ refreshKey }: { refreshKey: number }) {
                 {st.not_embedded > 0 && ` · ${st.not_embedded} dosya yalnızca kelime aramasında (bge-m3 kurulu değildi)`}
               </p>
               <p className="muted">Klasörler: {st.roots.map((r) => <code key={r}>{r}</code>)}</p>
-              <p className="muted">Metin dosyaları (md, txt, csv, kod…) dizinlenir; .env, anahtar dosyaları ve parola geçen parçalar atlanır. PDF/Word Adım 10'da.</p>
+              <p className="muted">Metin dosyaları (md, txt, csv, kod…), PDF ve Excel dizinlenir; .env, anahtar dosyaları ve parola geçen parçalar atlanır.</p>
             </>
           )}
           {docs.data && docs.data.documents.length === 0 && <p className="muted">Henüz dizinlenmiş belge yok. Klasöre dosya koyup "Şimdi dizinle"ye bas.</p>}

@@ -26,7 +26,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 15 | Canlı ofis: ajanlar 2B izometrik ofiste çalışır, canlı yazar, birbirine iş teslim eder; Asistan'ın yanında + tam ekran | Kodlandı (Windows kontrolü bekliyor) |
 | 16 | Yeni tasarım (açık/koyu tema), sol menü, "Bugün" giriş ekranı, bildirimler (tarayıcı + Windows) | Kodlandı (Windows kontrolü bekliyor) |
 | 17 | Bulut köprüsü (OmniRoute) | Denendi, **kaldırıldı** (Adım 18; sahip kurmayacak) |
-| 18 | Asistan yenileme, `kayaai watch`, ofis ayrı sayfa + çizim yapısı, arayüz cilası | Sürüyor |
+| 18 | Asistan yenileme, `kayaai watch`, ofis ayrı sayfa + çizim yapısı, arayüz cilası | Kodlandı (Windows kontrolü bekliyor) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 

@@ -281,7 +281,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 
 ---
 
-## 12. Current state (v0.17.0) — roadmap Steps 0–13 complete + Step 14 (reference-review improvements)
+## 12. Current state (v0.18.0) — roadmap Steps 0–13 complete + Step 14 (reference-review improvements)
 
 | Phase | Content | Status |
 |---|---|---|
@@ -301,7 +301,7 @@ Rules: no placeholder buttons that look functional; every visible control works 
 | 15 | Live office (owner design, 2026-11-01): 2D isometric office where agents work at desks, live streaming text in speech bubbles, walk to each other on hand-off/review, come to the owner's desk for approvals; click → inspector (approve/reject, stop a step); beside the Assistant chat + full screen (Ofis page, flow graph as second view); streaming Ollama + throttled `task.progress` events | [~] built; Windows check pending |
 | 16 | Design refresh (owner: "airier, advanced"): light/dark/system theme, left sidebar (collapsible, mobile drawer), "Today" landing (`/api/today`: approvals with one-click decide, live office of the running job, schedules, recent chats, system, optional rates/holiday), notifications (browser while the tab is in the background; Windows toast from unattended scheduled runs; kinds + quiet hours) | [~] built; Windows check pending |
 | 17 | Cloud bridge (OmniRoute) — built, then **removed** in Step 18 (owner will not install OmniRoute; simpler path: bigger local model / Claude mode) | [x] removed |
-| 18 | Assistant redesign (two columns, modern messages, streaming answers), `kayaai watch`, office as its own page with owner-drawn assets, UI polish | [~] in progress |
+| 18 | Assistant redesign (two columns, modern messages, streaming answers), `kayaai watch`, office as its own page with owner-drawn assets (`data/ofis`), UI polish (page headers, empty states, cards, transitions) | [~] built; Windows check pending |
 | 14 | Improvements from the reference review (owner chose all four): automation pause switch (kill switch), write denylist for secret-like/executable files, optional external data (Frankfurter rates, Nager.Date holidays; off by default, R2 to enable), accessibility pass (axe: 0 violations, skip link, focus) | [x] done (Windows-verified) |
 | 7 | Agent system: data/document specialists, evidence-based producer→reviewer flow, code_syntax checks (no execution), disputes escalated to Claude (if on) or owner, temporary agents with permission ceiling + owner promotion | [x] Windows-verified (`agents_check` 6/6); v0.7.1 fixes CJK leak, contradictory review items |
 

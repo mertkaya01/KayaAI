@@ -19,6 +19,18 @@ import { NotificationsPanel } from "./components/NotificationsPanel";
 import { Icon } from "./icons";
 import { useBrowserNotifier } from "./notify";
 import { readPref, useTheme, writePref } from "./theme";
+import type { IconName } from "./icons";
+
+/** Sayfa başlıkları (Adım 18e): her sayfada aynı düzen — simge, başlık, tek satır açıklama. Bugün ve Asistan kendi düzeninde. */
+const PAGE_INFO: Partial<Record<string, [IconName, string, string]>> = {
+  flow: ["office", "Ofis", "Şefin ekibi burada çalışır; bir karaktere tıkla, ne yaptığını gör."],
+  memory: ["memory", "Hafıza", "Hatırlamamı istediklerin ve dizinlenen belgelerin — hepsi bu bilgisayarda."],
+  schedule: ["schedule", "Zamanlama", "Belirli saatlerde kendiliğinden çalışan görevler (Windows Görev Zamanlayıcı)."],
+  browser: ["browser", "Tarayıcı", "Ayrı bir Edge profilinde adım adım iş yapar; riskli adımlar onayına gelir."],
+  subtitles: ["subtitles", "Altyazı", "Konuşmayı canlı yazıya ve istersen çeviriye döker; ses saklanmaz."],
+  models: ["models", "Modeller", "Yüklü modeller, hangi ajanın hangi modeli kullandığı, indirme ve karşılaştırma."],
+  control: ["system", "Sistem", "Donanım, onaylar, ajanlar, dış veri ve bildirim ayarları."],
+};
 import { useEvents, usePolling } from "./hooks";
 import { useRoute } from "./route";
 import { ingestProgress } from "./office/progress";
@@ -158,7 +170,16 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         <button className="icon-btn" onClick={() => setDrawer(true)} aria-label="Menüyü aç"><Icon name="menu" /></button>
         <strong>kayaAI</strong>
       </div>
-      <div id="main" tabIndex={-1}>
+      {PAGE_INFO[route.page] && (
+        <header className="page-head" key={`h-${route.page}`}>
+          <span className="page-icon" aria-hidden="true"><Icon name={PAGE_INFO[route.page]![0]} size={22} /></span>
+          <div>
+            <h2>{PAGE_INFO[route.page]![1]}</h2>
+            <p className="muted">{PAGE_INFO[route.page]![2]}</p>
+          </div>
+        </header>
+      )}
+      <div id="main" tabIndex={-1} key={route.page} className="page-anim">
       {route.page === "today" ? (
         <TodayView refreshKey={todayKey} flowKey={flowKey} approvalsKey={keys.approvals} onNavigate={go}
                    onPrefsChanged={() => setNotifyKey((k) => k + 1)} />

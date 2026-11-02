@@ -2,6 +2,21 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.18.0] - 2026-11-02
+
+### Eklendi / Değişti (Adım 18 — sahip planı)
+- **Asistan yenilendi**: iki sütun (sohbetler | konuşma), ortalı okuma alanı; senin mesajın balon, cevap düz metin
+  (logo + ajan etiketi); araçlar (kopyala, sesli oku, rapor, ofiste göster, Claude'a devret) üzerine gelince; tek ajanlı
+  cevap **yazıldıkça akar**; şef işinde tek satır durum ("Veri yazıyor: …") + Ofiste izle; yazdıkça büyüyen tek parça
+  mesaj kutusu; boş sohbette öneri kartları; sohbet listesinde arama ve tarih grupları
+- **`kayaai watch`**: olayları terminalde canlı, Türkçe ve renkli izle (`--onay`, `--isler`, `--hepsi`, `--canli`)
+- **Ofis ayrı sayfa** ve **sahibin çizimleri**: `data\ofis\` (`veri.png`, `veri-calisiyor.png`, `masa.png`,
+  `zemin.png`…), Ofis → 🎨 Çizimler paneli, `docs/OFIS_CIZIM.md`
+- **Cila**: sayfa başlıkları, boş ekranlar, kart görünümü, yumuşak sayfa geçişi
+
+### Kaldırıldı
+- Bulut köprüsü (Adım 17, OmniRoute) — sahip kurmayacak; kod, API, CLI, arayüz ve belgeler kaldırıldı
+
 ## [0.17.0] - 2026-11-01
 
 ### Eklendi (Adım 17 — bulut köprüsü; ilke değişikliği, sahip kararı)

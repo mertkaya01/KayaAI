@@ -238,8 +238,9 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   öneri kartları, aranabilir ve tarihe göre gruplu liste — Vitest 36, Playwright (akış, durum satırı, arama), axe 0
 - [x] 18b — `kayaai watch` (önemliler / --onay / --isler / --hepsi / --canli / --gecmis / --renksiz) — Python 14
 - [x] 18c — Bulut köprüsü tamamen kaldırıldı (kod, API, CLI, arayüz, testler, belgeler); ofisin tek ajanlı iş görünümü kaldı
-- [x] 18d — Ofis ayrı sayfa; `data/ofis` çizimleri (Türkçe adlar, durum resimleri, masa, zemin; yoksa şekil), `/api/office/assets`, `/ofis/<dosya>` (yalnız resim, kaçış/boyut kontrolü), 🎨 Çizimler paneli, `docs/OFIS_CIZIM.md` — Python 4, Vitest 37, Playwright (örnek çizimler sahnede)
-- [ ] 18e — Genel arayüz cilası
+- [x] 18d — Ofis ayrı sayfa; `data/ofis` çizimleri (Türkçe adlar, durum resimleri, masa, zemin; yoksa şekil), `/api/office/assets`, `/ofis/<dosya>` (yalnız resim, kaçış/boyut kontrolü), 🎨 Çizimler paneli, `docs/OFIS_CIZIM.md` — Python 4, Vitest 36, Playwright (örnek çizimler sahnede)
+- [x] 18e — Cila: her sayfada aynı başlık (simge + açıklama), boş ekranlar (Hafıza, Zamanlama, Ofis), kart görünümü (görevler, hafıza, ajanlar, ölçerler), sayfa geçişi (hareketi azalt'ta yok), eskimiş metinler — axe 9 sayfa × 2 tema 0 ihlal
+- [ ] Windows: yeni Asistan (akan cevap), `kayaai watch`, Ofis → 🎨 Çizimler
 - [ ] Sahip: `qwen3:14b` indir → Modeller'de zor işlerdeki ajanlarla karşılaştır
 
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
