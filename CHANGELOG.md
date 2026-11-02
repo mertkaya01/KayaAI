@@ -2,6 +2,18 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.20.1] - 2026-11-02
+
+### Eklendi (Adım 20b — dış sağlayıcı kullanımı)
+- **Mesaj başına ☁**: açık bir sağlayıcı varsa mesaj kutusunda "Yerel model / ☁ Groq · model" seçimi; şef işinde
+  seçim her adıma (plan, adımlar, gözden geçirme) geçer. Cevapta ☁ etiketi (hangi sağlayıcı/model)
+- **Ajan → dış model** (Modeller): bir ajanın bütün işlerini açık bir sağlayıcıya ver (sahip onayı R2, satır içi);
+  "Yerele al" onaysız. Görsel ajan hiçbir zaman. Silinen sağlayıcının atamaları düşer
+- **Veri kapısı** her çağrıda: hafıza, belge parçaları, görüntüler, bilgisayar ölçümü çıkarılır; gizli bilgi görülürse
+  istek gitmez. Kapalı sağlayıcı, günlük sınır, anahtar yok, HTTP hatası/kota → aynı denemede tam girdiyle yerel model;
+  cevapta "☁ kullanılamadı, yerel model cevapladı: …" uyarısı. JSON kipini desteklemeyen model için bir kez onsuz
+- Ofiste dış modelde çalışan ajanın üstünde ☁; `kayaai watch`: ☁ çağrıları (metinsiz), engellenenler
+
 ## [0.20.0] - 2026-11-02
 
 ### Eklendi (Adım 20a — dış LLM sağlayıcıları; ilke değişikliği, sahip kararı)

@@ -98,6 +98,8 @@ export interface ProvidersStatus {
   providers: ProviderRow[];
   presets: { preset: string; label: string; base_url: string; note: string }[];
   key_backend: string;
+  assignments: Record<string, { provider: string; model: string }>;
+  pending_assign: Record<string, string>;
 }
 
 export function eventsUrl(token: string, after?: number): string {
@@ -280,6 +282,8 @@ export interface ChatMessage {
     vision?: { ocr_text: string; verified: boolean | null; seconds: number; model: string | null };
     agents?: string[];
     model?: string | null;
+    cloud?: string[];            // Adım 20b: dış sağlayıcıda çalışan adımların modelleri (şef işi)
+    cloud_requested?: string;    // bu mesajda seçilen ☁ sağlayıcı/model
     routing?: string | null;
     duration_s?: number | null;
     reviewed?: number;

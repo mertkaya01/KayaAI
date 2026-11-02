@@ -633,6 +633,9 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .inbox-wait { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0; background: var(--hover); }
 .inbox-wait p { margin: 0 0 8px; color: var(--text); }
 /* Dış sağlayıcılar (Adım 20) */
+.cloud-pick.on { border-color: var(--warn); color: var(--text); }
+.mark.cloud { fill: var(--warn); font-size: 14px; }
+.cloud-chip { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
 .prov { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; }
 .prov-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .prov-head h3 { margin: 0; font-size: 15px; }

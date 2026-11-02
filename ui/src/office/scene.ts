@@ -28,6 +28,7 @@ export interface Actor extends ActorDef {
   activity: "thinking" | "typing" | null;  // çalışırken: ilk kelime gelmeden düşünüyor, kelimeler akarken yazıyor
   style: WorkStyle;
   dispute: boolean;           // bu işte bir anlaşmazlığın tarafı (⚖)
+  cloud: boolean;             // Adım 20b: bu işte dış sağlayıcıda çalıştı (☁)
   bubble: string | null;      // balonda gösterilen kısa metin
   nodes: FlowNode[];          // bu karakterin bu işteki düğümleri (inceleme paneli için)
   active: FlowNode | null;    // şu an çalışan / son düğüm
@@ -130,7 +131,7 @@ export function deriveActors(graph: JobGraph | null, progress: Record<string, Pr
     if (d.id === "owner" && approvals.length && !approval) { state = "waiting"; bubble = `${approvals.length} onay bekliyor`; }
     const dispute = disputeActors.has(d.id);
     return { ...d, state, bubble: bubble && bubble.length > 120 ? bubble.slice(0, 119) + "…" : bubble, nodes: mine, active, approval,
-             activity, style: workStyle(d.id), dispute };
+             activity, style: workStyle(d.id), dispute, cloud: mine.some((n) => (n.model ?? "").startsWith("☁")) };
   });
 }
 

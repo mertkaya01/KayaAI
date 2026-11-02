@@ -268,7 +268,10 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   (Windows Kimlik Bilgisi Yöneticisi / sunucuda 0600 dosya / ortam değişkeni; asla geri dönmez), bağlantı testi
   (yalnız /models), R2 onaylı açma (önizleme) / R1 kapatma, Sistem → Dış sağlayıcılar paneli (satır içi onay),
   `kayaai providers …` — Python 9, Playwright (ekle → anahtar → dene → onayla → açık), axe 0
-- [ ] 20b — Kullanım: mesaj başına ☁, ajan ataması, veri kapısı, metinsiz kayıt, yerel yedek, ofiste ☁
+- [x] 20b — Kullanım: mesaj başına ☁ (şef her adıma geçirir), Modeller → Ajan → dış model (R2, satır içi onay),
+  veri kapısı (hafıza/belge/görüntü/bilgisayar ölçümü çıkarılır; gizli bilgi → gitmez), hata/kota/sınır/kapalı →
+  yerel model + uyarı, JSON kipi yoksa onsuz, cevapta ve ofiste ☁ — Python 9, Vitest 42, Playwright (☁ ile mesaj →
+  dış cevap + etiket; Şef ataması → onay → ☁), axe 0
 - [ ] Windows: `kayaai providers keytest` (Kimlik Bilgisi Yöneticisi), Groq ekle → anahtar → Bağlantıyı dene
 
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek

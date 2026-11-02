@@ -374,6 +374,10 @@ daha gösterilmez) → **Bağlantıyı dene** (yalnız model listesi; verin gitm
 Kapalıyken hiçbir şey dışarı gitmez; açıkken de yalnız sen seçince kullanılır. Hafızan, belgelerin, ekran görüntüleri
 ve bilgisayar ölçümü asla gitmez. Terminalden: `kayaai providers list|add groq|key groq|test groq|keytest`.
 
+Kullanmak: Asistan'da mesaj kutusunun sağındaki **Yerel model / ☁ Groq · …** seçimi (yalnız o mesaj), ya da
+Modeller → **Ajan → dış model** (o ajanın bütün işleri; onay ister — ör. Şef'i büyük bir modele vermek planları
+iyileştirir). Sağlayıcı hata verirse, kota dolarsa ya da gizli bilgi görülürse iş yerel modelle yapılır ve cevapta yazar.
+
 ## Büyük belge havuzu: Qdrant (Adım 19b, isteğe bağlı)
 
 Masaüstünde vektörler SQLite'ta kalır (önerilen). Çok büyük belge havuzunda Qdrant kullanılabilir:

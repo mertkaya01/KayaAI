@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AgentCloudPanel } from "./AgentCloudPanel";
 import { post, type CompareRecord, type KEvent, type ModelAdmin, type ModelRow, type SubmitResult } from "../api";
 import { ago } from "../format";
 import { usePolling } from "../hooks";
@@ -263,11 +264,14 @@ export function ModelsView({ refreshKey, events }: { refreshKey: number; events:
         <ModelTable data={data} act={act} />
       </section>
       <div className="models-grid">
-        <section className="panel">
-          <h2>Ajan → model</h2>
-          <p className="muted small">Değişiklik sahip onayı ister; repo dosyaları değişmez (data/agent_overrides.yaml).</p>
-          <AgentModels data={data} act={act} />
-        </section>
+        <div className="col">
+          <section className="panel">
+            <h2>Ajan → model</h2>
+            <p className="muted small">Değişiklik sahip onayı ister; repo dosyaları değişmez (data/agent_overrides.yaml).</p>
+            <AgentModels data={data} act={act} />
+          </section>
+          <AgentCloudPanel />
+        </div>
         <div className="col">
           <section className="panel">
             <h2>Yeni model indir</h2>

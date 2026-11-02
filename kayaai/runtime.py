@@ -95,9 +95,10 @@ def build_runtime(
     sb = Sandbox(rt)
     permissions.executors.update(sandbox_executors(sb))
     rt.orchestrator.sandbox = sb
-    from .llm.providers import executors as provider_executors  # Adım 20
+    from .llm.providers import Outbound, executors as provider_executors  # Adım 20
 
     permissions.executors.update(provider_executors(rt))
+    rt.orchestrator.outbound = Outbound(rt)
     from .integrations import executors as integration_executors
 
     permissions.executors.update(integration_executors(rt))

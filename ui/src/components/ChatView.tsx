@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { api, post, ApiError, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView, type SubmitResult } from "../api";
+import { api, post, ApiError, type ProvidersStatus, type Agent, type AttachmentRef, type ChatMessage, type ClaudeStatus, type Conversation, type ConversationView, type SubmitResult } from "../api";
 import { ago, groupByDate } from "../format";
 import { usePolling } from "../hooks";
 import { Icon, type IconName } from "../icons";
@@ -110,6 +110,8 @@ function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onO
   const memories = m.recall?.memories ?? [];
   const waiting = m.status === "pending" || m.status === "running" || m.status === "waiting_claude";
   const agents = m.meta.agents?.length ? m.meta.agents.map(agentName).join(" → ") : m.agent === "auto" ? "" : agentName(m.agent);
+  // Adım 20b: cevabın (bir kısmı) dış sağlayıcıda mı üretildi
+  const cloudUsed = [...(m.meta.cloud ?? []), ...(m.meta.model?.startsWith("☁") ? [m.meta.model] : [])];
   // Devredilen iş yerel ekibe verildiyse cevabı yerel ajan yazdı: Claude etiketi yalnız beklerken ve Claude yazdıysa
   const isClaude = m.handoff ? (waiting || (m.meta.agents?.length ?? 0) === 0) : m.agent === "claude";
   const live = waiting && m.job_kind === "task" && m.job_id ? progress[m.job_id]?.answer : undefined;
@@ -139,6 +141,9 @@ function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onO
         <header className="msg-head">
           <strong>{isClaude ? "Claude" : "kayaAI"}</strong>
           {agents && <span className="agent-chip">{agents}</span>}
+          {cloudUsed.length > 0 && (
+            <span className="agent-chip cloud-chip" title={`Dış sağlayıcıda üretildi: ${cloudUsed.join(", ")}`}>{cloudUsed.length === 1 ? cloudUsed[0] : `☁ ${cloudUsed.length} model`}</span>
+          )}
           <span className="muted small">{ago(m.created_at)}</span>
         </header>
         {waiting ? (
@@ -235,6 +240,9 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
   const [viewKey, setViewKey] = useState(0);
   const list = usePolling<Conversation[]>("/api/chat", 20000, `${listKey}-${refreshKey}`);
   const agents = usePolling<Agent[]>("/api/agents", 30000);
+  const providers = usePolling<ProvidersStatus>("/api/providers", 30000);
+  const [cloud, setCloud] = useState("");  // "" = yerel; "sağlayıcı" = o sağlayıcının varsayılan modeli
+  const cloudChoices = (providers.data?.providers ?? []).filter((p) => p.enabled && p.default_model);
   const progress = useProgress();
   const [view, setView] = useState<ConversationView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -315,7 +323,9 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
         id = (await post<Conversation>("/api/chat", {})).id;
         onSelect(id);
       }
-      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id), mode: mode ?? null });
+      const chosen = cloudChoices.find((p) => p.id === cloud);
+      await post(`/api/chat/${id}/messages`, { text: body, agent, attachments: attachments.map((a) => a.id), mode: mode ?? null,
+                                              cloud: chosen ? { provider: chosen.id, model: chosen.default_model } : null });
       setText("");
       setAttachments([]);
       setListKey((k) => k + 1);
@@ -585,6 +595,13 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
                 </>
               )}
               <span className="spacer" />
+              {cloudChoices.length > 0 && (
+                <select className={`agent-pick cloud-pick${cloud ? " on" : ""}`} value={cloud} onChange={(e) => setCloud(e.target.value)}
+                        aria-label="Model kaynağı" title={cloud ? "Bu mesaj dış sağlayıcıya gider (hafıza, belgeler, ekran asla gitmez)" : "Yerel model (bu bilgisayar)"}>
+                  <option value="">Yerel model</option>
+                  {cloudChoices.map((p) => <option key={p.id} value={p.id}>☁ {p.label} · {p.default_model}</option>)}
+                </select>
+              )}
               <select className="agent-pick" value={agent} onChange={(e) => setAgent(e.target.value)} aria-label="Ajan">
                 <option value="auto">Otomatik · şef seçer</option>
                 {choices.map((a) => (
@@ -596,7 +613,9 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
               </button>
             </div>
           </div>
-          <p className="composer-hint muted">Her şey bu bilgisayarda çalışır. Hafıza ve belgeler otomatik aranır; kullanılırsa cevabın altında görünür.</p>
+          <p className="composer-hint muted">{cloudChoices.find((p) => p.id === cloud)
+            ? `☁ Bu mesaj ${cloudChoices.find((p) => p.id === cloud)!.label} sağlayıcısına gider: yalnız mesaj, sohbet ve eklediğin dosya. Hafıza, belgeler, ekran ve bilgisayar ölçümü gitmez.`
+            : "Her şey bu bilgisayarda çalışır. Hafıza ve belgeler otomatik aranır; kullanılırsa cevabın altında görünür."}</p>
         </div>
       </section>
     </main>

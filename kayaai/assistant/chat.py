@@ -320,7 +320,8 @@ class ChatBook:
         self._save_conv(conv)
 
     def send(self, conv_id: str, text: str, agent: str = AUTO, attachment_ids: list[str] | None = None,
-             mode: BusinessMode | None = None) -> tuple[ChatMessage, ChatMessage, Callable[[], None]]:
+             mode: BusinessMode | None = None, cloud: dict[str, str] | None = None,
+             ) -> tuple[ChatMessage, ChatMessage, Callable[[], None]]:
         """Kullanıcı mesajını kaydeder, bekleyen asistan mesajını ve işi oluşturur. Üçüncü değer: işi çalıştıran
         çağrılabilir (API onu arka plan kuyruğuna verir, CLI/test doğrudan çağırır)."""
         conv = self.get(conv_id)
@@ -333,6 +334,16 @@ class ChatBook:
             raise ChatError(f"Bilinmeyen ajan: {agent}")
         if agent in ("planner", "reviewer"):
             raise ChatError(f"'{agent}' yalnızca şefin iç ajanıdır; 'otomatik' ya da bir uzman seç")
+        if cloud:  # Adım 20b: sahip bu mesaj için ☁ dış sağlayıcı seçti
+            from ..llm.providers import ProviderError, get_provider
+
+            try:
+                p = get_provider(self.rt, str(cloud.get("provider", "")))
+            except ProviderError as exc:
+                raise ChatError(str(exc)) from exc
+            if not p.enabled:
+                raise ChatError(f"{p.label} kapalı (Sistem → Dış sağlayıcılar)")
+            cloud = {"provider": p.id, "model": str(cloud.get("model") or p.default_model)}
         refs = []
         for att_id in attachment_ids or []:
             a, _ = self.attachment(att_id)
@@ -366,6 +377,9 @@ class ChatBook:
             return user, reply, runner
         reply = ChatMessage(conv_id=conv_id, role="assistant", status="pending", agent=agent, reply_to=user.id)
         ctx, warnings = self.build_context(conv_id, user, refs)
+        if cloud:
+            ctx["_cloud"] = cloud  # iç işaret: modele gitmez; şef her adıma geçirir, işçi veri kapısından geçirip gönderir
+            reply.meta["cloud_requested"] = f"{cloud['provider']}/{cloud['model']}"
         reply.warnings = reply.context_warnings = warnings
         runner = self._start(reply, text, agent, ctx, force=None)
         self._touch(conv, text)
@@ -625,7 +639,8 @@ class ChatBook:
             res = job.result or {}
             if msg.job_kind == "conductor":
                 msg.content = str(res.get("answer", ""))
-                msg.meta = _conductor_meta(res)
+                msg.meta = {**({"cloud_requested": msg.meta["cloud_requested"]} if msg.meta.get("cloud_requested") else {}),
+                            **_conductor_meta(res)}
                 # İşin GÜNCEL uyarıları (kutudan tamamlanınca "kutuya bırakıldı" uyarısı silinir)
                 msg.warnings = _merge(msg.context_warnings, res.get("warnings", []))
                 if res.get("completed_by"):
@@ -633,8 +648,12 @@ class ChatBook:
                     msg.meta["agents"] = []  # planın önerdiği yerel ajanlar cevabı yazmadı
             else:
                 msg.content = str(res.get("answer", ""))
-                msg.meta = {"agents": [job.worker], "model": job.model}
+                msg.meta = {**msg.meta, "agents": [job.worker], "model": job.model}
                 msg.agent = job.worker
+                cloud_note = str((job.metrics or {}).get("cloud") or "")
+                if cloud_note.startswith("yerel"):  # Adım 20b: dışarısı olmadıysa söyle
+                    msg.warnings = _merge(msg.warnings, [
+                        f"☁ dış sağlayıcı kullanılamadı, yerel model cevapladı: {cloud_note.split('(', 1)[-1].rstrip(')')}"])
             msg.status = "done"
         elif job.status.is_terminal:
             msg.status = "cancelled" if job.status == TaskStatus.CANCELLED else "failed"
@@ -665,6 +684,7 @@ def _conductor_meta(res: dict[str, Any]) -> dict[str, Any]:
     reviews = [s.get("review") for s in steps if s.get("review")]
     return {
         "agents": [s.get("agent") for s in steps],
+        "cloud": res.get("cloud_models", []),
         "mode": res.get("mode"),
         "routing": (res.get("routing") or {}).get("decision"),
         "duration_s": res.get("duration_s"),

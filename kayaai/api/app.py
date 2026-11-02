@@ -124,12 +124,18 @@ class ChatRenameBody(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
 
+class CloudChoice(BaseModel):
+    provider: str = Field(min_length=1, max_length=32)
+    model: str = Field("", max_length=160)
+
+
 class ChatSendBody(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     agent: str = "auto"
     attachments: list[str] = Field(default_factory=list, max_length=10)
     # Adım 10: iş modülü (Analiz et / Özetle / Fatura olarak oku); boşsa tablo eki + otomatik/data → analiz
     mode: Literal["analyze", "summarize", "invoice"] | None = None
+    cloud: CloudChoice | None = None  # Adım 20b: bu mesaj için ☁ dış sağlayıcı (sahip seçti)
 
 
 class AttachmentBody(BaseModel):
@@ -243,6 +249,12 @@ class ProviderUpdateBody(BaseModel):
     default_model: str | None = Field(None, max_length=160)
     timeout_s: float | None = Field(None, ge=5, le=600)
     json_mode: bool | None = None
+
+
+class ProviderAssignBody(BaseModel):
+    agent: str = Field(min_length=1, max_length=40)
+    provider: str | None = Field(None, max_length=32)  # None: yerel modele geri al
+    model: str = Field("", max_length=160)
 
 
 class ProviderKeyBody(BaseModel):
@@ -606,7 +618,8 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
 
     @app.post("/api/chat/{conv_id}/messages", status_code=202, dependencies=[Depends(auth)])
     def chat_send(conv_id: str, body: ChatSendBody) -> dict[str, Any]:
-        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments, body.mode)
+        user, reply, runner = chat_call(chat.send, conv_id, body.text, body.agent, body.attachments, body.mode,
+                                        body.cloud.model_dump() if body.cloud else None)
         submit(runner)
         return {"user": user.model_dump(mode="json"), "reply": reply.model_dump(mode="json")}
 
@@ -899,6 +912,12 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     @app.post("/api/providers/{provider_id}/disable", dependencies=[Depends(auth)])
     def providers_disable(provider_id: str) -> dict[str, Any]:
         return _prov(prov.request_disable, rt, provider_id, requested_by="api").model_dump(mode="json")
+
+    @app.post("/api/providers/assign", dependencies=[Depends(auth)])
+    def providers_assign(body: ProviderAssignBody) -> dict[str, Any]:
+        if body.provider:
+            return _prov(prov.request_assign, rt, body.agent, body.provider, body.model, requested_by="api").model_dump(mode="json")
+        return _prov(prov.request_unassign, rt, body.agent, requested_by="api").model_dump(mode="json")
 
     @app.get("/api/integrations", dependencies=[Depends(auth)])
     def integrations_list() -> list[dict[str, Any]]:

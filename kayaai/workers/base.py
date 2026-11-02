@@ -53,6 +53,7 @@ class WorkerContext:
     # Adım 15: canlı ilerleme (verilirse model çıktısı akışlı okunur, okunur kuyruk olay olarak gider)
     progress: Any = None  # ProgressSink | None
     sandbox: Any = None   # Adım 19c: Sandbox | None (araçlı ajanlar kodu yalnız kum havuzunda çalıştırır)
+    outbound: Any = None  # Adım 20b: providers.Outbound | None (sahip seçtiyse dış sağlayıcı; hata → yerel)
 
     def check_cancelled(self) -> None:
         if self.cancel_event.is_set():
@@ -204,8 +205,17 @@ class LLMWorker(Worker):
             runs = self._tool_phase(task, ctx, spec)
             if runs:
                 task = task.model_copy(update={"input": {**(task.input or {}), "tool_runs": runs}})
-        messages = self.build_messages(task)
-        schema = self.output_model.model_json_schema()
+        # Adım 20b: sahip bu işte (☁) ya da bu ajan için dış sağlayıcı seçtiyse; veri kapısından geçmiş girdiyle
+        route, why_not = ctx.outbound.route(self.name, task) if ctx.outbound is not None else (None, None)
+        if why_not:
+            ctx.metrics["cloud"] = f"yerel ({why_not})"
+        if route is not None:
+            from ..llm.providers import outbound_input
+
+            ctx.metrics["cloud"] = f"☁ {route['label']}/{route['model']}"
+            messages = self.build_messages(task.model_copy(update={"input": outbound_input(task.input)}))
+        else:
+            messages = self.build_messages(task)
         errors: list[str] = []
         last_output: str | None = None
         ctx.metrics["model"] = spec.name
@@ -218,35 +228,31 @@ class LLMWorker(Worker):
             ctx.metrics["output_attempts"] = attempt
             if ctx.progress is not None and attempt > 1:
                 ctx.progress.reset(attempt)
-            # Her zaman akışlı oku: tekrar döngüsü süre sınırını beklemeden kesilsin (canlı ofis de aynı akışı görür)
-            guard = LoopGuard(ctx.progress.feed if ctx.progress is not None else None)
-            try:
-                result = ctx.llm.chat(
-                    spec.name,
-                    messages,
-                    format=schema,
-                    options=options,
-                    think=spec.think,
-                    keep_alive=spec.keep_alive,
-                    timeout=task.timeout_s,
-                    cancel_event=ctx.cancel_event,
-                    on_token=guard.feed,
-                )
-            except ModelLooping as exc:
-                if ctx.progress is not None:
-                    ctx.progress.flush()
-                errors.append(f"deneme {attempt}: {exc}")
-                ctx.metrics["loops"] = ctx.metrics.get("loops", 0) + 1
-                log.warning("%s tekrar döngüsüne girdi (deneme %d, %d karakter): %s", self.name, attempt, exc.chars, exc)
-                options = {**options, "repeat_penalty": 1.3, "repeat_last_n": 512,
-                           "temperature": max(float(options.get("temperature", 0.4)), 0.7)}
-                if not any(m.get("content") == LOOP_NOTE for m in messages):
-                    messages = messages + [{"role": "user", "content": LOOP_NOTE}]
-                continue
-            if ctx.progress is not None:
-                ctx.progress.flush()
-            ctx.metrics.update(result.metrics())
-            last_output = result.content
+            result = None
+            if route is not None:
+                from ..llm.providers import ProviderError
+
+                try:
+                    result = ctx.outbound.chat(self.name, route, messages, timeout=task.timeout_s)
+                except ProviderError as exc:
+                    # Dışarısı olmadı → bu denemeden itibaren yerel model, TAM girdiyle (hafıza vb. dahil), baştan
+                    log.warning("%s: dış sağlayıcı başarısız, yerel modele düşülüyor: %s", self.name, exc)
+                    ctx.metrics["cloud"] = f"yerel modele düşüldü ({str(exc)[:160]})"
+                    route = None
+                    messages = self.build_messages(task)
+            if result is not None:
+                ctx.metrics.update(result.metrics())
+                last_output = result.content
+            else:
+                result = self._local_chat(task, ctx, spec, messages, options, attempt, errors)
+                if result is None:  # tekrar döngüsü: sıkı ayarla yeniden
+                    options = {**options, "repeat_penalty": 1.3, "repeat_last_n": 512,
+                               "temperature": max(float(options.get("temperature", 0.4)), 0.7)}
+                    if not any(m.get("content") == LOOP_NOTE for m in messages):
+                        messages = messages + [{"role": "user", "content": LOOP_NOTE}]
+                    continue
+                ctx.metrics.update(result.metrics())
+                last_output = result.content
             try:
                 output = self.output_model.model_validate_json(result.content)
             except ValidationError as exc:
@@ -276,6 +282,33 @@ class LLMWorker(Worker):
         raise WorkerOutputInvalid(
             f"{self.name} {ctx.max_output_attempts} denemede geçerli çıktı üretemedi", errors, last_output
         )
+
+    def _local_chat(self, task: Task, ctx: WorkerContext, spec: Any, messages: list[dict[str, Any]],
+                    options: dict[str, Any], attempt: int, errors: list[str]) -> Any:
+        """Yerel model. Her zaman akışlı okunur: tekrar döngüsü süre sınırını beklemeden kesilsin (canlı ofis de aynı
+        akışı görür). Döngüde None döner; çağıran sıkı ayarla (tekrar cezası, not) yeniden dener."""
+        guard = LoopGuard(ctx.progress.feed if ctx.progress is not None else None)
+        try:
+            result = ctx.llm.chat(
+                spec.name,
+                messages,
+                format=self.output_model.model_json_schema(),
+                options=options,
+                think=spec.think,
+                keep_alive=spec.keep_alive,
+                timeout=task.timeout_s,
+                cancel_event=ctx.cancel_event,
+                on_token=guard.feed,
+            )
+        except ModelLooping as exc:
+            errors.append(f"deneme {attempt}: {exc}")
+            ctx.metrics["loops"] = ctx.metrics.get("loops", 0) + 1
+            log.warning("%s tekrar döngüsüne girdi (deneme %d, %d karakter): %s", self.name, attempt, exc.chars, exc)
+            return None
+        finally:
+            if ctx.progress is not None:
+                ctx.progress.flush()
+        return result
 
 
 class ToolStep(BaseModel):

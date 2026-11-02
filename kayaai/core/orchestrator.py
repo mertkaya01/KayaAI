@@ -61,6 +61,7 @@ class Orchestrator:
         self._cancel_events: dict[str, threading.Event] = {}
         self._lock = threading.Lock()
         self.sandbox: Any = None  # Adım 19c: Sandbox (runtime kurar); yoksa araçlı ajanlar araçsız çalışır
+        self.outbound: Any = None  # Adım 20b: providers.Outbound (runtime kurar); yoksa her şey yerel
 
     # ------------------------------------------------------------------ oluşturma
 
@@ -137,6 +138,7 @@ class Orchestrator:
             cancel_event=cancel_event,
             max_output_attempts=self.settings.max_output_attempts,
             sandbox=self.sandbox,
+            outbound=self.outbound,
         )
         if self.settings.live_progress:
             from .progress import ProgressSink

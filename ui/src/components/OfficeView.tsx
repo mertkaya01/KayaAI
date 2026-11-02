@@ -213,7 +213,7 @@ function Bubble({ a, at, note, scale, bounds }: { a: Actor; at: Pt; note: string
 
 function Person({ a, at, selected, onSelect, scale, art }: { a: Actor; at: Pt; selected: boolean; onSelect: () => void; scale: number; art?: string | null }) {
   const p = iso(at);
-  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.activity === "thinking" ? " (düşünüyor)" : ""}${a.dispute ? " (anlaşmazlık)" : ""}${a.bubble ? ` — ${a.bubble}` : ""}`;
+  const label = `${a.label}: ${STATE_TEXT[a.state]}${a.activity === "thinking" ? " (düşünüyor)" : ""}${a.dispute ? " (anlaşmazlık)" : ""}${a.cloud ? " (dış sağlayıcı)" : ""}${a.bubble ? ` — ${a.bubble}` : ""}`;
   return (
     <g
       className={`person ${a.state}${a.activity ? ` ${a.activity}` : ""}${selected ? " selected" : ""}`}
@@ -238,6 +238,7 @@ function Person({ a, at, selected, onSelect, scale, art }: { a: Actor; at: Pt; s
       {a.state === "waiting" && <text x={12} y={-40} className="mark" aria-hidden="true">🔔</text>}
       {a.state === "error" && <text x={12} y={-40} className="mark" aria-hidden="true">!</text>}
       {a.dispute && <text x={-24} y={-40} className="mark dispute" aria-hidden="true">⚖</text>}
+      {a.cloud && <text x={-26} y={-28} className="mark cloud" aria-hidden="true">☁</text>}
       {a.state === "done" && <text x={12} y={-40} className="mark done" aria-hidden="true">✓</text>}
       {a.state === "idle" && a.kind === "agent" && <text x={10} y={-40} className="mark idle" aria-hidden="true">z</text>}
     </g>

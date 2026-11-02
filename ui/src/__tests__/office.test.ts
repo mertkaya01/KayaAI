@@ -195,3 +195,20 @@ describe("biten işte başarısız plan notu (sahip videosu)", () => {
     expect(chef.bubble).toBe("Plan yapılamadı (120 sn zaman aşımı); iş tek ajanla bitti");
   });
 });
+
+describe("dış sağlayıcı işareti (Adım 20b)", () => {
+  it("dış modelde çalışan ajan ☁ ile işaretlenir", () => {
+    const g = {
+      job_id: "j", objective: "x", status: "succeeded", mode: "plan", routing: null, duration_s: 3, warnings: [],
+      nodes: [
+        { id: "request", kind: "request", label: "İstek", status: "succeeded", agent: null, model: null, task_id: null, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null },
+        { id: "s1", kind: "step", label: "general", status: "succeeded", agent: "general", model: "☁ Groq/llama-3.3-70b", task_id: "t1", duration_s: 2, tokens_per_second: null, detail: "", error: null, review: null },
+        { id: "s2", kind: "step", label: "data", status: "succeeded", agent: "data", model: "qwen3:8b", task_id: "t2", duration_s: 2, tokens_per_second: null, detail: "", error: null, review: null },
+      ],
+      edges: [],
+    } as unknown as JobGraph;
+    const actors = deriveActors(g, {}, []);
+    expect(actors.find((a) => a.id === "general")!.cloud).toBe(true);
+    expect(actors.find((a) => a.id === "data")!.cloud).toBe(false);
+  });
+});

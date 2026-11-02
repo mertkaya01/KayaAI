@@ -12,7 +12,8 @@ function err(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-function PendingApproval({ id, onDone }: { id: string; onDone: (msg: string) => void }) {
+/** Satır içi sahip onayı (önizlemeyle): sağlayıcı açma ve ajan atama. Onay merkezinde de görünür. */
+export function InlineApproval({ id, title, okLabel, onDone }: { id: string; title: string; okLabel: string; onDone: (msg: string) => void }) {
   const [a, setA] = useState<Approval | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { void api<Approval>(`/api/approvals/${id}`).then(setA).catch(() => setA(null)); }, [id]);
@@ -20,15 +21,15 @@ function PendingApproval({ id, onDone }: { id: string; onDone: (msg: string) => 
     setBusy(true);
     try {
       await post(`/api/approvals/${id}/${ok ? "approve" : "reject"}`, {});
-      onDone(ok ? "Açıldı." : "Açma talebi reddedildi.");
+      onDone(ok ? "Onaylandı." : "Talep reddedildi.");
     } catch (e) { onDone(err(e)); } finally { setBusy(false); }
   }
   return (
-    <div className="inbox-wait" role="group" aria-label="Açma onayı">
-      <p className="small"><strong>Açma talebi onay bekliyor.</strong> Onaylarsan aşağıdaki kurallarla açılır:</p>
+    <div className="inbox-wait" role="group" aria-label={title}>
+      <p className="small"><strong>{title}</strong> Onaylarsan aşağıdaki kurallarla geçerli olur:</p>
       {typeof a?.action.preview?.new_head === "string" && <pre className="prov-preview">{a.action.preview.new_head}</pre>}
       <div className="row-actions start">
-        <button className="primary small" disabled={busy} onClick={() => void decide(true)}>Onayla ve aç</button>
+        <button className="primary small" disabled={busy} onClick={() => void decide(true)}>{okLabel}</button>
         <button className="ghost small" disabled={busy} onClick={() => void decide(false)}>Reddet</button>
       </div>
     </div>
@@ -81,7 +82,8 @@ function ProviderCard({ p, onChanged }: { p: ProviderRow; onChanged: () => void 
           </select>
         </label>
       )}
-      {p.pending_approval && <PendingApproval id={p.pending_approval} onDone={(m) => { setMsg(m); onChanged(); }} />}
+      {p.pending_approval && <InlineApproval id={p.pending_approval} title="Açma talebi onay bekliyor." okLabel="Onayla ve aç"
+                                             onDone={(m) => { setMsg(m === "Onaylandı." ? "Açıldı." : m); onChanged(); }} />}
       <div className="row-actions start">
         <button className="small" disabled={busy} onClick={() => setKeyOpen((v) => !v)} aria-expanded={keyOpen}>
           {p.has_key ? "Anahtarı değiştir" : "Anahtar gir"}

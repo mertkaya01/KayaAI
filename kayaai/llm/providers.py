@@ -198,6 +198,11 @@ def remove_provider(rt: "Runtime", provider_id: str) -> None:
         secrets(rt).delete(provider_id)
     except SecretStoreError:
         pass
+    with _lock:  # bu sağlayıcıya atanmış ajanlar yerele döner
+        data = assignments(rt)
+        kept = {k: v for k, v in data.items() if v.get("provider") != provider_id}
+        if kept != data:
+            _save_assignments(rt, kept)
     rt.store.emit("provider.removed", {"id": provider_id})
 
 
@@ -256,7 +261,13 @@ def status(rt: "Runtime") -> dict[str, Any]:
                      "key_source": source, "used_today": used_today(rt, p.id),
                      "pending_approval": _pending(rt, p.id)})
     return {"providers": rows, "presets": [{"preset": k, **v} for k, v in PRESETS.items()],
-            "key_backend": st.backend_name}
+            "key_backend": st.backend_name, "assignments": assignments(rt), "pending_assign": _pending_assign(rt)}
+
+
+def _pending_assign(rt: "Runtime") -> dict[str, str]:
+    assert rt.permissions is not None
+    return {str(a.action.params.get("agent")): a.id for a in rt.permissions.list_approvals("pending")
+            if a.action.tool == "provider.assign"}
 
 
 def _pending(rt: "Runtime", provider_id: str) -> str | None:
@@ -326,7 +337,7 @@ def executors(rt: "Runtime") -> dict[str, Any]:
         rt.store.emit("provider.disabled", {"id": p.id})
         return {"enabled": False, "id": p.id}
 
-    return {"provider.enable": enable, "provider.disable": disable}
+    return {"provider.enable": enable, "provider.disable": disable, **_assign_executors(rt)}
 
 
 # ---------------------------------------------------------------- istemci (OpenAI uyumlu)
@@ -454,3 +465,117 @@ def call(rt: "Runtime", provider_id: str, model: str, messages: list[dict[str, A
                       prompt_tokens=int(usage.get("prompt_tokens") or 0),
                       output_tokens=int(usage.get("completion_tokens") or 0),
                       total_duration_s=ms / 1000, eval_duration_s=ms / 1000, raw={})
+
+
+# ---------------------------------------------------------------- ajan ataması (Adım 20b; atamak R2, kaldırmak R1)
+
+ASSIGN_KEY = "provider_agents"
+NEVER_OUT_AGENTS = {"vision"}  # görüntülerle çalışır: hiçbir zaman dışarı gitmez
+
+
+def assignments(rt: "Runtime") -> dict[str, dict[str, str]]:
+    raw = rt.store.get_meta(ASSIGN_KEY)
+    try:
+        data = json.loads(raw) if raw else {}
+    except ValueError:
+        return {}
+    return {k: v for k, v in data.items() if isinstance(v, dict) and v.get("provider")}
+
+
+def _save_assignments(rt: "Runtime", data: dict[str, dict[str, str]]) -> None:
+    rt.store.set_meta(ASSIGN_KEY, json.dumps(data, ensure_ascii=False))
+
+
+def request_assign(rt: "Runtime", agent: str, provider_id: str, model: str = "", requested_by: str = "user") -> SubmitResult:
+    if agent not in rt.workers.names() or "." in agent:
+        raise ProviderError(f"Bilinmeyen ajan: {agent}")
+    if agent in NEVER_OUT_AGENTS:
+        raise ProviderError("Görsel ajan dış sağlayıcıya verilemez (ekran görüntüleri bilgisayardan çıkmaz)")
+    p = get_provider(rt, provider_id)
+    if not p.enabled:
+        raise ProviderError(f"{p.label} kapalı; önce Sistem → Dış sağlayıcılar'dan aç")
+    model = (model or p.default_model).strip()
+    if not model:
+        raise ProviderError(f"{p.label} için model yok (Bağlantıyı dene)")
+    assert rt.permissions is not None
+    return rt.permissions.submit(ToolAction(
+        tool="provider.assign", params={"agent": agent, "provider": p.id, "model": model, "base_url": p.base_url},
+        risk=Risk.R2, summary=f"{agent} ajanını dış modele ata: {p.label}/{model}",
+        reason=(f"Bundan sonra {agent} ajanının BÜTÜN işleri (zamanlanmış görevler dahil) "
+                f"{'internet üzerinden ' if p.internet else ''}{p.label} sağlayıcısına gider."),
+        preview={"new_head": (
+            f"Ajan: {agent}\nSağlayıcı: {p.label} ({p.base_url})\nModel: {model}\n\n"
+            f"{WHAT_GOES}\n{NEVER_GOES}\nHata, kota ya da günlük sınırda yerel model yapar. Geri almak: Modeller → Yerel.")},
+        undo=f"Modeller → {agent} → Yerel", requested_by=requested_by))
+
+
+def request_unassign(rt: "Runtime", agent: str, requested_by: str = "user") -> SubmitResult:
+    assert rt.permissions is not None
+    return rt.permissions.submit(ToolAction(tool="provider.unassign", params={"agent": agent}, risk=Risk.R1,
+                                            summary=f"{agent} ajanını yerel modele geri al", requested_by=requested_by))
+
+
+def _assign_executors(rt: "Runtime") -> dict[str, Any]:
+    def assign(params: dict[str, Any]) -> dict[str, Any]:
+        p = get_provider(rt, str(params["provider"]))
+        if not p.enabled or p.base_url != params.get("base_url"):
+            raise ProviderError("sağlayıcı kapanmış ya da adresi değişmiş; yeniden ata")
+        with _lock:
+            data = assignments(rt)
+            data[str(params["agent"])] = {"provider": p.id, "model": str(params["model"])}
+            _save_assignments(rt, data)
+        rt.store.emit("provider.assigned", {"agent": params["agent"], "id": p.id, "model": params["model"]})
+        return {"agent": params["agent"], "provider": p.id, "model": params["model"]}
+
+    def unassign(params: dict[str, Any]) -> dict[str, Any]:
+        with _lock:
+            data = assignments(rt)
+            data.pop(str(params["agent"]), None)
+            _save_assignments(rt, data)
+        rt.store.emit("provider.unassigned", {"agent": params["agent"]})
+        return {"agent": params["agent"], "provider": None}
+
+    return {"provider.assign": assign, "provider.unassign": unassign}
+
+
+# ---------------------------------------------------------------- yönlendirme: bu iş dışarı mı gidecek?
+
+
+class Outbound:
+    """İşçilere verilen yardımcı. Karar sırası: mesajdaki ☁ seçimi (`_cloud`) > ajan ataması > yerel.
+    Her çağrıda ayarlar yeniden okunur (başka süreç değiştirmiş olabilir)."""
+
+    def __init__(self, rt: "Runtime", transport: httpx.BaseTransport | None = None):
+        self.rt = rt
+        self.transport = transport
+
+    def route(self, agent: str, task: Any) -> tuple[dict[str, str] | None, str | None]:
+        """(yol, neden): yol None ise yerel; neden doluysa dışarı istenmişti ama gitmeyecek (kullanıcıya söylenir)."""
+        data = task.input or {}
+        base = agent.split(".")[0]
+        choice, source = data.get("_cloud"), "message"
+        if not isinstance(choice, dict) or not choice.get("provider"):
+            choice, source = assignments(self.rt).get(base), "agent"
+            if not choice:
+                return None, None
+        if base in NEVER_OUT_AGENTS or data.get("_images"):
+            return None, "görüntü içeren iş dışarı gitmez"
+        try:
+            p = get_provider(self.rt, str(choice["provider"]))
+        except ProviderError:
+            return None, "sağlayıcı silinmiş"
+        if not p.enabled:
+            return None, f"{p.label} kapalı"
+        if used_today(self.rt, p.id) >= p.daily_limit:
+            return None, f"{p.label} günlük sınırı doldu ({p.daily_limit})"
+        if p.internet and not secrets(self.rt).get(p.id):
+            return None, f"{p.label} anahtarı yok"
+        model = str(choice.get("model") or p.default_model)
+        if not model:
+            return None, f"{p.label} için model seçilmedi"
+        return {"provider": p.id, "label": p.label, "model": model, "source": source}, None
+
+    def chat(self, agent: str, route: dict[str, str], messages: list[dict[str, Any]], *,
+             timeout: float | None = None) -> ChatResult:
+        return call(self.rt, route["provider"], route["model"], messages, agent=agent, timeout=timeout,
+                    transport=self.transport)

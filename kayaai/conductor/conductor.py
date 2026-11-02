@@ -90,6 +90,7 @@ class ConductorResult(BaseModel):
     job_id: str
     status: str
     answer: str = ""
+    cloud_models: list[str] = Field(default_factory=list)  # Adım 20b: dış sağlayıcıda çalışan adımların modelleri
     mode: Literal["direct", "plan"] = "direct"
     steps: list[StepView] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -527,6 +528,9 @@ class Conductor:
                                 {"count": n, "to": run.disputes[0].escalated_to, "ids": [d.id for d in run.disputes]})
 
     def _ask(self, job: Task, worker: str, objective: str, input: dict[str, Any]) -> Task:
+        cloud = (job.input.get("context") or {}).get("_cloud") or job.input.get("_cloud")
+        if cloud:
+            input = {**(input or {}), "_cloud": cloud}  # Adım 20b: mesajdaki ☁ seçimi her adıma (plan, inceleme dahil) geçer
         task = self.rt.orchestrator.submit(objective, worker=worker, input=input or None, parent_id=job.id)
         return self.rt.orchestrator.run(task.id)
 
@@ -636,6 +640,15 @@ class Conductor:
             result.status, result.error = TaskStatus.FAILED.value, why
 
     def _close_job(self, job: Task, result: ConductorResult) -> None:
+        # Adım 20b: hangi adımlar dışarıda çalıştı, hangileri yerele düştü (sahip görsün)
+        for child in self.rt.store.list_children(job.id):
+            model, cloud = child.model or "", str((child.metrics or {}).get("cloud") or "")
+            if model.startswith("☁") and model not in result.cloud_models:
+                result.cloud_models.append(model)
+            if cloud.startswith("yerel"):
+                note = f"☁ dış sağlayıcı kullanılamadı, {child.worker} yerel modelle yaptı: {cloud.split('(', 1)[-1].rstrip(')')}"
+                if note not in result.warnings:
+                    result.warnings.append(note)
         job.status = TaskStatus(result.status)
         job.result = result.model_dump(mode="json")
         job.error = result.error
