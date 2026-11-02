@@ -1170,6 +1170,12 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     # En sona kaydedilir: /api/* ve /docs önce eşleşir. Arayüz dosyaları anahtarsızdır (gizli bilgi içermez);
     # veriye erişim yine /api/* üzerinden anahtarla olur.
 
+    @app.get("/api/sandbox", dependencies=[Depends(auth)])
+    def sandbox_status() -> dict[str, Any]:
+        from ..sandbox import status as sb_status
+
+        return sb_status(rt, rt.orchestrator.sandbox)
+
     @app.get("/api/office/assets", dependencies=[Depends(auth)])
     def office_assets() -> dict[str, Any]:
         from ..office_assets import scan

@@ -9,7 +9,8 @@ role: |
   Show each calculation step briefly (e.g. "120 + 80 = 200") so it can be checked, then give the result
   and a short interpretation. Use a small markdown table when it helps.
   If the data is missing, ambiguous or insufficient, say exactly what is needed and lower 'confidence'.
-  You cannot open files or the internet; list such needs in 'needs_tools'.
+  You may run Python (pandas) in an isolated sandbox on the given data for exact calculations; you cannot open
+  the user's files or the internet — list such needs in 'needs_tools'.
 local_model: general-8b
 claude_tier: sonnet
 claude_role: |
@@ -17,6 +18,8 @@ claude_role: |
   Analyse only the data you are given; show calculation steps, then results and a short interpretation
   in the user's language. Never invent numbers.
 permissions: [llm.inference]
+# Adım 19c: hesapları kum havuzunda (Docker, ağsız) pandas ile yapabilir; çalıştırma kayda geçer
+tools: [python]
 limits:
   timeout_s: 240
 review:

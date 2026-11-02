@@ -2,6 +2,26 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.19.0] - 2026-11-02
+
+### Eklendi (Adım 19 — kurumsal modüller, sahip planı)
+- **Ofis animasyonları (19a)**: ajana göre iş efekti (coder kod satırları, veri grafik, belge kâğıt, şef pano,
+  gözden geçiren büyüteç, görsel tarama), "düşünüyor" (baloncuk) ile "yazıyor" ayrımı, durum işaretleri (✓ bitti,
+  z boşta, ⚖ anlaşmazlık), şef işi bölünce ajanlar arasında akan ışıklı iş akışı çizgileri; hareketi azalt'ta durağan
+- **Qdrant vektör deposu (19b, isteğe bağlı)**: `memory.vector_backend: qdrant`; yazma SQLite işlemiyle birlikte
+  (geri alınırsa Qdrant'a hiçbir şey gitmez), Qdrant kapalıysa belge araması metin aramasıyla sürer;
+  `kayaai memory migrate`, `scripts/qdrant_check.py`. Masaüstü varsayılanı SQLite kalır
+- **Docker kum havuzu (19c)**: `coder` ve `data` ajanları Python kodunu izole konteynerde çalıştırıp sonucu cevaba
+  katar (en çok 3 tur). Konteyner: `--network none`, salt-okunur kök, uid 10001, `--cap-drop ALL`,
+  `no-new-privileges`, bellek/CPU/süreç/dosya sınırı, süre sınırı konteyner içinde; yalnız o çalıştırmanın `in`
+  (salt-okunur) ve `out` klasörü bağlı. Politika katmanı ağ/alt süreç/sistem çağrısı kullanan kodu çalıştırmadan
+  reddeder. Her çalıştırma R1 `sandbox.python` kaydı + `sandbox.run` olayı. `kayaai sandbox build|test|status`,
+  `GET /api/sandbox`; Docker/imaj yoksa araç kapalı
+
+### Değişti (ilke, sahip kararı 2026-11-02)
+- Model ürettiği kod artık **yalnız kum havuzunda** ve otomatik (R1, kayıtlı) çalışabilir; bilgisayarda doğrudan
+  çalıştırma hâlâ yok. Kum havuzundan dışarı dosya yazma her zaman onaylı (mevcut dosya araçları)
+
 ## [0.18.1] - 2026-11-02
 
 ### Düzeltildi

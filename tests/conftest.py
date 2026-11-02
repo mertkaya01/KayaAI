@@ -190,6 +190,13 @@ class FakeOllama:
         return H
 
 
+@pytest.fixture(autouse=True)
+def _sandbox_off_by_default(monkeypatch):
+    """Adım 19c: sahibin bilgisayarında Docker + imaj olsa da testler gerçek kum havuzuna girmesin (sahte model
+    cevapları kaymasın). Kum havuzu testleri bunu kendileri açar (sahte Docker ile)."""
+    monkeypatch.setenv("KAYAAI_SANDBOX", "0")
+
+
 @pytest.fixture
 def fake_ollama() -> Iterator[FakeOllama]:
     srv = FakeOllama().start()

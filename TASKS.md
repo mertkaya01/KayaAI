@@ -243,6 +243,18 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
 - [ ] Windows: yeni Asistan (akan cevap), `kayaai watch`, Ofis → 🎨 Çizimler
 - [ ] Sahip: `qwen3:14b` indir → Modeller'de zor işlerdeki ajanlarla karşılaştır
 
+## Adım 19 — Kurumsal modüller (sahip planı 2026-11-02): ofis animasyonları → Qdrant → kum havuzu → sunucu modu
+- [x] 19a — Ofis animasyonları: ajana göre iş efekti, düşünüyor/yazıyor, ✓/z/⚖ işaretleri, iş akışı ışık çizgileri
+  (hareketi azalt'ta durağan) — Vitest 40
+- [x] 19b — Qdrant vektör deposu (isteğe bağlı; SQLite işlemiyle birlikte yazma, kapalıysa metin araması),
+  `kayaai memory migrate`, `scripts/qdrant_check.py` — Python 5
+- [x] 19c — Docker kum havuzu: politika (AST), kilitli konteyner, süre/bellek sınırı, R1 kayıt + `sandbox.run`,
+  `coder`/`data` araç döngüsü (en çok 3 tur, sonuç veri olarak), `kayaai sandbox build|test|status`, `/api/sandbox` —
+  Python 28 (sahte Docker; kod bilgisayarda hiç çalışmaz)
+- [ ] Windows: `kayaai sandbox build` → `kayaai sandbox test` (sandbox_check.json); Asistan'da veri ajanına CSV ekleyip
+  hesap sorusu; Qdrant `docker run` + `python scripts\qdrant_check.py`; ofis animasyonları
+- [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri
+
 - [x] Fine-tuning değerlendirmesi → `docs/FINETUNING.md`: şimdilik hayır, önce ölç; `kayaai quality` (ajan × model ilk
   deneme / geçersiz / zaman aşımı / kesilme → `data/quality.json`) — Python 5
 - [x] Windows (sahip, 2026-11-01): `kayaai quality` — general 77 / planner 33 görev %100 ilk deneme, hiç geçersiz yok →

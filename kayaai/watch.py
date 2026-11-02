@@ -19,7 +19,7 @@ AGENT = {"general": "Genel", "data": "Veri", "document": "Belge", "coder": "Kod"
 _C = {"dim": "2", "green": "32", "red": "31", "yellow": "33", "blue": "34", "magenta": "35", "cyan": "36", "bold": "1"}
 
 IMPORTANT = ("task.status", "approval.", "chat.message", "schedule.run", "dispute.", "automation.", "claude.mode",
-             "model.pull", "agent.", "memory.indexed", "browser.step")
+             "model.pull", "agent.", "memory.indexed", "browser.step", "sandbox.")
 
 
 def agent_name(worker: str) -> str:
@@ -87,6 +87,12 @@ def describe(ev: dict[str, Any]) -> tuple[str, str] | None:
         color = {"succeeded": "green", "failed": "red", "skipped": "yellow"}.get(str(st), "dim")
         text = {"succeeded": "bitti", "failed": "başarısız", "skipped": "atlandı"}.get(str(st), str(st))
         return color, f"⏰ Zamanlanmış görev {text}: {d.get('name')}" + (f" ({d['seconds']} sn)" if d.get("seconds") else "")
+    if t == "sandbox.run":
+        ok = d.get("exit_code") == 0 and not d.get("timed_out")
+        extra = " (süre aşıldı)" if d.get("timed_out") else "" if ok else f" (çıkış {d.get('exit_code')})"
+        return ("green" if ok else "red"), f"  🧪 {agent_name(str(d.get('agent', '?')))} kum havuzunda kod çalıştırdı{extra} · {d.get('seconds')} sn"
+    if t == "sandbox.refused":
+        return "yellow", f"  🧪 Kod reddedildi ({agent_name(str(d.get('agent', '?')))}): {', '.join(d.get('reasons') or [])}"
     if t == "dispute.opened":
         return "magenta", f"⚖ Anlaşmazlık: {agent_name(str(d.get('producer', '?')))} ↔ {agent_name(str(d.get('reviewer', '?')))}: {_short(d.get('issue'), 60)}"
     if t == "automation.paused":

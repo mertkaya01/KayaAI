@@ -928,6 +928,45 @@ def cmd_watch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sandbox(args: argparse.Namespace) -> int:
+    """Kod kum havuzu (Adım 19c): durum, imajı kur (internet gerekir, bir kez), yalıtım denetimi."""
+    import subprocess
+
+    from .sandbox import runner
+    from .sandbox.check import run_checks, write_report
+
+    s = load_settings()
+    cfg = s.sandbox
+    if args.action == "status":
+        ok, why = runner.image_ready(cfg)
+        _print(f"Kum havuzu: {'HAZIR' if ok else 'kapalı'} — {why}")
+        _print(f"İmaj {cfg.image} · süre {cfg.timeout_s:g} sn · bellek {cfg.memory} · CPU {cfg.cpus:g} · "
+               f"ağ yok · en çok {cfg.max_tool_turns} tur" + (f" · runtime {cfg.runtime}" if cfg.runtime else ""))
+        if not cfg.enabled:
+            _print("Ayarda kapalı (sandbox.enabled: false).")
+        return 0 if ok else 1
+    if args.action == "build":
+        ctx = Path(__file__).resolve().parent / "sandbox" / "image"
+        _print(f"Kum havuzu imajı kuruluyor: {cfg.image} (python:3.12-slim + pandas, numpy, matplotlib, openpyxl).")
+        _print("Bu adım internetten temel imajı ve paketleri indirir; bir kez yapılır. Çalıştırırken internet KULLANILMAZ.")
+        try:
+            code = subprocess.call([cfg.docker, "build", "-t", cfg.image, str(ctx)])
+        except FileNotFoundError:
+            _print("[HATA] docker bulunamadı — Docker Desktop kurulu ve çalışıyor mu?")
+            return 1
+        _print("[OK] İmaj hazır. Deneme: kayaai sandbox test" if code == 0 else f"[HATA] docker build {code} ile bitti")
+        return 0 if code == 0 else 1
+    _print("Kum havuzu yalıtımı denetleniyor (gerçek Docker; yaklaşık 30 sn)…")
+    rep = run_checks(cfg, s.data_dir / "sandbox" / "_checks")
+    if not rep["ready"]:
+        _print(f"[HATA] {rep['reason']}")
+    for c in rep["cases"]:
+        _print(f"  {'✓' if c['passed'] else '✗'} {c['name']}" + ("" if c["passed"] else f"  (çıktı: {c['stdout']!r} {c['stderr'][-120:]!r})"))
+    path = write_report(rep, s.data_dir / "sandbox_check.json")
+    _print(("[OK] Tüm denetimler geçti." if rep["ok"] else "[HATA] Bazı denetimler geçmedi.") + f" Rapor: {path}")
+    return 0 if rep["ok"] else 1
+
+
 def cmd_bench(args: argparse.Namespace) -> int:
     from .bench import run_bench
 
@@ -1441,6 +1480,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("bench", help="donanımda ölçüm: sohbet, embedding, görsel, Whisper, VRAM tepe → data/bench.json"
                    ).set_defaults(func=cmd_bench)
+
+    sbp = sub.add_parser("sandbox", help="kod kum havuzu (Docker): durum / imajı kur / yalıtım denetimi")
+    sbp.add_argument("action", nargs="?", choices=["status", "build", "test"], default="status")
+    sbp.set_defaults(func=cmd_sandbox)
 
     wp = sub.add_parser("watch", help="olayları terminalde canlı izle (işler, onaylar, sohbet, zamanlanmış görevler)")
     wp.add_argument("--onay", action="store_true", help="yalnız onay talepleri ve kararları")

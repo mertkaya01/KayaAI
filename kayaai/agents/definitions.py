@@ -63,6 +63,8 @@ class AgentDefinition(BaseModel):
     permissions: list[str] = Field(default_factory=lambda: [Permission.LLM_INFERENCE.value])
     limits: AgentLimits = Field(default_factory=AgentLimits)
     review: AgentReview = Field(default_factory=AgentReview)
+    # Adım 19c: araçlar — "python": kodu yalnız kum havuzunda (Docker) çalıştırabilir; yalnız 'answer' çıktılı ajanlar
+    tools: list[Literal["python"]] = Field(default_factory=list)
     # permanent: sisteme kayıtlı; temporary: şefin bir iş için oluşturduğu geçici ajan (D9)
     status: Literal["permanent", "temporary"] = "permanent"
     # Adım 7c — yalnızca data/agents altındaki (sonradan oluşturulan) ajanlarda:
@@ -129,9 +131,12 @@ def check_review_links(defs: list[AgentDefinition]) -> None:
 def make_worker(defn: AgentDefinition) -> LLMWorker:
     """Tanımdan yerel worker örneği üretir (çıktı türünün şeması ve doğrulaması korunur)."""
     base = OUTPUT_TYPES[defn.output]
+    if defn.tools and defn.output != "answer":
+        raise AgentDefinitionError(f"{defn.name}: araçlar yalnız 'answer' çıktılı ajanlarda")
 
     class DefinedWorker(base):  # type: ignore[valid-type, misc]
         name: ClassVar[str] = defn.name
+        tools: ClassVar[tuple[str, ...]] = tuple(defn.tools)
         description: ClassVar[str] = defn.description
         required_permissions: ClassVar[tuple[Permission, ...]] = tuple(Permission(p) for p in defn.permissions)
         system_prompt: ClassVar[str] = defn.role.strip() or base.system_prompt

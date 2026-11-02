@@ -87,6 +87,11 @@ def build_runtime(
     from .schedule import executors as schedule_executors
 
     permissions.executors.update(schedule_executors(rt))
+    from .sandbox import Sandbox, executors as sandbox_executors  # Adım 19c
+
+    sb = Sandbox(rt)
+    permissions.executors.update(sandbox_executors(sb))
+    rt.orchestrator.sandbox = sb
     from .integrations import executors as integration_executors
 
     permissions.executors.update(integration_executors(rt))

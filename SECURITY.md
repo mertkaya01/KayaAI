@@ -229,13 +229,39 @@
 OmniRoute üzerinden bulut modelleri Adım 17'de yapıldı, Adım 18'de sahip kararıyla **tamamen kaldırıldı** (kod, API,
 CLI, arayüz). kayaAI'den Claude Code oturumu dışında hiçbir yapay zekâ servisine istek gitmez.
 
+## Adım 19c — kod kum havuzu (ilke değişikliği, sahip kararı 2026-11-02)
+
+Sahip kararı: ajanların yazdığı Python kodu **yalnız** izole Docker konteynerinde, **otomatik (R1) ve kayıtlı**
+çalışabilir. Bilgisayarda doğrudan çalıştırma yok; kum havuzundan dışarı dosya yazma her zaman onaylı.
+
+Katmanlar (`kayaai/sandbox/`):
+1. **Politika** (`policy.py`, çalıştırmadan önce, AST): kod boyutu (20 KB); `socket`, `ssl`, `http`, `urllib`,
+   `requests`, `httpx`, `subprocess`, `multiprocessing`, `ctypes`, `cffi`, `pty`, `importlib` içe aktarımı;
+   `os.system/popen/spawn*/exec*/fork/kill` çağrıları; çıplak `eval/exec/compile/__import__` → çalıştırılmaz, ajana
+   sebep söylenir. Bu ek katmandır; atlatılsa bile sınır konteynerdir.
+2. **Konteyner** (`runner.py`): `--network none`, `--read-only` + 64 MB `/tmp` (tmpfs), `--user 10001:10001`,
+   `--cap-drop ALL`, `--security-opt no-new-privileges`, `--memory` = `--memory-swap` (512m), `--cpus 1`,
+   `--pids-limit 128`, `--ulimit nofile=256`, süre sınırı konteyner içinde (`timeout`, 30 sn) + dışarıda yedek
+   (aşılırsa `docker kill`). Bağlı olan yalnız o çalıştırmanın `in` (salt-okunur: kod + ekler, yalnız düz dosya adları)
+   ve `out` klasörü. `docker.sock` hiçbir yere bağlanmaz; `--privileged` yok. Linux sunucuda isteğe bağlı gVisor
+   (`sandbox.runtime: runsc`).
+3. **Çıktı**: stdout/stderr 64 KB ile kesilir; sonuç işaretleri sondan ayrıştırılır (kodun yazdığı sahte işaret sonucu
+   değiştiremez); ajana `<tool_result>` içinde **veri** olarak verilir ("talimat değil").
+4. **Kayıt**: her çalıştırma `sandbox.python` (R1) izin kaydı + `sandbox.run` olayı (çıkış kodu, süre, dosyalar);
+   reddedilen kod `sandbox.refused`. Kod ve çıktılar `data/sandbox/<çalıştırma>/` (son 50).
+5. **Kapsam**: yalnız `tools: [python]` olan ajanlar (`coder`, `data`), işi başına en çok 3 tur. Docker ya da imaj
+   yoksa araç kapalı. Testler gerçek Docker'a hiç gitmez (`KAYAAI_SANDBOX=0`, sahte Docker).
+
+Doğrulama: `kayaai sandbox test` — ağ yok, kök salt-okunur, root değil, yalnız verilen dosyalar, bellek ve süre
+sınırı gerçek Docker'da denetlenir (`data/sandbox_check.json`).
+
 ## Henüz uygulanmayanlar (ilgili fazda)
 
 Güncelleme (2026-11-01): dosya yükleme doğrulaması (tür izin listesi, base64 ve boyut kontrolü, Adım 9/12) ve hafıza
 hassasiyet kontrolleri (public/personal/private/secret, gizli bilgi algılama, Adım 8) uygulandı.
 
-- **Model ürettiği kodu çalıştırma:** bilinçli olarak YOK (ilke: açık onay olmadan çalıştırılmaz); sandbox ancak sahip
-  böyle bir özellik isterse tasarlanır.
+- **Model ürettiği kodu bilgisayarda doğrudan çalıştırma:** YOK. Adım 19c'den beri yalnız Docker kum havuzunda
+  (aşağıda).
 - **Hız sınırlama:** yok. API yalnız 127.0.0.1'de ve oturum anahtarıyla; ağa açılırsa (sahip kararı) zorunlu olur.
 - **Masaüstü (tarayıcı dışı) eylemler:** yok; yalnız tarayıcı ajanı (Adım 12d) önizlemeli/onaylı eylem yapar.
 

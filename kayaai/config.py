@@ -41,6 +41,22 @@ class OrchestratorSettings(BaseModel):
     progress_interval_s: float = Field(0.4, ge=0.05, le=10)
 
 
+class SandboxSettings(BaseModel):
+    """Adım 19c — kod kum havuzu (Docker). Docker/imaj yoksa araç kapalı; kod asla doğrudan çalışmaz."""
+
+    enabled: bool = True
+    docker: str = "docker"
+    image: str = "kayaai-sandbox:1"
+    timeout_s: float = Field(30, gt=0, le=300)
+    memory: str = "512m"
+    cpus: float = Field(1.0, gt=0, le=8)
+    pids_limit: int = Field(128, ge=16, le=4096)
+    max_output_kb: int = Field(64, ge=4, le=1024)
+    max_code_kb: int = Field(20, ge=1, le=200)
+    max_tool_turns: int = Field(3, ge=1, le=6)
+    runtime: str | None = None  # ör. "runsc" (gVisor, Linux sunucu)
+
+
 class PermissionSettings(BaseModel):
     auto_approve: list[str] = Field(default_factory=lambda: ["llm.inference"])
 
@@ -190,6 +206,7 @@ class Settings(BaseModel):
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     orchestrator: OrchestratorSettings = Field(default_factory=OrchestratorSettings)
     permissions: PermissionSettings = Field(default_factory=PermissionSettings)
+    sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     conductor: ConductorSettings = Field(default_factory=ConductorSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
@@ -247,6 +264,8 @@ def load_settings(config_dir: Path | None = None) -> Settings:
         raw.setdefault("memory", {})["vector_backend"] = backend
     if qurl := os.environ.get("KAYAAI_QDRANT_URL"):
         raw.setdefault("memory", {})["qdrant_url"] = qurl
+    if os.environ.get("KAYAAI_SANDBOX", "").lower() in ("0", "false", "off", "kapali"):
+        raw.setdefault("sandbox", {})["enabled"] = False
     if level := os.environ.get("KAYAAI_LOG_LEVEL"):
         raw.setdefault("logging", {})["level"] = level
 

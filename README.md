@@ -27,6 +27,7 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 16 | Yeni tasarım (açık/koyu tema), sol menü, "Bugün" giriş ekranı, bildirimler (tarayıcı + Windows) | Kodlandı (Windows kontrolü bekliyor) |
 | 17 | Bulut köprüsü (OmniRoute) | Denendi, **kaldırıldı** (Adım 18; sahip kurmayacak) |
 | 18 | Asistan yenileme, `kayaai watch`, ofis ayrı sayfa + çizim yapısı, arayüz cilası | Kodlandı (Windows kontrolü bekliyor) |
+| 19 | Kurumsal: ofis animasyonları (19a), Qdrant vektör deposu (19b), Docker kum havuzunda kod çalıştırma (19c), sunucu modu (19d) | 19a–19c kodlandı (Windows kontrolü bekliyor) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -343,6 +344,33 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 
 Ofisteki karakterleri, masayı ve zemini kendi çizimlerinle değiştirebilirsin: resimleri `data\ofis\` klasörüne koy
 (`veri.png`, `veri-calisiyor.png`, `masa.png`…), Ofis → **🎨 Çizimler → Yenile**. Ayrıntı: [docs/OFIS_CIZIM.md](docs/OFIS_CIZIM.md).
+
+## Kod kum havuzu (Adım 19c)
+
+`coder` ve `data` ajanları gerektiğinde Python kodu yazıp **izole bir Docker konteynerinde** çalıştırır ve sonucunu
+cevabına katar (ör. ekteki CSV'de gerçek hesap). Konteyner: ağ yok, kök dosya sistemi salt-okunur, root değil, bütün
+yetkiler düşürülmüş, bellek/CPU/süre sınırı; yalnız o çalıştırmanın kodu ve ekleri görünür — bilgisayarındaki dosyalara
+erişemez. Ağ, alt süreç ya da sistem çağrısı kullanan kod hiç çalıştırılmaz (ajana "bunsuz yaz" denir). Her çalıştırma
+kayda geçer (R1, `kayaai watch`'ta görünür); kod ve çıktılar `data\sandbox\` altında (son 50).
+
+```powershell
+kayaai sandbox build      # imajı bir kez kur (Docker Desktop açık olmalı; ~1 GB, internet gerekir)
+kayaai sandbox test       # yalıtımı gerçek Docker'da denetle → data\sandbox_check.json
+kayaai sandbox status     # hazır mı?
+```
+
+Docker ya da imaj yoksa araç kendiliğinden kapalıdır; ajanlar eskisi gibi kodu yalnız yazar. Kapatmak için
+`config\settings.local.yaml` → `sandbox: {enabled: false}`.
+
+## Büyük belge havuzu: Qdrant (Adım 19b, isteğe bağlı)
+
+Masaüstünde vektörler SQLite'ta kalır (önerilen). Çok büyük belge havuzunda Qdrant kullanılabilir:
+
+```powershell
+docker run -d --name kayaai-qdrant -p 127.0.0.1:6333:6333 -v kayaai-qdrant:/qdrant/storage qdrant/qdrant:v1.12.4
+python scripts\qdrant_check.py      # gerçek Qdrant ile denetim → data\qdrant_check.json
+kayaai memory migrate               # var olan vektörleri Qdrant'a kopyalar, ayar satırını gösterir
+```
 
 ## Olayları terminalde izle (Adım 18)
 
