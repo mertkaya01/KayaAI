@@ -2,6 +2,13 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.18.1] - 2026-11-02
+
+### Düzeltildi
+- Belge klasörü özeti (zamanlanmış görev) Windows'ta aynı dosyayı bir sonraki çalışmada tekrar "değişmiş" sayabiliyordu:
+  dosya zamanı ile sistem saati milisaniye kayıyordu (sahibin `setup.ps1` testinde yakalandı). Artık yalnız dosya
+  sisteminin saati kullanılıyor (önceki çalışmada görülen en yeni dosya zamanı); test bu durumu kasıtlı oluşturuyor
+
 ## [0.18.0] - 2026-11-02
 
 ### Eklendi / Değişti (Adım 18 — sahip planı)

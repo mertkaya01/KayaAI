@@ -285,6 +285,26 @@ def test_docs_digest_summarizes_changed_files_only(rt, fake_ollama):
     assert run2.status == "succeeded" and "değişen belge yok" in _conv_messages(rt)[1][-1].content
 
 
+def test_docs_digest_file_time_slightly_ahead_of_clock(rt, fake_ollama):
+    """Windows: dosya zamanı sistem saatinin birkaç ms önünde olabilir — ikinci çalışma aynı dosyayı tekrar almamalı."""
+    home = Path(rt.settings.files.home_dir)
+    home.mkdir(parents=True, exist_ok=True)
+    f = home / "rapor.md"
+    f.write_text("Haftalık rapor taslağı.", encoding="utf-8")
+    ahead = time.time() + 2
+    os.utime(f, (ahead, ahead))  # çalışmanın başlangıcından "sonra" yazılmış gibi
+    fake_ollama.chat_replies = [good_answer("Haftalık rapor taslağı hazır.")]
+    s = _add(rt, kind="docs_digest", name="Özet")
+    assert "rapor.md" in (run_schedule(rt, s.id), _conv_messages(rt)[1][-1].content)[1]
+    run_schedule(rt, s.id)
+    assert "değişen belge yok" in _conv_messages(rt)[1][-1].content
+    later = ahead + 5
+    os.utime(f, (later, later))  # gerçekten değişti
+    fake_ollama.chat_replies = [good_answer("Rapor güncellendi.")]
+    run_schedule(rt, s.id)
+    assert "rapor.md" in _conv_messages(rt)[1][-1].content
+
+
 def test_sales_report_creates_files(rt, fake_ollama):
     home = Path(rt.settings.files.home_dir)
     home.mkdir(parents=True, exist_ok=True)

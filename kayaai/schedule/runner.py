@@ -55,7 +55,14 @@ def docs_digest(rt: "Runtime", s: Schedule) -> tuple[str, list[str]]:
     from ..business.readers import BINARY_SUFFIXES, ReadError, extract_text
     from ..memory.documents import IndexReport
 
-    since = s.last_run or (datetime.now() - timedelta(days=1))
+    # "Son çalışmadan beri değişen": dosya sisteminin kendi saatiyle (önceki çalışmada görülen en yeni dosya zamanı).
+    # Sistem saati (datetime.now) ile dosya zamanını karşılaştırmak Windows'ta milisaniyelik kaymayla aynı dosyayı
+    # tekrar "değişmiş" sayabiliyordu (sahibin Windows testi, Adım 18 sonrası).
+    cursor_key = f"digest_cursor:{s.id}"
+    stored = rt.store.get_meta(cursor_key)
+    since_ts = float(stored) if stored else (s.last_run or (datetime.now() - timedelta(days=1))).timestamp()
+    since = datetime.fromtimestamp(since_ts)
+    newest = since_ts
     folder = str(s.params.get("folder") or "").strip()
     base = None
     if folder:
@@ -66,11 +73,13 @@ def docs_digest(rt: "Runtime", s: Schedule) -> tuple[str, list[str]]:
         if base is not None and not str(path).startswith(str(base)):
             continue
         try:
-            mtime = datetime.fromtimestamp(path.stat().st_mtime)
+            ts = path.stat().st_mtime
         except OSError:
             continue
-        if mtime > since:
-            files.append((mtime, path))
+        newest = max(newest, ts)
+        if ts > since_ts:
+            files.append((datetime.fromtimestamp(ts), path))
+    rt.store.set_meta(cursor_key, repr(newest))
     files.sort(reverse=True)
     files = files[: int(s.params.get("max_files", 10))]
     if not files:
