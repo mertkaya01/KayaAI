@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from .config import Settings, load_settings
 from .core.claude_mode import ClaudeMode
@@ -31,6 +32,8 @@ class Runtime:
     memory: "Memory | None" = None  # noqa: F821 - Adım 9
     # API sunucusu: uzun işler (model indirme, karşılaştırma) arka planda sürer; CLI'da süreç bitene kadar beklenir.
     background_ok: bool = False
+    # Adım 20: dış sağlayıcı anahtarları (Windows Kimlik Bilgisi Yöneticisi / sunucuda dosya); testler bellekte depo verir
+    secret_store: Any = None
 
     def close(self) -> None:
         if self.memory is not None:
@@ -92,6 +95,9 @@ def build_runtime(
     sb = Sandbox(rt)
     permissions.executors.update(sandbox_executors(sb))
     rt.orchestrator.sandbox = sb
+    from .llm.providers import executors as provider_executors  # Adım 20
+
+    permissions.executors.update(provider_executors(rt))
     from .integrations import executors as integration_executors
 
     permissions.executors.update(integration_executors(rt))

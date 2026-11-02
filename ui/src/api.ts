@@ -68,6 +68,38 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const post = <T,>(path: string, body: unknown = {}) =>
   api<T>(path, { method: "POST", body: JSON.stringify(body) });
 
+export const put = <T,>(path: string, body: unknown = {}) =>
+  api<T>(path, { method: "PUT", body: JSON.stringify(body) });
+
+export const del = <T,>(path: string) => api<T>(path, { method: "DELETE" });
+
+// ---------------------------------------------------------------- dış sağlayıcılar (Adım 20)
+
+export interface ProviderRow {
+  id: string;
+  preset: string;
+  label: string;
+  base_url: string;
+  enabled: boolean;
+  default_model: string;
+  models: string[];
+  daily_limit: number;
+  timeout_s: number;
+  json_mode: boolean;
+  tested_at: string | null;
+  internet: boolean;
+  has_key: boolean;
+  key_source: string | null;
+  used_today: number;
+  pending_approval: string | null;
+}
+
+export interface ProvidersStatus {
+  providers: ProviderRow[];
+  presets: { preset: string; label: string; base_url: string; note: string }[];
+  key_backend: string;
+}
+
 export function eventsUrl(token: string, after?: number): string {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   const q = new URLSearchParams({ token });

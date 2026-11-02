@@ -2,6 +2,16 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.20.0] - 2026-11-02
+
+### Eklendi (Adım 20a — dış LLM sağlayıcıları; ilke değişikliği, sahip kararı)
+- **Sistem → Dış sağlayıcılar**: Groq, OpenRouter, OmniRoute ya da OpenAI uyumlu özel adres ekle; anahtarı bir kez gir
+  (Windows Kimlik Bilgisi Yöneticisi'ne yazılır, bir daha gösterilmez); **Bağlantıyı dene** model listesini çeker
+  (senin verin gitmez); varsayılan modeli seç; **Aç…** → önizlemeli onay (neyin gidip neyin gitmediği) → açık.
+  Kapalıyken hiçbir şey dışarı gitmez. Adres değişirse sağlayıcı kapanır, yeniden onay ister
+- `kayaai providers list|add|key|test|enable|disable|remove|keytest`; `/api/providers*`
+- Kullanım (mesaj başına ☁, ajan ataması) Adım 20b'de
+
 ## [0.19.4] - 2026-11-02
 
 ### Değişti (sahip isteği)

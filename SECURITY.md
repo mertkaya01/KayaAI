@@ -227,7 +227,30 @@
 ## Adım 17 — bulut köprüsü: kaldırıldı
 
 OmniRoute üzerinden bulut modelleri Adım 17'de yapıldı, Adım 18'de sahip kararıyla **tamamen kaldırıldı** (kod, API,
-CLI, arayüz). kayaAI'den Claude Code oturumu dışında hiçbir yapay zekâ servisine istek gitmez.
+CLI, arayüz). Yerine Adım 20 geldi (aşağıda).
+
+## Adım 20 — dış LLM sağlayıcıları (ilke değişikliği, sahip kararı 2026-11-02)
+
+Groq, OpenRouter, OmniRoute ya da OpenAI uyumlu başka bir adres bağlanabilir (`kayaai/llm/providers.py`). Sahip
+kararları (dördü de önerilen seçenek):
+
+1. **Ne gider:** yalnız yazılan mesaj, sohbet geçmişi ve o mesajda eklenen dosya metni. **Asla gitmez:** hafıza, belge
+   arama sonuçları, ekran görüntüleri, bilgisayar ölçümü (`outbound_input` her düzeyde çıkarır). Gizli bilgi algılayıcı
+   (parola, anahtar, kart, IBAN…) bir şey bulursa istek gönderilmez, yerel model yapar (`provider.blocked`).
+2. **Ne zaman:** yalnız sahip seçince — mesaj başına ☁ ya da bir ajanı dış modele atayınca (Adım 20b, ayrı onay).
+   "Yerel başaramazsa otomatik dışarı" yok.
+3. **Anahtar:** Windows Kimlik Bilgisi Yöneticisi (`advapi32` CredWrite/CredRead, ek paket yok; hedef
+   `kayaAI/provider/<id>`). Linux sunucuda `data/secrets/<id>.key` (klasör 0700, dosya 0600). Ortam değişkeni
+   `KAYAAI_PROVIDER_KEY_<ID>` önce gelir. Anahtar arayüzden bir kez girilir; hiçbir API ucu onu geri vermez, olaylara,
+   kayıtlara, ayar kaydına yazılmaz (testle denetlenir). `kayaai providers keytest` depoyu dener.
+4. **İnternet sağlayıcıları olur**, ama **her biri ayrı sahip onayıyla açılır (R2)**; önizlemede adres, internet mi
+   bu bilgisayar mı, günlük sınır, neyin gidip neyin gitmediği yazar. Kapatmak R1. Adresi değişen sağlayıcı
+   kendiliğinden kapanır; onay beklerken adres değişirse onay geçersizdir (yürütücü reddeder).
+
+Adres kuralları: internet adresi `https` olmalı (`http` yalnız 127.0.0.1/localhost); adreste kullanıcı/parola olamaz;
+yönlendirme izlenmez. Bağlantı testi yalnız `GET /models` ister (sahibin verisi gitmez). Her çağrı `provider.call`
+olayına **metinsiz** yazılır (sağlayıcı, model, ajan, karakter sayıları, süre); sağlayıcı başına günlük sınır; hata,
+kota ya da sınırda iş yerel modelle yapılır. Görsel ajan ve görüntü içeren istekler hiçbir zaman dışarı gitmez.
 
 ## Adım 19c — kod kum havuzu (ilke değişikliği, sahip kararı 2026-11-02)
 

@@ -229,6 +229,26 @@ class AgentModel(BaseModel):
     model_key: str = Field(min_length=1, max_length=60)
 
 
+class ProviderAddBody(BaseModel):
+    preset: str = Field(min_length=1, max_length=32)
+    label: str | None = Field(None, max_length=60)
+    base_url: str | None = Field(None, max_length=300)
+    daily_limit: int | None = Field(None, ge=1, le=100_000)
+
+
+class ProviderUpdateBody(BaseModel):
+    label: str | None = Field(None, max_length=60)
+    base_url: str | None = Field(None, max_length=300)
+    daily_limit: int | None = Field(None, ge=1, le=100_000)
+    default_model: str | None = Field(None, max_length=160)
+    timeout_s: float | None = Field(None, ge=5, le=600)
+    json_mode: bool | None = None
+
+
+class ProviderKeyBody(BaseModel):
+    key: str = Field(min_length=1, max_length=1000)
+
+
 class CompareBody(BaseModel):
     agent: str = Field(min_length=1, max_length=40)
     candidate: str = Field(min_length=1, max_length=60)
@@ -823,6 +843,62 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         return {"windows": windows_toast("kayaAI", "Deneme bildirimi: Windows bildirimleri çalışıyor.")}
 
     # ---------------------------------------------------------------- dış veri kaynakları (Adım 14c)
+
+    # ---------------------------------------------------------------- dış sağlayıcılar (Adım 20)
+
+    from ..llm import providers as prov
+    from ..llm.secretstore import SecretStoreError
+
+    def _prov(fn: Any, *args: Any, **kw: Any) -> Any:
+        from pydantic import ValidationError
+
+        try:
+            return fn(*args, **kw)
+        except ValidationError as exc:
+            raise HTTPException(422, "; ".join(str(e["msg"]).removeprefix("Value error, ") for e in exc.errors())) from exc
+        except (prov.ProviderError, SecretStoreError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/providers", dependencies=[Depends(auth)])
+    def providers_status() -> dict[str, Any]:
+        return prov.status(rt)
+
+    @app.post("/api/providers", dependencies=[Depends(auth)])
+    def providers_add(body: ProviderAddBody) -> dict[str, Any]:
+        return _prov(prov.add_provider, rt, body.preset, label=body.label, base_url=body.base_url,
+                     daily_limit=body.daily_limit).model_dump()
+
+    @app.post("/api/providers/{provider_id}/settings", dependencies=[Depends(auth)])
+    def providers_update(provider_id: str, body: ProviderUpdateBody) -> dict[str, Any]:
+        return _prov(prov.update_provider, rt, provider_id, **body.model_dump(exclude_none=True)).model_dump()
+
+    @app.delete("/api/providers/{provider_id}", dependencies=[Depends(auth)])
+    def providers_remove(provider_id: str) -> dict[str, Any]:
+        _prov(prov.remove_provider, rt, provider_id)
+        return {"removed": provider_id}
+
+    @app.put("/api/providers/{provider_id}/key", dependencies=[Depends(auth)])
+    def providers_key(provider_id: str, body: ProviderKeyBody) -> dict[str, Any]:
+        # Anahtar yalnız buraya gelir; hiçbir uç onu geri vermez, kayda yazılmaz
+        _prov(prov.save_key, rt, provider_id, body.key)
+        return {"id": provider_id, "has_key": True}
+
+    @app.delete("/api/providers/{provider_id}/key", dependencies=[Depends(auth)])
+    def providers_key_delete(provider_id: str) -> dict[str, Any]:
+        _prov(prov.delete_key, rt, provider_id)
+        return {"id": provider_id, "has_key": False}
+
+    @app.post("/api/providers/{provider_id}/test", dependencies=[Depends(auth)])
+    def providers_test(provider_id: str) -> dict[str, Any]:
+        return _prov(prov.test_connection, rt, provider_id)
+
+    @app.post("/api/providers/{provider_id}/enable", dependencies=[Depends(auth)])
+    def providers_enable(provider_id: str) -> dict[str, Any]:
+        return _prov(prov.request_enable, rt, provider_id, requested_by="api").model_dump(mode="json")
+
+    @app.post("/api/providers/{provider_id}/disable", dependencies=[Depends(auth)])
+    def providers_disable(provider_id: str) -> dict[str, Any]:
+        return _prov(prov.request_disable, rt, provider_id, requested_by="api").model_dump(mode="json")
 
     @app.get("/api/integrations", dependencies=[Depends(auth)])
     def integrations_list() -> list[dict[str, Any]]:

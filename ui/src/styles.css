@@ -632,6 +632,17 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .thinking { color: var(--muted); margin: 6px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .inbox-wait { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0; background: var(--hover); }
 .inbox-wait p { margin: 0 0 8px; color: var(--text); }
+/* Dış sağlayıcılar (Adım 20) */
+.prov { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; }
+.prov-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.prov-head h3 { margin: 0; font-size: 15px; }
+.prov p { margin: 6px 0; }
+.prov-key { flex: 1; min-width: 220px; }
+.prov-model { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; margin: 6px 0; text-align: left; }
+.prov-model select { max-width: 320px; }
+.prov-preview { white-space: pre-wrap; font-size: 12px; margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); border: 1px solid var(--line-soft); }
+.prov-add { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.prov-add .field { display: flex; flex-direction: column; gap: 4px; }
 .flow-top .chat-back { margin-left: auto; }
 .flow-wait { margin: 0 0 10px; }
 .dots { display: inline-flex; gap: 4px; }

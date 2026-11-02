@@ -6,6 +6,7 @@ import { ChatView } from "./components/ChatView";
 import { DisputesPanel } from "./components/DisputesPanel";
 import { EventsPanel } from "./components/EventsPanel";
 import { IntegrationsPanel } from "./components/IntegrationsPanel";
+import { ProvidersPanel } from "./components/ProvidersPanel";
 import { FlowView } from "./components/FlowView";
 import { MemoryView } from "./components/MemoryView";
 import { ModelsView } from "./components/ModelsView";
@@ -86,6 +87,7 @@ function ControlCenter({ keys, bump, events, health, onUnauthorized, notifyKey, 
           <SystemPanel metrics={system.data} health={health} />
           <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => bump("approvals")} />
           <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => bump("disputes")} />
+          <ProvidersPanel refreshKey={keys.approvals} />
           <IntegrationsPanel refreshKey={keys.approvals} />
           <NotificationsPanel refreshKey={notifyKey} onChanged={onNotifyChanged} />
         </div>

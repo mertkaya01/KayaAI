@@ -367,6 +367,13 @@ kayaai sandbox status     # hazır mı?
 Docker ya da imaj yoksa araç kendiliğinden kapalıdır; ajanlar eskisi gibi kodu yalnız yazar. Kapatmak için
 `config\settings.local.yaml` → `sandbox: {enabled: false}`.
 
+## Dış sağlayıcılar: Groq, OpenRouter, OmniRoute (Adım 20, isteğe bağlı)
+
+Sistem → **Dış sağlayıcılar**: sağlayıcıyı ekle → **Anahtar gir** (Windows Kimlik Bilgisi Yöneticisi'ne yazılır, bir
+daha gösterilmez) → **Bağlantıyı dene** (yalnız model listesi; verin gitmez) → **Aç…** → önizlemeyi okuyup onayla.
+Kapalıyken hiçbir şey dışarı gitmez; açıkken de yalnız sen seçince kullanılır. Hafızan, belgelerin, ekran görüntüleri
+ve bilgisayar ölçümü asla gitmez. Terminalden: `kayaai providers list|add groq|key groq|test groq|keytest`.
+
 ## Büyük belge havuzu: Qdrant (Adım 19b, isteğe bağlı)
 
 Masaüstünde vektörler SQLite'ta kalır (önerilen). Çok büyük belge havuzunda Qdrant kullanılabilir:

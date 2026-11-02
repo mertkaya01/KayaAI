@@ -263,6 +263,14 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   gözden geçirme çıktı sınırı, en çok 5 adım, planlayıcıya kısa geçmiş, "neler yapabilirsiniz" için gerçek ekip ve
   özellikler, bilgisayar sorularında anlık yalnız okunur ölçüm (Claude'a gitmez), ofiste "plan yapılamadı" notu —
   Python 18, Vitest 41
+## Adım 20 — Dış LLM sağlayıcıları (sahip kararı 2026-11-02: önerilerin dördü)
+- [x] 20a — Sağlayıcı kaydı (Groq, OpenRouter, OmniRoute, özel; https kuralı, adres değişince kapanır), anahtar deposu
+  (Windows Kimlik Bilgisi Yöneticisi / sunucuda 0600 dosya / ortam değişkeni; asla geri dönmez), bağlantı testi
+  (yalnız /models), R2 onaylı açma (önizleme) / R1 kapatma, Sistem → Dış sağlayıcılar paneli (satır içi onay),
+  `kayaai providers …` — Python 9, Playwright (ekle → anahtar → dene → onayla → açık), axe 0
+- [ ] 20b — Kullanım: mesaj başına ☁, ajan ataması, veri kapısı, metinsiz kayıt, yerel yedek, ofiste ☁
+- [ ] Windows: `kayaai providers keytest` (Kimlik Bilgisi Yöneticisi), Groq ekle → anahtar → Bağlantıyı dene
+
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
   açıklar mısın"); veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı
 - [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri

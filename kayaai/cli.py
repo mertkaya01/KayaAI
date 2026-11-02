@@ -967,6 +967,79 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
     return 0 if rep["ok"] else 1
 
 
+def cmd_providers(args: argparse.Namespace) -> int:
+    """Dış LLM sağlayıcıları (Adım 20): liste, ekle, anahtar, bağlantı testi, aç (onaylı) / kapat, sil, anahtar deposu testi."""
+    import getpass
+
+    from .llm import providers as prov
+    from .llm.secretstore import SecretStoreError
+    from .runtime import build_runtime
+
+    rt = build_runtime(load_settings())
+    try:
+        a, pid = args.action, args.target
+        if a in ("key", "test", "enable", "disable", "remove") and not pid:
+            _print(f"[HATA] kullanım: kayaai providers {a} <kimlik>")
+            return 2
+        if a == "list":
+            st = prov.status(rt)
+            _print(f"Anahtar deposu: {st['key_backend']}")
+            if not st["providers"]:
+                _print("Sağlayıcı yok. Ekle: kayaai providers add groq  (hazır: " + ", ".join(prov.PRESETS) + ")")
+            for p in st["providers"]:
+                _print(f"  {p['id']:<12} {'AÇIK' if p['enabled'] else 'kapalı':<7} {p['label']} · {p['base_url']} · "
+                       f"{'internet' if p['internet'] else 'bu bilgisayar'} · anahtar {'var' if p['has_key'] else 'YOK'} · "
+                       f"bugün {p['used_today']}/{p['daily_limit']} · {len(p['models'])} model"
+                       + (" · onay bekliyor" if p["pending_approval"] else ""))
+            return 0
+        if a == "add":
+            preset = pid or "groq"
+            p = prov.add_provider(rt, preset)
+            _print(f"[OK] Eklendi: {p.id} ({p.label}, {p.base_url}). Sıradaki: kayaai providers key {p.id}")
+            return 0
+        if a == "key":
+            prov.get_provider(rt, pid)
+            key = getpass.getpass(f"{pid} API anahtarı (ekranda görünmez): ")
+            prov.save_key(rt, pid, key)
+            _print(f"[OK] Anahtar kaydedildi ({prov.secrets(rt).backend_name}). Deneme: kayaai providers test {pid}")
+            return 0
+        if a == "test":
+            r = prov.test_connection(rt, pid)
+            if r["ok"]:
+                _print(f"[OK] Bağlantı tamam ({r['ms']} ms) · {len(r['models'])} model: {', '.join(r['models'][:8])}")
+                return 0
+            _print(f"[HATA] {r['error']}")
+            return 1
+        if a == "enable":
+            res = prov.request_enable(rt, pid, requested_by="cli")
+            _print(res.message if res.status != "done" else "[OK] Açıldı")
+            if res.status == "awaiting_approval":
+                _print(f"Onay merkezinde onayla ya da: kayaai approvals approve {res.approval_id}")
+            return 0
+        if a == "disable":
+            res = prov.request_disable(rt, pid, requested_by="cli")
+            _print("[OK] Kapatıldı" if res.status == "done" else res.message)
+            return 0
+        if a == "remove":
+            prov.remove_provider(rt, pid)
+            _print(f"[OK] Silindi: {pid} (anahtarı da silindi)")
+            return 0
+        # keytest: anahtar deposu bu bilgisayarda çalışıyor mu (sahte bir kayıt yazılıp okunur ve silinir)
+        st = prov.secrets(rt)
+        probe = "kayaai-selftest"
+        st.backend.set(probe, "deneme-anahtar-123")
+        ok = st.backend.get(probe) == "deneme-anahtar-123"
+        st.backend.delete(probe)
+        gone = st.backend.get(probe) is None
+        _print(f"Anahtar deposu: {st.backend_name} → yaz/oku {'✓' if ok else '✗'} · sil {'✓' if gone else '✗'}")
+        return 0 if ok and gone else 1
+    except (prov.ProviderError, SecretStoreError, ValueError) as exc:
+        _print(f"[HATA] {exc}")
+        return 1
+    finally:
+        rt.close()
+
+
 def cmd_qdrant(args: argparse.Namespace) -> int:
     """Qdrant vektör deposu (Adım 19b): bu bilgisayarda başlat / durdur / durum / gerçek denetim."""
     from .memory import qdrant_check as qc
@@ -1516,6 +1589,12 @@ def build_parser() -> argparse.ArgumentParser:
     sbp = sub.add_parser("sandbox", help="kod kum havuzu (Docker): durum / imajı kur / yalıtım denetimi")
     sbp.add_argument("action", nargs="?", choices=["status", "build", "test"], default="status")
     sbp.set_defaults(func=cmd_sandbox)
+
+    pv = sub.add_parser("providers", help="dış LLM sağlayıcıları (Groq, OmniRoute…): liste/ekle/anahtar/dene/aç/kapat")
+    pv.add_argument("action", nargs="?", choices=["list", "add", "key", "test", "enable", "disable", "remove", "keytest"],
+                    default="list")
+    pv.add_argument("target", nargs="?", help="sağlayıcı kimliği (add için hazır ayar: groq, openrouter, omniroute, custom)")
+    pv.set_defaults(func=cmd_providers)
 
     qp = sub.add_parser("qdrant", help="Qdrant vektör deposu (Docker, yalnız 127.0.0.1): başlat / durdur / durum / denetim")
     qp.add_argument("action", nargs="?", choices=["status", "start", "stop", "test"], default="status")

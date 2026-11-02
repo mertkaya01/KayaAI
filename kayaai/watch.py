@@ -19,7 +19,7 @@ AGENT = {"general": "Genel", "data": "Veri", "document": "Belge", "coder": "Kod"
 _C = {"dim": "2", "green": "32", "red": "31", "yellow": "33", "blue": "34", "magenta": "35", "cyan": "36", "bold": "1"}
 
 IMPORTANT = ("task.status", "approval.", "chat.message", "schedule.run", "dispute.", "automation.", "claude.mode", "claude.timeout",
-             "model.pull", "agent.", "memory.indexed", "browser.step", "sandbox.")
+             "model.pull", "agent.", "memory.indexed", "browser.step", "sandbox.", "provider.")
 
 
 def agent_name(worker: str) -> str:
@@ -99,6 +99,16 @@ def describe(ev: dict[str, Any]) -> tuple[str, str] | None:
         return "red", "⏸ Otomasyon duraklatıldı"
     if t == "automation.resumed":
         return "green", "▶ Otomasyon sürdürüldü"
+    if t == "provider.call":
+        ok = d.get("ok")
+        return ("cyan" if ok else "red"), (f"  ☁ {agent_name(str(d.get('agent', '?')))} → {d.get('id')}/{d.get('model')} · "
+                                           f"{d.get('chars_out')} karakter gitti" + (f" · {d.get('ms')} ms" if ok else f" · HATA: {_short(d.get('error'), 80)}"))
+    if t == "provider.blocked":
+        return "yellow", f"  ☁ Dışarı GÖNDERİLMEDİ ({d.get('id')}): {d.get('reason')} — yerel model yapıyor"
+    if t in ("provider.enabled", "provider.disabled"):
+        return "magenta", f"☁ Dış sağlayıcı {'AÇILDI' if t.endswith('enabled') and not t.endswith('disabled') else 'kapatıldı'}: {d.get('label') or d.get('id')}"
+    if t == "provider.test":
+        return ("green" if d.get("ok") else "red"), f"☁ Bağlantı testi {d.get('id')}: " + (f"{d.get('models')} model" if d.get("ok") else str(d.get("error")))
     if t == "claude.timeout":
         return "yellow", f"⌛ Claude kutusunda {d.get('minutes')} dk kimse almadı; iş yerel ekibe verildi"
     if t == "claude.mode":
