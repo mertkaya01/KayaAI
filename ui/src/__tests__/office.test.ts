@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Approval, FlowNode, JobGraph } from "../api";
-import { actorOf, deriveActors, diffVisits, flows, iso, layout, pickArt, taskGraph, workStyle, type OfficeAssets } from "../office/scene";
+import { actorOf, deriveActors, diffVisits, flows, layout, ownSprite, pickArt, pickSeat, pickWalk, PIXEL, taskGraph, top, walkDir, workStyle,
+         type OfficeAssets } from "../office/scene";
 
 function node(id: string, kind: FlowNode["kind"], status: FlowNode["status"], agent: string | null = null, task_id: string | null = null): FlowNode {
   return { id, kind, label: id, status, agent, model: "qwen3:8b", task_id, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null };
@@ -173,10 +174,47 @@ describe("Adım 19a: animasyon bilgisi", () => {
   });
 });
 
-it("iso projection", () => {
-  expect(iso({ x: 0, y: 0 })).toEqual({ x: 0, y: 0 });
-  expect(iso({ x: 1, y: 0 })).toEqual({ x: 48, y: 24 });
-  expect(iso({ x: 0, y: 1 })).toEqual({ x: -48, y: 24 });
+describe("Adım 21: pixel ofis", () => {
+  it("top-down projection and walking direction", () => {
+    expect(top({ x: 0, y: 0 })).toEqual({ x: 0, y: 0 });
+    expect(top({ x: 1, y: 2 })).toEqual({ x: 112, y: 192 });
+    expect(walkDir({ x: 1, y: 2 }, { x: 3, y: 2.2 })).toBe("right");
+    expect(walkDir({ x: 3, y: 2 }, { x: 1, y: 2 })).toBe("left");
+    expect(walkDir({ x: 1, y: 2 }, { x: 1.1, y: 4 })).toBe("down");
+    expect(walkDir({ x: 1, y: 4 }, { x: 1.1, y: 2 })).toBe("up");
+  });
+
+  it("desks do not overlap and stay inside the room", () => {
+    const desks = layout(["satisci", "hukukcu"]).map((a) => a.desk);
+    for (const d of desks) {
+      expect(d.x).toBeGreaterThanOrEqual(0.5);
+      expect(d.x).toBeLessThanOrEqual(7.6);
+      expect(d.y).toBeGreaterThanOrEqual(1);
+      expect(d.y).toBeLessThanOrEqual(5.45);  // sahne yüksekliği 5.6 hücre
+    }
+    for (let i = 0; i < desks.length; i++) {
+      for (let j = i + 1; j < desks.length; j++) {
+        const far = Math.abs(desks[i].x - desks[j].x) >= 0.9 || Math.abs(desks[i].y - desks[j].y) >= 0.9;
+        expect(far).toBe(true);
+      }
+    }
+  });
+
+  it("default pixel sprites, owner art with frames from the image size", () => {
+    expect(pickSeat(null, { id: "data", kind: "agent", state: "working" })).toBe(PIXEL.seat.data);
+    expect(pickSeat(null, { id: "satisci", kind: "agent", state: "idle" })).toBe(PIXEL.seat.default);
+    expect(pickWalk(null, { id: "data", kind: "agent" }, "up")).toEqual({ s: PIXEL.walk.up, flip: false });
+    const assets: OfficeAssets = { folder: "", exists: true, desk: null, floor: null, unknown: [], skipped: [],
+      actors: { data: { base: "/ofis/veri.png", walking: "/ofis/veri-yuruyor.png" }, coder: { walk_left: "/ofis/kod-yuruyor-sol.png" } },
+      sizes: { "/ofis/veri.png": [128, 64], "/ofis/veri-yuruyor.png": [256, 64], "/ofis/kod-yuruyor-sol.png": [128, 32] } };
+    const seat = pickSeat(assets, { id: "data", kind: "agent", state: "working" });
+    expect([seat.href, seat.frames, seat.fw, seat.ay]).toEqual(["/ofis/veri.png", 2, 64, 61]);
+    const left = pickWalk(assets, { id: "data", kind: "agent" }, "left");
+    expect([left.s.frames, left.flip]).toEqual([4, true]);  // tek yürüme resmi sola yansıtılır
+    const own = pickWalk(assets, { id: "coder", kind: "agent" }, "left");
+    expect([own.s.frames, own.s.fw, own.flip]).toEqual([4, 32, false]);
+    expect(ownSprite(assets, null, "seat")).toBeNull();
+  });
 });
 
 describe("biten işte başarısız plan notu (sahip videosu)", () => {

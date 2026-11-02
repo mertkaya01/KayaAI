@@ -528,6 +528,28 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .live-tail { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--bg); font-size: 12px; white-space: pre-wrap; }
 .office.compact .office-body .inspector { max-height: 320px; }
 
+/* Adım 21: pixel ofis (önden-üstten). Çizimler en yakın komşuyla büyütülür (bulanıklaşmaz). */
+.office.pixel .office-scene { background: var(--wall-dark); }
+.office.pixel image.px, .office.pixel .px { image-rendering: pixelated; }
+.office-scene .floor-a { fill: var(--floor); }
+.office-scene .floor-b { fill: var(--floor-alt); }
+.office-scene .wall-px { fill: var(--wall); }
+.office-scene .wall-base { fill: var(--wall-dark); }
+.office-scene .window-px { fill: color-mix(in srgb, #7fb6e8 55%, var(--wall)); stroke: var(--wall-dark); stroke-width: 4; }
+.office-scene .nameplate { fill: color-mix(in srgb, var(--bg) 82%, transparent); stroke: var(--line); stroke-width: 1; }
+.office-scene .nameplate.sel { stroke: var(--accent); stroke-width: 2; }
+.office.pixel .office-scene .name { font-size: 11px; font-weight: 600; stroke-width: 0; }
+.office-scene .mb-top { fill: #6f4a33; }
+.office-scene .mb-body { fill: #8a5a3c; stroke: #2b1a10; stroke-width: 2; }
+.office-scene .mb-slot { fill: #2b1a10; }
+.office-scene .mb-post { fill: #4a3426; }
+.office.pixel .person .mark { font-size: 18px; }
+.office.pixel .seated.busy { animation: bob .6s steps(2) infinite; transform-box: fill-box; transform-origin: bottom; }
+.office.pixel .person.selected .seated, .office.pixel .person:focus-visible .seated { filter: drop-shadow(0 0 3px var(--accent)); }
+.office.pixel .person:focus-visible { outline: none; }
+@keyframes bob { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .office.pixel .seated.busy { animation: none; } }
+
 /* Bugün (Adım 16b) */
 .today { max-width: 1400px; margin: 0 auto; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 22px; }
 @media (max-width: 820px) { .today { padding: 16px; } }

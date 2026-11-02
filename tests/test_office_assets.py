@@ -60,5 +60,31 @@ def test_api_and_static(fake_ollama, tmp_path: Path, monkeypatch):
         assert "default-src 'none'" in r.headers["content-security-policy"]
         r = c.get("/ofis/../kayaai.db")  # istemci yolu /kayaai.db yapar → arayüz sayfası, veritabanı değil
         assert r.headers["content-type"].startswith("text/html") and b"SQLite" not in r.content
-        assert c.get("/ofis/%2E%2E/kayaai.db").status_code == 404
+        r = c.get("/ofis/%2E%2E/kayaai.db")  # resim değil → arayüz sayfası; veritabanı asla
+        assert r.headers["content-type"].startswith("text/html") and b"SQLite" not in r.content
         assert c.get("/ofis/yok.png").status_code == 404
+        assert c.get("/ofis/%2E%2E/gizli.png").status_code == 404
+        # Adım 21: Ofis'te açık iş sayfası yenilenince (/ofis/<iş>) arayüz gelmeli, "Çizim bulunamadı" değil
+        r = c.get("/ofis/6874db307781")
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
+
+
+def test_png_sizes_and_walk_directions(tmp_path: Path):
+    import struct
+    import zlib
+
+    def png(w: int, h: int) -> bytes:
+        ihdr = struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)
+        chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)  # noqa: E731
+        return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"\0" * (w * 4 + 1) * h)) + chunk(b"IEND", b"")
+    d = tmp_path / "ofis"
+    d.mkdir()
+    (d / "veri.png").write_bytes(png(128, 64))            # 2 kare masada
+    (d / "veri-yuruyor-sol.png").write_bytes(png(256, 64))  # 4 kare sola yürüme
+    (d / "kod-yuruyor.png").write_bytes(png(256, 64))
+    (d / "veri-ziplıyor.png").write_bytes(png(64, 64))      # Türkçe karakter: geçersiz ad
+    out = scan(tmp_path)
+    veri = out["actors"]["data"]
+    assert set(veri) == {"base", "walk_left"} and out["actors"]["coder"]["walking"]
+    assert out["sizes"][veri["base"]] == [128, 64] and out["sizes"][veri["walk_left"]] == [256, 64]
+    assert "veri-ziplıyor.png" in out["skipped"]

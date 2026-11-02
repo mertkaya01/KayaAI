@@ -345,10 +345,12 @@ Control Center'da üstteki **Asistan** sekmesi (`http://127.0.0.1:8765/asistan`)
 - **Erişilebilirlik**: otomatik denetimde (axe, WCAG 2.1 AA) 0 ihlal; klavyeyle "İçeriğe atla", görünür odak, ekran
   okuyucu etiketleri, Escape ile kapanan pencereler.
 
-## Ofis çizimleri (Adım 18)
+## Ofis çizimleri (Adım 18 → Adım 21 pixel stil)
 
-Ofisteki karakterleri, masayı ve zemini kendi çizimlerinle değiştirebilirsin: resimleri `data\ofis\` klasörüne koy
-(`veri.png`, `veri-calisiyor.png`, `masa.png`…), Ofis → **🎨 Çizimler → Yenile**. Ayrıntı: [docs/OFIS_CIZIM.md](docs/OFIS_CIZIM.md).
+Ofis önden-üstten bir pixel ofis (hazır çizimler: free-office-pixel-art, arlantr). Karakterleri, masayı ve zemini kendi
+pixel çizimlerinle değiştirebilirsin: 64×64 kareler (animasyon için yan yana), `data\ofis\` klasörüne `veri.png`
+(masada), `veri-yuruyor.png` (yürüme), `masa.png`, `zemin.png`… koy → Ofis → **🎨 Çizimler → Yenile**. En kolayı hazır
+çizimi kalıp yapmak: [docs/OFIS_CIZIM.md](docs/OFIS_CIZIM.md).
 
 ## Kod kum havuzu (Adım 19c)
 

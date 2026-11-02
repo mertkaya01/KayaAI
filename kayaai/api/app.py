@@ -1308,7 +1308,8 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
     def ui(path: str) -> Response:
         if path == "api" or path.startswith("api/"):
             raise HTTPException(404, "Bilinmeyen API yolu")
-        if path.startswith("ofis/"):  # Adım 18d: sahibin ofis çizimleri (data/ofis), yalnız resim
+        # Adım 18d: sahibin ofis çizimleri (data/ofis), yalnız resim. "/ofis/<iş>" ise arayüz sayfası (yenilemede 404 olmasın)
+        if path.startswith("ofis/") and path.lower().endswith(tuple(f"{s}" for s in (".png", ".svg", ".webp"))):
             from ..office_assets import SUFFIXES, safe_file
 
             f = safe_file(settings.data_dir, path[len("ofis/"):])

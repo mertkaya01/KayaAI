@@ -2,6 +2,23 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.21.0] - 2026-11-02
+
+### Değişti (Adım 21 — sahip kararı "ofis A": pixel stil)
+- **Ofis önden-üstten pixel stile geçti** (free-office-pixel-art, arlantr — "free to use any way you want"; lisans
+  `ui/public/office/pixel/LICENSE.txt`). Ajanlar masalarında arkadan oturur; çalışırken masa parlar, hafifçe kıpırdar ve
+  masanın yanında işine göre küçük efekt (kod satırları, grafik, kâğıt, büyüteç, pano); iş teslimi ve incelemede kalkıp
+  **yöne göre yürür** (4 yön, 4 kare), masası boş kalır; sen yazı masanda bekleme animasyonuyla; Claude'un posta kutusu;
+  duvar dibinde dolap, su sebili, kahve makinesi, yazıcı, bitkiler. Akış çizgileri, balonlar, ✓ z ⚖ ☁ 🔔 işaretleri,
+  tıklayınca ayrıntı ve "hareketi azalt" aynen
+- **Kendi çizimlerin** (`data\ofis\`): 64×64 kareler, animasyon için yan yana (kare sayısı genişlik/yükseklikten);
+  yönlü yürüme `-yuruyor-sol|sag|yukari|asagi` (tek `-yuruyor` sola yansıtılır); `masa.png` boş masa, `zemin.png`
+  16×16 karo. `/api/office/assets` PNG boyutlarını da verir. Rehber: `docs/OFIS_CIZIM.md` (hazır çizimi kalıp yap)
+
+### Düzeltildi
+- Ofis'te açık bir iş varken sayfa yenilenince (`/ofis/<iş>`) "Çizim bulunamadı" hatası geliyordu; artık yalnız resim
+  uzantılı adresler çizim olarak sunulur
+
 ## [0.20.1] - 2026-11-02
 
 ### Eklendi (Adım 20b — dış sağlayıcı kullanımı)

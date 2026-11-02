@@ -1,0 +1,17 @@
+Free Office Pixel Art — arlantr (https://arlantr.itch.io/, https://opengameart.org/users/arlantr)
+
+Paketin kendi Readme.txt dosyasından (olduğu gibi):
+
+  Thank you for your support!
+  I hope that helps you!
+
+  Free to use any way you want.
+
+  My page on itch.io. There you will find more assets made by me.
+  https://arlantr.itch.io/
+
+  More free game assets:
+  https://opengameart.org/users/arlantr
+
+kayaAI'de varsayılan ofis çizimleri olarak kullanılır (sahip 2026-11-02'de gönderdi). Atıf zorunlu değil;
+teşekkür olarak burada belirtilir. Sahibin kendi çizimleri data/ofis/ klasöründen bunların yerine geçer.

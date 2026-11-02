@@ -38,20 +38,21 @@ export interface Actor extends ActorDef {
 /** Bir karakterin başka bir masaya gidip dönmesi (teslim, gözden geçirme, onay, Claude'a devir). */
 export interface Visit { key: string; actor: string; host: string; kind: "handoff" | "review" | "deliver" | "approval" | "claude"; note: string }
 
-// Izgara: 8×6 kare (izometrik çizilir). Masalar sabit; bilinmeyen (geçici) ajanlar boş masalara oturur.
-export const GRID = { w: 8, h: 6 };
+// Izgara (Adım 21: önden-üstten pixel ofis): 8×6 hücre. Masa noktası = masada oturanın ayak/sandalye hizası.
+// Üç sıra ajan masası, sağda Şef ve senin masan, duvar dibinde Claude'un posta kutusu. Geçici ajanlar boş yerlere.
+export const GRID = { w: 8, h: 5.6 };
 const FIXED: ActorDef[] = [
-  { id: "owner", label: "Sen", color: "#f2b84b", desk: { x: 0, y: 5 }, kind: "owner" },
-  { id: "chef", label: "Şef", color: "#e8684a", desk: { x: 3, y: 2 }, kind: "chef" },
-  { id: "general", label: "Genel", color: "#4f8cff", desk: { x: 1, y: 1 }, kind: "agent" },
-  { id: "data", label: "Veri", color: "#3fbf8f", desk: { x: 5, y: 1 }, kind: "agent" },
-  { id: "document", label: "Belge", color: "#b07cf0", desk: { x: 6, y: 3 }, kind: "agent" },
-  { id: "coder", label: "Kod", color: "#f07ca8", desk: { x: 1, y: 3 }, kind: "agent" },
-  { id: "vision", label: "Görsel", color: "#47c7d6", desk: { x: 5, y: 4 }, kind: "agent" },
-  { id: "reviewer", label: "Denetçi", color: "#c9a227", desk: { x: 3, y: 4 }, kind: "agent" },
-  { id: "claude", label: "Claude", color: "#d98a5f", desk: { x: 7, y: 0 }, kind: "claude" },
+  { id: "general", label: "Genel", color: "#4f8cff", desk: { x: 1.0, y: 2.0 }, kind: "agent" },
+  { id: "data", label: "Veri", color: "#3fbf8f", desk: { x: 2.6, y: 2.0 }, kind: "agent" },
+  { id: "document", label: "Belge", color: "#b07cf0", desk: { x: 4.2, y: 2.0 }, kind: "agent" },
+  { id: "coder", label: "Kod", color: "#f07ca8", desk: { x: 1.0, y: 3.75 }, kind: "agent" },
+  { id: "reviewer", label: "Denetçi", color: "#c9a227", desk: { x: 2.6, y: 3.75 }, kind: "agent" },
+  { id: "vision", label: "Görsel", color: "#47c7d6", desk: { x: 4.2, y: 3.75 }, kind: "agent" },
+  { id: "chef", label: "Şef", color: "#e8684a", desk: { x: 6.3, y: 2.2 }, kind: "chef" },
+  { id: "owner", label: "Sen", color: "#f2b84b", desk: { x: 6.3, y: 4.3 }, kind: "owner" },
+  { id: "claude", label: "Claude", color: "#d98a5f", desk: { x: 7.45, y: 1.15 }, kind: "claude" },
 ];
-const SPARE: Pt[] = [{ x: 7, y: 2 }, { x: 0, y: 2 }, { x: 7, y: 5 }, { x: 2, y: 0 }, { x: 4, y: 0 }, { x: 6, y: 5 }];
+const SPARE: Pt[] = [{ x: 1.0, y: 5.35 }, { x: 2.6, y: 5.35 }, { x: 4.2, y: 5.35 }, { x: 5.6, y: 5.4 }, { x: 7.4, y: 5.4 }, { x: 7.45, y: 3.2 }];
 const SPARE_COLORS = ["#8fa3bf", "#a3bf8f", "#bf8fa3", "#bfb08f", "#8fbfb8", "#a88fbf"];
 
 /** Düğüm → karakter. Adımlar ajan adına (data.revise → data), kontrol/son kontrol denetçiye, kalanı şefe. */
@@ -223,6 +224,68 @@ export function taskGraph(t: TaskLite): JobGraph {
 export interface OfficeAssets {
   folder: string; exists: boolean; desk: string | null; floor: string | null;
   actors: Record<string, Record<string, string>>; unknown: string[]; skipped: string[];
+  sizes?: Record<string, [number, number]>;  // PNG boyutları: kare sayısı = genişlik / yükseklik
+}
+
+/** Pixel çizim (Adım 21): yan yana kareler; (ax, ay) = sahnedeki noktaya oturan piksel (ayak / masa altı). */
+export interface Sprite { href: string; frames: number; fw: number; fh: number; ax: number; ay: number }
+export type WalkDir = "down" | "up" | "left" | "right";
+
+const PIX = "/office/pixel/";
+const seatSprite = (file: string, frames = 1): Sprite => ({ href: PIX + file, frames, fw: 64, fh: 64, ax: 32, ay: 61 });
+const walkSprite = (file: string): Sprite => ({ href: PIX + file, frames: 4, fw: 64, fh: 64, ax: 31, ay: 48 });
+
+/** Hazır çizimler (free-office-pixel-art, arlantr — "free to use any way you want"). Sahibin çizimleri bunların yerine geçer. */
+export const PIXEL = {
+  seat: {
+    general: seatSprite("worker1.png"), data: seatSprite("worker2.png"), document: seatSprite("worker4.png"),
+    coder: seatSprite("worker2.png"), reviewer: seatSprite("worker4.png"), vision: seatSprite("worker1.png"),
+    chef: seatSprite("boss.png"), default: seatSprite("worker1.png"),
+  } as Record<string, Sprite>,
+  emptyDesk: seatSprite("desk-with-pc.png"),
+  busyDesk: seatSprite("Julia_PC.png", 6),          // sahibi kalkmışken ekranı çalışan masa
+  ownerDesk: { href: PIX + "writing-table.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 49 } as Sprite,
+  owner: { href: PIX + "Julia-Idle.png", frames: 4, fw: 32, fh: 32, ax: 16, ay: 31 } as Sprite,
+  walk: { down: walkSprite("Julia_walk_Foward.png"), up: walkSprite("Julia_walk_Up.png"),
+          left: walkSprite("Julia_walk_Left.png"), right: walkSprite("Julia_walk_Rigth.png") } as Record<WalkDir, Sprite>,
+  props: [  // duvar dibi ve köşeler (ızgara birimi; ay = alt kenar)
+    { s: { href: PIX + "cabinet.png", frames: 1, fw: 64, fh: 64, ax: 30, ay: 49 }, at: { x: 0.25, y: 1.05 } },
+    { s: { href: PIX + "water-cooler.png", frames: 1, fw: 16, fh: 32, ax: 7, ay: 31 }, at: { x: 0.85, y: 1.0 } },
+    { s: { href: PIX + "coffee-maker.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 51 }, at: { x: 1.8, y: 1.0 } },
+    { s: { href: PIX + "printer.png", frames: 1, fw: 64, fh: 32, ax: 32, ay: 32 }, at: { x: 5.3, y: 1.0 } },
+    { s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 6.1, y: 1.0 } },
+    { s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 0.2, y: 5.45 } },
+    { s: { href: PIX + "Trash.png", frames: 1, fw: 16, fh: 16, ax: 8, ay: 13 }, at: { x: 3.45, y: 4.1 } },
+    { s: { href: PIX + "sink.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 48 }, at: { x: 7.45, y: 4.6 } },
+  ] as { s: Sprite; at: Pt }[],
+};
+
+/** Sahibin resmi → çizim: kareler yan yana (kare sayısı = genişlik/yükseklik), hazır kalıpla aynı hizalama. */
+export function ownSprite(assets: OfficeAssets | null | undefined, url: string | null, kind: "seat" | "walk"): Sprite | null {
+  if (!url) return null;
+  const size = assets?.sizes?.[url];
+  const [w, h] = size ?? [64, 64];
+  const frames = Math.max(1, Math.round(w / h));
+  const fw = w / frames;
+  return { href: url, frames, fw, fh: h, ax: fw / 2, ay: kind === "seat" ? h * (61 / 64) : h * (48 / 64) };
+}
+
+/** Yürürken çizim: sahibin yönlü resmi → tek yürüme resmi (sola yansıtılır) → hazır Julia. */
+export function pickWalk(assets: OfficeAssets | null | undefined, a: Pick<Actor, "id" | "kind">, dir: WalkDir): { s: Sprite; flip: boolean } {
+  const key = { down: "walk_down", up: "walk_up", left: "walk_left", right: "walk_right" }[dir];
+  const pools = [assets?.actors[a.id], a.kind === "agent" ? assets?.actors["default"] : undefined];
+  for (const own of pools) {
+    if (!own) continue;
+    if (own[key]) return { s: ownSprite(assets, own[key], "walk")!, flip: false };
+    if (own.walking) return { s: ownSprite(assets, own.walking, "walk")!, flip: dir === "left" };
+  }
+  return { s: PIXEL.walk[dir], flip: false };
+}
+
+/** Masada (oturan) çizim: sahibin durum/genel resmi → hazır çalışan çizimi. */
+export function pickSeat(assets: OfficeAssets | null | undefined, a: Pick<Actor, "id" | "kind" | "state">): Sprite {
+  const own = ownSprite(assets, pickArt(assets, a), "seat");
+  return own ?? PIXEL.seat[a.id] ?? (a.kind === "chef" ? PIXEL.seat.chef : PIXEL.seat.default);
 }
 
 /** Karakter çizimi: önce o durumun resmi, sonra genel resmi; adı olmayan ajanlar için "ajan" resmi. Yoksa null (şekil). */
@@ -234,15 +297,23 @@ export function pickArt(assets: OfficeAssets | null | undefined, a: Pick<Actor, 
   return own?.[state] ?? own?.base ?? dflt?.[state] ?? dflt?.base ?? null;
 }
 
-/** Izgara → ekran (izometrik). */
-export const TILE = { w: 96, h: 48 };
-export function iso(p: Pt): Pt {
-  return { x: (p.x - p.y) * (TILE.w / 2), y: (p.x + p.y) * (TILE.h / 2) };
+/** Izgara → ekran (Adım 21: önden-üstten). Pixel çizimler PX katı büyütülür (en yakın komşu). */
+export const CELL = { w: 112, h: 96 };
+export const PX = 2;
+export function top(p: Pt): Pt {
+  return { x: p.x * CELL.w, y: p.y * CELL.h };
 }
 
-/** Masanın önündeki duruş noktası (karakterin oturduğu yer) ve ziyaretçinin durduğu yer. */
-export function seat(d: Pt): Pt { return { x: d.x + 0.2, y: d.y + 0.2 }; }           // masanın arkası
-export function visitorSpot(d: Pt): Pt { return { x: d.x + 1.15, y: d.y + 0.45 }; }   // masanın sağ önü
+/** Masadaki oturuş noktası ve ziyaretçinin durduğu yer (masanın sağ yanı). */
+export function seat(d: Pt): Pt { return { x: d.x, y: d.y }; }
+export function visitorSpot(d: Pt): Pt { return { x: d.x + 0.62, y: d.y + 0.05 }; }
+
+/** Yürüme yönü (ekranda hangi yöne gidiyor). */
+export function walkDir(from: Pt, to: Pt): WalkDir {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  if (Math.abs(dx) * CELL.w >= Math.abs(dy) * CELL.h) return dx < 0 ? "left" : "right";
+  return dy < 0 ? "up" : "down";
+}
 
 export const STATE_TEXT: Record<ActorState, string> = {
   idle: "boşta", working: "çalışıyor", waiting: "bekliyor", error: "hata", done: "bitirdi",

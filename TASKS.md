@@ -274,6 +274,13 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   dış cevap + etiket; Şef ataması → onay → ☁), axe 0
 - [ ] Windows: `kayaai providers keytest` (Kimlik Bilgisi Yöneticisi), Groq ekle → anahtar → Bağlantıyı dene
 
+## Adım 21 — Pixel ofis (sahip kararı "ofis A", 2026-11-02)
+- [x] Önden-üstten pixel sahne (free-office-pixel-art), oturan/yürüyen (4 yön) çizimler, çalışırken parlama + kıpırdama
+  + iş efekti, boş masa, sahibin 64×64 yan yana kareli çizimleri (yönlü yürüme, PNG boyutundan kare sayısı), 🎨 panel
+  ve `docs/OFIS_CIZIM.md` rehberi; `/ofis/<iş>` yenileme hatası düzeltildi — Vitest 44, Python 5, Playwright (canlı
+  3 adımlı iş: oturan/yürüyen/teslim, açık/koyu), axe 0
+- [ ] Sahip: kendi karakterlerini çiz (`worker1.png` ve `Julia_walk_Foward.png` kalıbıyla) → `data\ofis\` → Yenile
+
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
   açıklar mısın"); veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı
 - [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri

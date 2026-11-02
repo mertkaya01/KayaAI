@@ -26,9 +26,11 @@ export function OfficeArtPanel({ onClose }: { onClose: () => void }) {
         {d && !d.exists && <> — klasör henüz yok, oluşturman yeterli.</>}
       </p>
       <p className="muted small">
-        Biçim: arka planı şeffaf <strong>PNG</strong> (ya da SVG/WEBP), en çok 5 MB, küçük harfli Türkçe ad. Karakter yaklaşık
-        <strong> 96×128</strong> px (ayakları alt ortada), masa ~<strong>160×140</strong>, zemin karosu <strong>96×48</strong> (izometrik).
-        Durum resimleri isteğe bağlı: yoksa karakterin genel resmi kullanılır, o da yoksa şimdiki şekil.
+        Pixel stil, önden-üstten (hazır çizimler gibi). Arka planı şeffaf <strong>PNG</strong>, en çok 5 MB, küçük harfli Türkçe ad.
+        Kare <strong>64×64</strong>: masada oturan (arkadan) — masanın altı 61. satırda; yürüyen — ayak 48. satırda. Animasyon için
+        kareleri <strong>yan yana</strong> koy (ör. 4 kare → 256×64). Zemin karosu <strong>16×16</strong>. Yürüme yönlü de olur:
+        <code>-yuruyor-sol</code>, <code>-sag</code>, <code>-yukari</code>, <code>-asagi</code> (tek <code>-yuruyor</code> sola yansıtılır).
+        Olmayan resim yerine hazır çizim kullanılır. Ayrıntı ve kalıplar: <code>docs/OFIS_CIZIM.md</code>.
       </p>
       <div className="table-wrap">
         <table className="mtable art-table">
