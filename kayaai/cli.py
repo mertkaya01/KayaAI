@@ -957,7 +957,7 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
         _print("[OK] İmaj hazır. Deneme: kayaai sandbox test" if code == 0 else f"[HATA] docker build {code} ile bitti")
         return 0 if code == 0 else 1
     _print("Kum havuzu yalıtımı denetleniyor (gerçek Docker; yaklaşık 30 sn)…")
-    rep = run_checks(cfg, s.data_dir / "sandbox" / "_checks")
+    rep = run_checks(cfg, s.data_dir / "checks" / "sandbox")  # çalıştırma klasörlerinden ayrı (temizlikte silinmesin)
     if not rep["ready"]:
         _print(f"[HATA] {rep['reason']}")
     for c in rep["cases"]:
