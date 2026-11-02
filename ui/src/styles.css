@@ -100,7 +100,12 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; min-width: 0; }
 .brand .logo { width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 15px;
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
-.brand-name { font-size: 17px; font-weight: 700; margin: 0; }
+.brand-title { margin: 0; min-width: 0; font-size: inherit; }
+.brand-link { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; border-radius: 10px; padding: 2px 4px 2px 2px; }
+.brand-link:hover .brand-name { color: var(--accent); }
+.brand-link:hover .logo { transform: rotate(-8deg) scale(1.05); }
+.brand .logo { transition: transform .2s; }
+.brand-name { font-size: 17px; font-weight: 700; margin: 0; transition: color .15s; }
 .brand .ver { font-size: 11px; }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: transparent; color: var(--muted);
@@ -134,6 +139,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .collapsed .brand-name, .collapsed .brand .ver, .collapsed .nav-label, .collapsed .side-status, .collapsed .nav-item .nav-badge { display: none; }
 .collapsed .nav-item { justify-content: center; padding: 10px 0; }
 .collapsed .brand { justify-content: center; padding: 4px 0 14px; }
+.collapsed .brand-link { padding: 2px; }
 .collapsed .icon-row { flex-direction: column; align-items: center; }
 .mobile-bar { display: none; }
 @media (max-width: 820px) {
@@ -144,7 +150,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .mobile-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); background: var(--bg-2); position: sticky; top: 0; z-index: 4; }
   .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .4); z-index: 4; }
 }
-@media (prefers-reduced-motion: reduce) { .sidebar, .switch, .switch::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sidebar, .switch, .switch::after, .brand .logo, .brand-name { transition: none; } }
 
 /* sayfa başlığı (Adım 18e) */
 .page-head { display: flex; align-items: center; gap: 14px; padding: 26px 32px 2px; max-width: 1500px; margin: 0 auto; }

@@ -2,6 +2,12 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.19.4] - 2026-11-02
+
+### Değişti (sahip isteği)
+- Sol üstteki **kayaAI** logosu ve yazısı ana sayfaya (Bugün) götürür (fare, klavye, daraltılmış menü); üzerine
+  gelince hafif vurgu (hareketi azalt'ta yok)
+
 ## [0.19.3] - 2026-11-02
 
 ### Düzeltildi (sahibin videosu: "bu nasıl bir çalışma")

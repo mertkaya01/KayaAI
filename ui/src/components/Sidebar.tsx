@@ -80,8 +80,14 @@ export function Sidebar({
   return (
     <aside className="sidebar" aria-label="Menü">
       <div className="brand">
-        <span className="logo" aria-hidden>◆</span>
-        <h1 className="brand-name">kayaAI</h1>
+        {/* Logo + ad: ana sayfaya (Bugün) götürür */}
+        <h1 className="brand-title">
+          <a className="brand-link" href="/" title="Ana sayfa (Bugün)"
+             onClick={(e) => { e.preventDefault(); onNavigate({ page: "today" }); }}>
+            <span className="logo" aria-hidden="true">◆</span>
+            <span className="brand-name">kayaAI</span>
+          </a>
+        </h1>
         {health && <span className="muted ver">v{health.version}</span>}
       </div>
       <nav className="nav" aria-label="Sayfalar">
