@@ -342,7 +342,7 @@ class ChatBook:
             except ProviderError as exc:
                 raise ChatError(str(exc)) from exc
             if not p.enabled:
-                raise ChatError(f"{p.label} kapalı (Sistem → Dış sağlayıcılar)")
+                raise ChatError(f"{p.label} kapalı (Bağlantılar → Dış sağlayıcılar)")
             cloud = {"provider": p.id, "model": str(cloud.get("model") or p.default_model)}
         refs = []
         for att_id in attachment_ids or []:
@@ -502,6 +502,38 @@ class ChatBook:
             self.store.emit("chat.message", {"conv_id": conv_id, "message_id": msg.id, "role": "assistant",
                                              "status": msg.status})
         return reply, run_business
+
+    def feedback(self, conv_id: str, message_id: str, value: str | None, note: str = "") -> ChatMessage:
+        """Adım 22: cevaba 👍/👎 (None: geri al). 👎'ler `kayaai degerlendir` ile test setine aktarılır."""
+        if value not in ("up", "down", None):
+            raise ChatError("değer up, down ya da boş olmalı")
+        raw = self.store.get_message(message_id)
+        if raw is None or raw.get("conv_id") != conv_id:
+            raise ChatError(f"Mesaj bulunamadı: {message_id}")
+        msg = ChatMessage.model_validate(raw)
+        if msg.role != "assistant" or msg.status != "done":
+            raise ChatError("Yalnız tamamlanmış bir cevap değerlendirilebilir")
+        if value is None:
+            msg.meta.pop("feedback", None)
+        else:
+            msg.meta["feedback"] = {"value": value, "note": note.strip()[:500], "at": utcnow().isoformat()}
+        self._save_msg(msg)
+        self.store.emit("chat.feedback", {"conv_id": conv_id, "message_id": message_id, "value": value})
+        return msg
+
+    def feedback_items(self, value: str = "down") -> list[dict[str, Any]]:
+        """Değerlendirilmiş cevaplar: soru, cevap, ajanlar, model, not (test setine aktarmak için)."""
+        out = []
+        for c in self.store.list_conversations():
+            for raw in self.store.list_messages(c["id"]):
+                fb = (raw.get("meta") or {}).get("feedback")
+                if raw.get("role") != "assistant" or not fb or fb.get("value") != value:
+                    continue
+                q = self.store.get_message(raw.get("reply_to") or "") or {}
+                out.append({"question": q.get("content", ""), "answer": raw.get("content", ""), "note": fb.get("note", ""),
+                            "agents": (raw.get("meta") or {}).get("agents", []), "model": (raw.get("meta") or {}).get("model"),
+                            "at": fb.get("at"), "message_id": raw.get("id"), "conv_id": c["id"]})
+        return out
 
     def report(self, conv_id: str, message_id: str, fmt: str):  # -> SubmitResult
         """Bir asistan cevabından iş raporu (md/xlsx/docx/pdf) → ~/kayaAI-files/raporlar (R1; aynı ad R2)."""

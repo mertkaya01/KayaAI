@@ -5,8 +5,7 @@ import { ApprovalsPanel } from "./components/ApprovalsPanel";
 import { ChatView } from "./components/ChatView";
 import { DisputesPanel } from "./components/DisputesPanel";
 import { EventsPanel } from "./components/EventsPanel";
-import { IntegrationsPanel } from "./components/IntegrationsPanel";
-import { ProvidersPanel } from "./components/ProvidersPanel";
+import { ConnectionsView } from "./components/ConnectionsView";
 import { FlowView } from "./components/FlowView";
 import { MemoryView } from "./components/MemoryView";
 import { ModelsView } from "./components/ModelsView";
@@ -30,7 +29,8 @@ const PAGE_INFO: Partial<Record<string, [IconName, string, string]>> = {
   browser: ["browser", "Tarayıcı", "Ayrı bir Edge profilinde adım adım iş yapar; riskli adımlar onayına gelir."],
   subtitles: ["subtitles", "Altyazı", "Konuşmayı canlı yazıya ve istersen çeviriye döker; ses saklanmaz."],
   models: ["models", "Modeller", "Yüklü modeller, hangi ajanın hangi modeli kullandığı, indirme ve karşılaştırma."],
-  control: ["system", "Sistem", "Donanım, onaylar, ajanlar, dış veri ve bildirim ayarları."],
+  connections: ["plug", "Bağlantılar", "Dış yapay zekâ sağlayıcıları (API anahtarları), ajanları dış modele atama ve dış veri kaynakları."],
+  control: ["system", "Sistem", "Donanım, onaylar, ajanlar ve bildirim ayarları."],
 };
 import { useEvents, usePolling } from "./hooks";
 import { useRoute } from "./route";
@@ -87,8 +87,6 @@ function ControlCenter({ keys, bump, events, health, onUnauthorized, notifyKey, 
           <SystemPanel metrics={system.data} health={health} />
           <ApprovalsPanel pending={pending.data} history={history.data} onChanged={() => bump("approvals")} />
           <DisputesPanel open={openDisputes.data} history={disputeHistory.data} onChanged={() => bump("disputes")} />
-          <ProvidersPanel refreshKey={keys.approvals} />
-          <IntegrationsPanel refreshKey={keys.approvals} />
           <NotificationsPanel refreshKey={notifyKey} onChanged={onNotifyChanged} />
         </div>
         <div className="col">
@@ -201,6 +199,8 @@ function Dashboard({ token, onUnauthorized, onLogout }: { token: string; onUnaut
         <BrowserView />
       ) : route.page === "subtitles" ? (
         <SubtitlesView />
+      ) : route.page === "connections" ? (
+        <ConnectionsView refreshKey={keys.approvals} />
       ) : route.page === "models" ? (
         <ModelsView refreshKey={modelsKey} events={events} />
       ) : route.page === "flow" ? (

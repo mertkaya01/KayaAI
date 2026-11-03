@@ -23,6 +23,7 @@ const ITEMS: { page: Page; label: string; icon: IconName }[] = [
   { page: "browser", label: "Tarayıcı", icon: "browser" },
   { page: "subtitles", label: "Altyazı", icon: "subtitles" },
   { page: "models", label: "Modeller", icon: "models" },
+  { page: "connections", label: "Bağlantılar", icon: "plug" },
   { page: "control", label: "Sistem", icon: "system" },
 ];
 

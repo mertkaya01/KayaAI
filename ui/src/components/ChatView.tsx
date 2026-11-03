@@ -93,7 +93,8 @@ export function InboxWait({ jobId, claude, busy, onAct }: {
   );
 }
 
-function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onOpenFlow, onInbox, onRetry, busy }: {
+function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onOpenFlow, onInbox, onRetry, onFeedback, busy }: {
+  onFeedback: (m: ChatMessage, value: "up" | "down" | null) => void;
   m: ChatMessage;
   claude: ClaudeStatus | null;
   progress: Record<string, Progress>;
@@ -199,7 +200,16 @@ function MessageView({ m, claude, progress, onHandoff, onRemember, onReport, onO
             {!!m.meta.disputes && <span className="badge state-failed">{m.meta.disputes} anlaşmazlık</span>}
             {m.meta.duration_s != null && <span className="muted small">{Number(m.meta.duration_s).toFixed(1).replace(".", ",")} sn</span>}
             {m.meta.vision && <span className="muted small">{m.meta.vision.seconds} sn</span>}
-            <span className="tools hover-only">
+            <span className={`tools${m.meta.feedback ? "" : " hover-only"}`}>
+              <button className={`icon-btn sm${m.meta.feedback?.value === "up" ? " fb-on" : ""}`} disabled={busy} aria-pressed={m.meta.feedback?.value === "up"}
+                      title="İyi cevap" aria-label="İyi cevap" onClick={() => onFeedback(m, m.meta.feedback?.value === "up" ? null : "up")}>
+                <Icon name="thumbUp" size={16} />
+              </button>
+              <button className={`icon-btn sm${m.meta.feedback?.value === "down" ? " fb-on bad" : ""}`} disabled={busy} aria-pressed={m.meta.feedback?.value === "down"}
+                      title="Kötü cevap — test setine eklenir (kayaai degerlendir)" aria-label="Kötü cevap"
+                      onClick={() => onFeedback(m, m.meta.feedback?.value === "down" ? null : "down")}>
+                <Icon name="thumbDown" size={16} />
+              </button>
               <button className="icon-btn sm" title={copied ? "Kopyalandı" : "Kopyala"} aria-label={copied ? "Kopyalandı" : "Kopyala"}
                       onClick={() => { void navigator.clipboard?.writeText(m.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
                 <Icon name={copied ? "check" : "copy"} size={16} />
@@ -384,6 +394,18 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
     }
   }
 
+  async function feedback(m: ChatMessage, value: "up" | "down" | null) {
+    if (!convId) return;
+    let note = "";
+    if (value === "down") note = window.prompt("Neresi kötüydü? (isteğe bağlı — test setine not olarak eklenir)") ?? "";
+    try {
+      await post(`/api/chat/${convId}/messages/${m.id}/feedback`, { value, note });
+      setViewKey((k) => k + 1);
+    } catch (e) {
+      setError(errText(e));
+    }
+  }
+
   async function inboxAct(jobId: string, action: "run" | "cancel") {
     if (action === "cancel" && !window.confirm("Bu iş iptal edilsin mi? (Cevap üretilmez.)")) return;
     setBusy(true);
@@ -545,7 +567,7 @@ export function ChatView({ convId, onSelect, onOpenFlow, refreshKey, claude }: {
             {view?.messages.map((m) => (
               <MessageView key={m.id} m={m} claude={claude} progress={progress} onHandoff={(x) => void handoff(x)} onRemember={(x) => void rememberMsg(x)}
                 onReport={(x, f) => void report(x, f)} onOpenFlow={onOpenFlow} busy={busy}
-                onInbox={(j, a) => void inboxAct(j, a)} onRetry={(x) => void retry(x)} />
+                onInbox={(j, a) => void inboxAct(j, a)} onRetry={(x) => void retry(x)} onFeedback={(x, v) => void feedback(x, v)} />
             ))}
           </div>
         </div>

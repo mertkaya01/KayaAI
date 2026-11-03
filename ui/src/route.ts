@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** Basit yönlendirme (History API): "/" Bugün, "/sistem" Sistem (eski Kontrol Merkezi), "/asistan[/<sohbet-id>]" Asistan. Sunucu SPA'ya düşürür. */
-export type Route = { page: "today" } | { page: "control" } | { page: "memory" } | { page: "models" } | { page: "subtitles" } | { page: "browser" } | { page: "schedule" } | { page: "chat"; convId: string | null }
+export type Route = { page: "today" } | { page: "control" } | { page: "memory" } | { page: "models" } | { page: "connections" } | { page: "subtitles" } | { page: "browser" } | { page: "schedule" } | { page: "chat"; convId: string | null }
   | { page: "flow"; jobId: string | null };
 
 export function parseRoute(pathname: string): Route {
@@ -9,6 +9,7 @@ export function parseRoute(pathname: string): Route {
   if (m) return { page: "chat", convId: m[1] ?? null };
   if (/^\/hafiza\/?$/.test(pathname)) return { page: "memory" };
   if (/^\/modeller\/?$/.test(pathname)) return { page: "models" };
+  if (/^\/baglantilar\/?$/.test(pathname)) return { page: "connections" };  // Adım 22: API / dış bağlantılar
   if (/^\/altyazi\/?$/.test(pathname)) return { page: "subtitles" };
   if (/^\/tarayici\/?$/.test(pathname)) return { page: "browser" };
   if (/^\/zamanlama\/?$/.test(pathname)) return { page: "schedule" };
@@ -26,6 +27,7 @@ export function routePath(r: Route): string {
   if (r.page === "browser") return "/tarayici";
   if (r.page === "schedule") return "/zamanlama";
   if (r.page === "control") return "/sistem";
+  if (r.page === "connections") return "/baglantilar";
   return r.page === "memory" ? "/hafiza" : "/";
 }
 

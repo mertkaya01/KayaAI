@@ -834,3 +834,5 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .office-scene .mug-line { fill: #1d1a17; }
 .office-scene .mug-rim { fill: #ffffff; opacity: .35; }
 .office-scene .mug-shade { fill: #000000; opacity: .22; }
+.icon-btn.fb-on { color: var(--ok); }
+.icon-btn.fb-on.bad { color: var(--bad); }

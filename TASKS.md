@@ -289,6 +289,14 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   köşesi, fotokopi, devetabanı, çöp, lavabo, sebil), masada kupa — `scripts/office_art.py`; Vitest 1, Python 1
 - [ ] Sahip: `masa.png` ve ajan karakterleri (zemin tamam)
 
+## Adım 22 — Sağlamlaştır, ölç, sat (sahip kararı 2026-11-03: "hepsini yapalım + API bağlama yeri")
+- [x] Bağlantılar sayfası (sağlayıcılar + ajan ataması + dış veri), 👍/👎, `kayaai degerlendir` (test seti, 👎 aktarımı,
+  yerel ölçüm + karşılaştırma), `kayaai kontrol` (tek komut, rapor) — Python 8, Vitest 48, Playwright, build
+- [ ] Windows: `kayaai kontrol --tam` → rapor; `kayaai degerlendir calistir` (ilk ölçüm); sonra Adım 15–22 → main
+- [ ] Model kalitesi: qwen3:14b karşılaştırması (`degerlendir calistir` öncesi/sonrası), Şef → Groq ataması denemesi
+- [ ] 2–3 ana iş akışı (sahip seçer) · kurulum .exe + otomatik güncelleme · 19d sunucu modu/kullanıcılar
+- [ ] Lisans listesi + güvenlik belgesi (satış öncesi)
+
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
   açıklar mısın"); veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı
 - [ ] 19d — Sunucu modu: Docker Compose (api, ollama GPU, qdrant, kum havuzu), internetsiz kurulum paketi, Linux yedekleri

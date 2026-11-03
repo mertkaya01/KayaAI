@@ -36,6 +36,9 @@ const P: Record<string, ReactElement> = {
   sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />,
   report: <><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v5h5M10 17v-3M13 17v-5M16 17v-2" /></>,
   handoff: <><path d="M4 12h11M11 8l4 4-4 4" /><path d="M19 5v14" /></>,
+  plug: <><path d="M9 3v5M15 3v5" /><path d="M6 8h12v3a6 6 0 0 1-12 0z" /><path d="M12 17v4" /></>,
+  thumbUp: <path d="M7 11v9H4v-9zM7 11l4-8a2 2 0 0 1 2.5 2.4L12.5 10H19a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.8 20H7" />,
+  thumbDown: <path d="M7 13V4H4v9zM7 13l4 8a2 2 0 0 0 2.5-2.4L12.5 14H19a2 2 0 0 0 2-2.3l-1.2-6A2 2 0 0 0 17.8 4H7" />,
   pin: <path d="M12 21s-6.5-5.4-6.5-11a6.5 6.5 0 0 1 13 0c0 5.6-6.5 11-6.5 11z" />,
 
 };

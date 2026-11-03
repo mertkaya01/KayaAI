@@ -31,7 +31,7 @@ export function AgentCloudPanel() {
         Bir ajanın bütün işlerini (zamanlanmış görevler dahil) açık bir dış sağlayıcıya ver; örneğin Şef'i (planner) büyük bir modele.
         Atamak senin onayını ister. Hafıza, belgeler, ekran ve bilgisayar ölçümü yine gitmez; hata olursa yerel model yapar.
       </p>
-      {open.length === 0 && <p className="muted small">Açık dış sağlayıcı yok. Sistem → Dış sağlayıcılar'dan ekleyip aç.</p>}
+      {open.length === 0 && <p className="muted small">Açık dış sağlayıcı yok. Soldaki Dış sağlayıcılar panelinden ekleyip aç.</p>}
       <ul className="agent-models">
         {list.map((a) => {
           const cur = st.data?.assignments[a.name];

@@ -284,6 +284,7 @@ export interface ChatMessage {
     model?: string | null;
     cloud?: string[];            // Adım 20b: dış sağlayıcıda çalışan adımların modelleri (şef işi)
     cloud_requested?: string;    // bu mesajda seçilen ☁ sağlayıcı/model
+    feedback?: { value: "up" | "down"; note: string; at: string };  // Adım 22
     routing?: string | null;
     duration_s?: number | null;
     reviewed?: number;

@@ -28,6 +28,8 @@ açık modellerle (Ollama) çalışır; verileriniz bilgisayarınızdan çıkmaz
 | 17 | Bulut köprüsü (OmniRoute) | Denendi, **kaldırıldı** (Adım 18; sahip kurmayacak) |
 | 18 | Asistan yenileme, `kayaai watch`, ofis ayrı sayfa + çizim yapısı, arayüz cilası | Kodlandı (Windows kontrolü bekliyor) |
 | 19 | Kurumsal: ofis animasyonları (19a), Qdrant vektör deposu (19b), Docker kum havuzunda kod çalıştırma (19c), sunucu modu (19d) | 19a–19c kodlandı (Windows kontrolü bekliyor) |
+| 20–21 | Dış sağlayıcılar (Groq/OpenRouter/OmniRoute, veri kapısı), pixel ofis + kendi çizimlerin | Kodlandı (Windows kontrolü bekliyor) |
+| 22 | Bağlantılar sayfası, 👍/👎, `kayaai degerlendir` (kendi test setin), `kayaai kontrol` (tek komut) | Kodlandı (Windows kontrolü bekliyor) |
 
 Ayrıntılı iş listesi: [`TASKS.md`](TASKS.md)
 
@@ -203,6 +205,8 @@ claude
 ```powershell
 .\.venv\Scripts\Activate.ps1          # sanal ortamı etkinleştir (her yeni pencerede bir kez)
 kayaai doctor                         # sistem / GPU / Ollama / model kontrolü
+kayaai kontrol [--tam]                # her modülü dene → data\kontrol\kontrol-*.md raporu
+kayaai degerlendir [aktar|calistir]   # kendi test setin (data\eval\sorular.yaml); 👎'ler aktarılır
 kayaai ask "Merhaba, kendini tanıt"   # genel worker'a soru
 kayaai ask --json "Bir cümleyle özetle: ..."   # tüm görev nesnesi (JSON)
 kayaai tasks                          # görev geçmişi

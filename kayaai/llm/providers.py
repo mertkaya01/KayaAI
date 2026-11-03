@@ -508,7 +508,7 @@ def request_assign(rt: "Runtime", agent: str, provider_id: str, model: str = "",
         raise ProviderError("Görsel ajan dış sağlayıcıya verilemez (ekran görüntüleri bilgisayardan çıkmaz)")
     p = get_provider(rt, provider_id)
     if not p.enabled:
-        raise ProviderError(f"{p.label} kapalı; önce Sistem → Dış sağlayıcılar'dan aç")
+        raise ProviderError(f"{p.label} kapalı; önce Bağlantılar → Dış sağlayıcılar'dan aç")
     model = (model or p.default_model).strip()
     if not model:
         raise ProviderError(f"{p.label} için model yok (Bağlantıyı dene)")

@@ -2,6 +2,20 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.22.0] - 2026-11-03
+
+### Eklendi (Adım 22 — "sağlamlaştır, ölç, sat" listesi, ilk parça)
+- **Bağlantılar sayfası** (`/baglantilar`, sol menüde 🔌): dış yapay zekâ sağlayıcıları (API anahtarı ekle, dene, aç),
+  ajan → dış model ataması ve dış veri kaynakları tek yerde; Sistem sayfası sadeleşti
+- **👍 / 👎**: her cevabın altında; 👎'de kısa not sorulur, cevap kaydında saklanır (`chat.feedback` olayı)
+- **`kayaai degerlendir`** — kendi test setin (`data\eval\sorular.yaml`): her soru için cevapta olması (`olmali`) ve
+  olmaması (`olmamali`) gereken ifadeler, kodla puanlanır (Türkçe İ/ı duyarsız). `aktar`: 👎 verdiğin soruları sete
+  ekler; `calistir`: şefle (ya da `--ajan general`) yalnız yerel modelle çalıştırır, `sonuc-*.json` yazar ve önceki
+  çalıştırmayla karşılaştırır. 6 başlangıç sorusu hazır
+- **`kayaai kontrol`** — tek komutla her modül: sistem/Ollama/modeller, otomasyon, zamanlanmış görevler, sağlayıcılar,
+  anahtar deposu, kum havuzu, Qdrant (SQLite'ta atlanır), ofis çizimleri, ajan kalitesi, test seti, arayüz derlemesi →
+  `data\kontrol\kontrol-*.md` raporu. `--tam`: kum havuzu yalıtımı, Qdrant ve test setini de gerçekten çalıştırır
+
 ## [0.21.4] - 2026-11-03
 
 ### Değişti (ofis: her ajan kendi görünüşüyle, detaylı eşyalar)

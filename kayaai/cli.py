@@ -1040,6 +1040,110 @@ def cmd_providers(args: argparse.Namespace) -> int:
         rt.close()
 
 
+# Adım 22: tek komutla her modülü dene. (ad, komut, argümanlar, zorunlu mu, yalnız --tam'da mı)
+KONTROL_ADIMLARI: list[tuple[str, list[str], bool, bool]] = [  # (ad, komut satırı, zorunlu mu, yalnız --tam'da mı)
+    ("Sistem, Ollama, modeller", ["doctor"], True, False),
+    ("Otomasyon anahtarı", ["automation"], True, False),
+    ("Zamanlanmış görevler", ["schedule", "list"], True, False),
+    ("Dış sağlayıcılar", ["providers", "list"], True, False),
+    ("Anahtar deposu (yaz/oku/sil)", ["providers", "keytest"], True, False),
+    ("Kod kum havuzu (Docker)", ["sandbox", "status"], False, False),
+    ("Qdrant", ["qdrant", "status"], False, False),
+    ("Ofis çizimleri", ["ofis", "durum"], False, False),
+    ("Ajan çıktı kalitesi", ["quality", "--days", "7"], False, False),
+    ("Test seti", ["degerlendir", "durum"], False, False),
+    ("Kum havuzu yalıtım denetimi", ["sandbox", "test"], False, True),
+    ("Qdrant gerçek denetim", ["qdrant", "test"], False, True),
+    ("Test seti çalıştırma", ["degerlendir", "calistir"], False, True),
+]
+
+
+def cmd_kontrol(args: argparse.Namespace) -> int:
+    """Her modülü sırayla dener, sonucu ekrana ve data/kontrol/ altına Markdown rapor olarak yazar."""
+    import contextlib
+    import io
+    from datetime import datetime
+
+    from .api.app import UI_DIST
+
+    parser = build_parser()
+    settings = load_settings()
+    rows: list[tuple[str, str, bool, str]] = []  # ad, durum (OK/UYARI/HATA), zorunlu, çıktı
+    _print(f"{APP_NAME} v{__version__} — tam kontrol" + (" (--tam: gerçek denetimler dahil, birkaç dakika)" if args.tam else ""))
+    for name, argv, required, full_only in KONTROL_ADIMLARI:
+        if full_only and not args.tam:
+            continue
+        if argv[0] == "qdrant" and settings.memory.vector_backend != "qdrant":
+            rows.append((name, "ATLANDI", required, "kayaAI SQLite vektör deposunu kullanıyor (Qdrant kapalı)."))
+            _print(f"  [ATLA ] {name} (SQLite kullanılıyor)")
+            continue
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                sub_args = parser.parse_args(argv)
+                code = sub_args.func(sub_args)
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 1
+        except Exception as exc:  # noqa: BLE001 - bir modülün çökmesi kontrolü durdurmaz
+            code = 1
+            buf.write(f"[ÇÖKTÜ] {type(exc).__name__}: {exc}\n")
+        status = "OK" if code == 0 else ("HATA" if required else "UYARI")
+        out = buf.getvalue().strip()
+        rows.append((name, status, required, out))
+        lines_ = [ln.strip() for ln in out.splitlines() if ln.strip()]
+        last = next((ln for ln in lines_ if ln.startswith(("[HATA]", "[ÇÖKTÜ]"))), "") or \
+            next((ln for ln in lines_ if ln.startswith("[UYARI]")), "") or (lines_[0] if lines_ else "")
+        _print(f"  [{status:<5}] {name}" + (f" — {last.strip()[:110]}" if status != "OK" and last else ""))
+    ui_ok = (UI_DIST / "index.html").is_file()
+    rows.append(("Arayüz derlemesi (ui/dist)", "OK" if ui_ok else "HATA", True,
+                 str(UI_DIST) if ui_ok else "ui/dist yok — setup.ps1 ya da: cd ui; npm run build"))
+    _print(f"  [{rows[-1][1]:<5}] {rows[-1][0]}")
+
+    errors = sum(r[1] == "HATA" for r in rows)
+    warns = sum(r[1] == "UYARI" for r in rows)
+    folder = settings.data_dir / "kontrol"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"kontrol-{datetime.now():%Y%m%d-%H%M%S}.md"
+    lines = [f"# {APP_NAME} kontrol raporu", "", f"- Sürüm: {__version__}", f"- Zaman: {datetime.now():%Y-%m-%d %H:%M}",
+             f"- Mod: {'tam' if args.tam else 'hızlı'}", f"- Sonuç: {errors} hata, {warns} uyarı", "",
+             "| Modül | Durum |", "|---|---|"]
+    lines += [f"| {n} | {st}{'' if req else ' (isteğe bağlı)'} |" for n, st, req, _ in rows]
+    for n, st, _, out in rows:
+        lines += ["", f"## {n} — {st}", "", "```", out or "(çıktı yok)", "```"]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _print(f"\nSonuç: {'HAZIR' if not errors else f'{errors} HATA'} · {warns} uyarı (isteğe bağlı modüller) · Rapor: {path}")
+    return 0 if not errors else 1
+
+
+def cmd_degerlendir(args: argparse.Namespace) -> int:
+    """Test seti (Adım 22): durum / 👎'leri aktar / çalıştır (yerel, kodla puanlanır)."""
+    from . import evalset
+    from .runtime import build_runtime
+
+    rt = build_runtime(load_settings())
+    try:
+        if args.action == "aktar":
+            n = evalset.import_feedback(rt)
+            _print(f"[OK] {n} kötü cevap sorusu eklendi → {evalset.questions_path(rt)}")
+            if n:
+                _print("Şimdi dosyayı aç ve her sorunun 'olmali' satırına cevapta görmek istediğin ifadeleri yaz.")
+            return 0
+        if args.action == "calistir":
+            _print(f"Test seti çalışıyor ({'şef' if not args.ajan else args.ajan}, yalnız yerel model)…")
+            s = evalset.run(rt, agent=args.ajan, log=_print)
+            prev = s["previous"]
+            cmp = f" · önceki: {prev['passed']}/{prev['scored']} ({prev['at']})" if prev else ""
+            _print(f"Sonuç: {s['passed']}/{s['scored']} geçti{cmp} · {s['total'] - s['scored']} soruda ifade yok · {s['path']}")
+            return 0 if s["passed"] == s["scored"] else 1
+        qs = evalset.load(rt)
+        last = evalset.last_result(rt)
+        _print(f"Test seti: {len(qs)} soru ({sum(1 for q in qs if q['olmali'] or q['olmamali'])} puanlanıyor) · {evalset.questions_path(rt)}")
+        _print(f"Son çalıştırma: {last['passed']}/{last['scored']} ({last['at']}, {last['agent']})" if last else "Henüz çalıştırılmadı: kayaai degerlendir calistir")
+        return 0
+    finally:
+        rt.close()
+
+
 def cmd_ofis(args: argparse.Namespace) -> int:
     """Ofis çizimleri (Adım 21b): durum ya da resmi pixel çizime çevirip data/ofis'e yaz."""
     from .office_assets import scan
@@ -1638,6 +1742,15 @@ def build_parser() -> argparse.ArgumentParser:
                     default="list")
     pv.add_argument("target", nargs="?", help="sağlayıcı kimliği (add için hazır ayar: groq, openrouter, omniroute, custom)")
     pv.set_defaults(func=cmd_providers)
+
+    kp = sub.add_parser("kontrol", help="her modülü dene, rapor yaz (data/kontrol/); --tam: gerçek denetimler de")
+    kp.add_argument("--tam", action="store_true", help="kum havuzu, Qdrant ve test setini de gerçekten çalıştır")
+    kp.set_defaults(func=cmd_kontrol)
+
+    ev = sub.add_parser("degerlendir", help="kendi test setin: durum / aktar (👎'ler) / calistir")
+    ev.add_argument("action", nargs="?", choices=["durum", "aktar", "calistir"], default="durum")
+    ev.add_argument("--ajan", default=None, help="calistir: şef yerine tek ajan (ör. general)")
+    ev.set_defaults(func=cmd_degerlendir)
 
     of = sub.add_parser("ofis", help="ofis çizimleri: durum / resmi pixel çizime çevirip data/ofis'e ekle")
     of.add_argument("action", nargs="?", choices=["durum", "ice-aktar"], default="durum")

@@ -124,6 +124,11 @@ class ChatRenameBody(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
 
+class FeedbackBody(BaseModel):
+    value: Literal["up", "down"] | None = None
+    note: str = Field("", max_length=500)
+
+
 class CloudChoice(BaseModel):
     provider: str = Field(min_length=1, max_length=32)
     model: str = Field("", max_length=160)
@@ -628,6 +633,10 @@ def create_app(settings: Settings | None = None, runtime: Runtime | None = None,
         reply, runner = chat_call(chat.handoff, conv_id, message_id)
         submit(runner)
         return {"reply": reply.model_dump(mode="json")}
+
+    @app.post("/api/chat/{conv_id}/messages/{message_id}/feedback", dependencies=[Depends(auth)])
+    def chat_feedback(conv_id: str, message_id: str, body: FeedbackBody) -> dict[str, Any]:
+        return chat_call(chat.feedback, conv_id, message_id, body.value, body.note).model_dump(mode="json")
 
     @app.post("/api/attachments", status_code=201, dependencies=[Depends(auth)])
     def attachment_upload(body: AttachmentBody) -> dict[str, Any]:
