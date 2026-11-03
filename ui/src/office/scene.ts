@@ -253,6 +253,10 @@ export type WalkDir = "down" | "up" | "left" | "right";
 const PIX = "/office/pixel/";
 const seatSprite = (file: string, frames = 1): Sprite => ({ href: PIX + file, frames, fw: 64, fh: 64, ax: 32, ay: 61 });
 const walkSprite = (file: string): Sprite => ({ href: PIX + file, frames: 4, fw: 64, fh: 64, ax: 31, ay: 48 });
+const kaya = (file: string): Sprite => seatSprite(`kaya/${file}`);
+const prop = (file: string, w: number, h: number): Sprite => ({ href: `${PIX}kaya/${file}`, frames: 1, fw: w, fh: h, ax: w / 2, ay: h });
+/** Kendi renkli çizimi olan ajanlar (saç + ajan renginde tişört; masada ve yürürken aynı). */
+export const AGENT_ART = ["general", "data", "document", "coder", "reviewer", "vision"];
 
 /** Hazır çizimler (free-office-pixel-art, arlantr — "free to use any way you want"). Sahibin çizimleri bunların yerine geçer. */
 export const PIXEL = {
@@ -262,9 +266,10 @@ export const PIXEL = {
     chef: seatSprite("boss.png"), default: seatSprite("worker1.png"),
   } as Record<string, Sprite>,
   // Adım 21b: masada oturanın yalnız kişi katmanı (masa ayrı çizilir → masa.png herkesin masasını değiştirir)
+  // Adım 21d: ajan başına renkli kişi katmanı ve yürüme (scripts/office_art.py — hazır çizimlerden renk değiştirilerek)
   person: {
-    general: seatSprite("worker1-person.png"), data: seatSprite("worker2-person.png"), document: seatSprite("worker4-person.png"),
-    coder: seatSprite("worker2-person.png"), reviewer: seatSprite("worker4-person.png"), vision: seatSprite("worker1-person.png"),
+    general: kaya("general-person.png"), data: kaya("data-person.png"), document: kaya("document-person.png"),
+    coder: kaya("coder-person.png"), reviewer: kaya("reviewer-person.png"), vision: kaya("vision-person.png"),
     default: seatSprite("worker1-person.png"),
   } as Record<string, Sprite>,
   emptyDesk: seatSprite("desk-with-pc.png"),
@@ -273,16 +278,18 @@ export const PIXEL = {
   owner: { href: PIX + "Julia-Idle.png", frames: 4, fw: 32, fh: 32, ax: 16, ay: 31 } as Sprite,
   walk: { down: walkSprite("Julia_walk_Foward.png"), up: walkSprite("Julia_walk_Up.png"),
           left: walkSprite("Julia_walk_Left.png"), right: walkSprite("Julia_walk_Rigth.png") } as Record<WalkDir, Sprite>,
+  walkBy: Object.fromEntries(AGENT_ART.map((a) => [a, Object.fromEntries((["down", "up", "left", "right"] as WalkDir[])
+    .map((d) => [d, walkSprite(`kaya/${a}-walk-${d}.png`)]))])) as Record<string, Record<WalkDir, Sprite>>,
   props: [  // duvar dibi ve köşeler (ızgara birimi; ay = alt kenar). id: sahibin eşyası bunun yerine geçer (su.png…)
-    // sh: yerdeki gölgenin yarı genişliği (sahne birimi; eşyanın dolu alanına göre)
-    { id: "cabinet", s: { href: PIX + "cabinet.png", frames: 1, fw: 64, fh: 64, ax: 30, ay: 49 }, at: { x: 0.25, y: 1.05 }, sh: 26 },
-    { id: "water", s: { href: PIX + "water-cooler.png", frames: 1, fw: 16, fh: 32, ax: 7, ay: 31 }, at: { x: 0.85, y: 1.0 }, sh: 15 },
-    { id: "coffee", s: { href: PIX + "coffee-maker.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 51 }, at: { x: 1.8, y: 1.0 }, sh: 58 },
-    { id: "printer", s: { href: PIX + "printer.png", frames: 1, fw: 64, fh: 32, ax: 32, ay: 32 }, at: { x: 5.3, y: 1.0 }, sh: 58 },
-    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 6.1, y: 1.0 }, sh: 11 },
-    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 0.2, y: 5.45 }, sh: 11 },
-    { id: "trash", s: { href: PIX + "Trash.png", frames: 1, fw: 16, fh: 16, ax: 8, ay: 13 }, at: { x: 3.45, y: 4.1 }, sh: 8 },
-    { id: "sink", s: { href: PIX + "sink.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 48 }, at: { x: 7.45, y: 4.6 }, sh: 34 },
+    // Adım 21d: detaylı eşyalar (scripts/office_art.py). sh: yerdeki gölgenin yarı genişliği (sahne birimi)
+    { id: "cabinet", s: prop("bookshelf.png", 30, 50), at: { x: 0.28, y: 1.05 }, sh: 30 },
+    { id: "water", s: prop("water.png", 18, 36), at: { x: 0.85, y: 1.0 }, sh: 16 },
+    { id: "coffee", s: prop("coffee.png", 64, 46), at: { x: 1.8, y: 1.0 }, sh: 62 },
+    { id: "printer", s: prop("copier.png", 60, 36), at: { x: 5.3, y: 1.0 }, sh: 60 },
+    { id: "plant", s: prop("plant.png", 26, 36), at: { x: 6.1, y: 1.0 }, sh: 16 },
+    { id: "plant", s: prop("plant.png", 26, 36), at: { x: 0.2, y: 5.45 }, sh: 16 },
+    { id: "trash", s: prop("trash.png", 14, 16), at: { x: 3.45, y: 4.1 }, sh: 9 },
+    { id: "sink", s: prop("sink.png", 36, 30), at: { x: 7.45, y: 4.6 }, sh: 36 },
   ] as { id: string; s: Sprite; at: Pt; sh: number }[],
 };
 
@@ -357,7 +364,7 @@ export function pickWalk(assets: OfficeAssets | null | undefined, a: Pick<Actor,
     if (own[key]) return { s: ownSprite(assets, own[key], "walk", h)!, flip: false };
     if (own.walking) return { s: ownSprite(assets, own.walking, "walk", h)!, flip: dir === "left" };
   }
-  return { s: PIXEL.walk[dir], flip: false };
+  return { s: PIXEL.walkBy[a.id]?.[dir] ?? PIXEL.walk[dir], flip: false };
 }
 
 /** Masada (oturan) çizim: sahibin durum/genel resmi → hazır çalışan çizimi. */

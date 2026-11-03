@@ -246,7 +246,7 @@ function Wall({ W, clock, notes }: { W: number; clock: Date; notes: string[] }) 
   const grooves: number[] = [];
   for (let x = 16; x < W; x += 32) grooves.push(x);
   const hAng = ((clock.getHours() % 12) + clock.getMinutes() / 60) * 30, mAng = clock.getMinutes() * 6;
-  const cx = W * 0.664, cy = 19;  // saat: yazıcıların üstünde
+  const cx = W * 0.664, cy = 16;  // saat: fotokopinin üstünde
   const hand = (deg: number, len: number) => ({ x2: cx + Math.sin(deg * Math.PI / 180) * len, y2: cy - Math.cos(deg * Math.PI / 180) * len });
   const bx = W * 0.452 - 32;  // not panosu: iki pencere arasında
   return (
@@ -308,6 +308,21 @@ function FloorLight({ W, H }: { W: number; H: number }) {
       })}
       <rect x={0} y={WALL} width={W} height={18} fill="url(#office-wallshade)" />
       <rect x={0} y={WALL} width={W} height={H + 20 - WALL} fill="url(#office-vignette)" />
+    </g>
+  );
+}
+
+/** Masadaki kupa (ajanın renginde; hazır masada, ekranın solunda). */
+function DeskMug({ d, color }: { d: Pt; color: string }) {
+  const x = d.x - 36, y = d.y - 78;
+  return (
+    <g aria-hidden="true" shapeRendering="crispEdges">
+      <rect x={x - 1} y={y - 1} width={10} height={10} className="mug-line" />
+      <rect x={x} y={y} width={8} height={8} style={{ fill: color }} />
+      <rect x={x} y={y} width={8} height={2} className="mug-rim" />
+      <rect x={x + 6} y={y + 2} width={2} height={6} className="mug-shade" />
+      <rect x={x + 9} y={y + 2} width={3} height={5} className="mug-line" />
+      <rect x={x + 9} y={y + 3.5} width={1.5} height={2} style={{ fill: color }} />
     </g>
   );
 }
@@ -539,12 +554,14 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
       continue;
     }
     const seatL = seatLayers(art, a);
+    const mug = a.kind === "agent" && !art?.desk;  // kendi masa.png'n varsa kupa onun çiziminde
     if (!p.away) {  // masasında oturuyor: masa + kişi (katman katman)
       layers.push({ key: `d-${a.id}`, y: d.y, node: (
         <Clickable key={`d-${a.id}`} a={a} selected={isSel} onSelect={onSelect}>
           <ellipse cx={d.x} cy={d.y - 5} rx={42} ry={8} className="desk-shadow" />
           {a.state === "working" && <ellipse cx={d.x} cy={d.y - 54} rx={46} ry={34} className="desk-glow" style={{ fill: a.color }} />}
           {seatL.desk && <SpriteImg s={seatL.desk} at={d} frame={frame} />}
+          {mug && <DeskMug d={d} color={a.color} />}
           <SpriteImg s={seatL.person} at={d} frame={frame} className={a.state === "working" ? "seated busy" : "seated"} />
           <WorkFx a={a} at={d} />
         </Clickable>) });
@@ -555,6 +572,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
         <g key={`d-${a.id}`}>
           <ellipse cx={d.x} cy={d.y - 5} rx={42} ry={8} className="desk-shadow" />
           <SpriteImg s={desk} at={d} frame={frame} />
+          {mug && <DeskMug d={d} color={a.color} />}
         </g>) });
       const q = top(p.at);
       const w = pickWalk(art, a, p.dir);

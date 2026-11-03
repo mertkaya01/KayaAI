@@ -1,6 +1,7 @@
 # Ofis çizimleri — kendi karakterlerini koy (pixel stil, Adım 21)
 
-Ofis (sol menü → **Ofis**) önden-üstten bir **pixel** ofis. Hazır çizimler free-office-pixel-art paketinden (arlantr,
+Ofis (sol menü → **Ofis**) önden-üstten bir **pixel** ofis. Her ajanın hazır bir görünüşü var (kendi saç rengi, kendi renginde tişört;
+masada ve yürürken aynı) ve eşyalar kayaAI için çizildi (`scripts/office_art.py`). Hazır çizimler free-office-pixel-art paketinden (arlantr,
 "free to use any way you want", `ui/public/office/pixel/LICENSE.txt`). Kendi çizdiğin her resim hazır çizimin yerine
 geçer; çizmediklerin hazır kalır. Yani istediğin kadarını, istediğin sırayla çizebilirsin.
 

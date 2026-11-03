@@ -203,7 +203,12 @@ describe("Adım 21: pixel ofis", () => {
   it("default pixel sprites, owner art with frames from the image size", () => {
     expect(pickSeat(null, { id: "data", kind: "agent", state: "working" })).toBe(PIXEL.seat.data);
     expect(pickSeat(null, { id: "satisci", kind: "agent", state: "idle" })).toBe(PIXEL.seat.default);
-    expect(pickWalk(null, { id: "data", kind: "agent" }, "up")).toEqual({ s: PIXEL.walk.up, flip: false });
+    // Adım 21d: her ajan kendi renkli çizimiyle yürür; adı olmayan (geçici) ajanlar hazır kızla
+    expect(pickWalk(null, { id: "data", kind: "agent" }, "up")).toEqual({ s: PIXEL.walkBy.data.up, flip: false });
+    expect(PIXEL.walkBy.data.up.href).toBe("/office/pixel/kaya/data-walk-up.png");
+    expect(pickWalk(null, { id: "satisci", kind: "agent" }, "up")).toEqual({ s: PIXEL.walk.up, flip: false });
+    const looks = ["general", "data", "document", "coder", "reviewer", "vision"].map((id) => [PIXEL.person[id].href, PIXEL.walkBy[id].down.href]);
+    expect(new Set(looks.flat()).size).toBe(12);  // masada da yürürken de herkes farklı
     const assets: OfficeAssets = { folder: "", exists: true, desk: null, floor: null, unknown: [], skipped: [],
       actors: { data: { base: "/ofis/veri.png", walking: "/ofis/veri-yuruyor.png" }, coder: { walk_left: "/ofis/kod-yuruyor-sol.png" } },
       sizes: { "/ofis/veri.png": [128, 64], "/ofis/veri-yuruyor.png": [256, 64], "/ofis/kod-yuruyor-sol.png": [128, 32] } };

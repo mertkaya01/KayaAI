@@ -1,0 +1,4 @@
+kayaAI ofis çizimleri.
+- <ajan>-walk-*.png, <ajan>-person.png: free-office-pixel-art (arlantr, "Free to use any way you want") çizimlerinden
+  renk değiştirilerek türetildi (bkz. ../LICENSE.txt).
+- Eşyalar (bookshelf, coffee, copier, plant, trash, sink, water): kayaAI için kodla çizildi (scripts/office_art.py).

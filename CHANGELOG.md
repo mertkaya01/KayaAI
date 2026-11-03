@@ -2,6 +2,18 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.21.4] - 2026-11-03
+
+### Değişti (ofis: her ajan kendi görünüşüyle, detaylı eşyalar)
+- **Her ajan kendi çizimiyle yürür**: önceden bütün ajanlar aynı hazır kızla (Julia) yürüyordu. Her ajanın saç rengi ve
+  kendi renginde tişörtü var (Genel siyah saç/mavi, Veri sarışın/yeşil, Belge kızıl/mor, Kod kahve/pembe, Denetçi kır
+  saç/altın, Görsel mavi saç/camgöbeği); masada oturan hâli de aynı renklerde. Hazır çizimlerden renk değiştirilerek
+  türetildi; adı olmayan geçici ajanlar hazır kızla yürür. Sahibin `<ajan>-yuruyor-*.png` çizimleri yine önce gelir
+- **Detaylı eşyalar** (sıfırdan çizildi): renkli kitaplı kitaplık (üstünde saksı), espresso makineli kahve köşesi
+  (kupa, kavanoz, çaydanlık, sukulent), fotokopi makinesi + kâğıt kolileri, devetabanı, tel çöp kovası, havlulu lavabo,
+  su sebili; hazır masalarda ajanın renginde kupa. Sahibin `su.png` gibi eşyaları yine hazırın yerine geçer
+- `scripts/office_art.py`: bu çizimleri üretir (deterministik; çıktı `ui/public/office/pixel/kaya/`, lisans notu yanında)
+
 ## [0.21.3] - 2026-11-03
 
 ### Değişti (ofis güzelleştirme — sahibin çizimleri: Şef/Batı, Sen, zemin)

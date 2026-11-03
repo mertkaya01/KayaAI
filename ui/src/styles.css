@@ -831,3 +831,6 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 
 .inspector-photo { width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
 .inspector-photo.px-card image { image-rendering: pixelated; }
+.office-scene .mug-line { fill: #1d1a17; }
+.office-scene .mug-rim { fill: #ffffff; opacity: .35; }
+.office-scene .mug-shade { fill: #000000; opacity: .22; }

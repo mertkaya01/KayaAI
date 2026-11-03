@@ -118,3 +118,21 @@ def test_content_bounds_for_walk_sizes(tmp_path: Path):
     assert out["bounds"][right] == [10, 5, 40, 48]
     assert out["actors"]["data"]["walk_left"] not in out["bounds"]
     assert out["actors"]["data"]["base"] not in out["bounds"]
+
+
+def test_kaya_art_files_exist():
+    """Adım 21d: arayüzün kullandığı ajan başına çizimler ve detaylı eşyalar depoda (scripts/office_art.py üretir)."""
+    from PIL import Image
+
+    from kayaai.config import PROJECT_ROOT
+
+    k = PROJECT_ROOT / "ui" / "public" / "office" / "pixel" / "kaya"
+    for a in ["general", "data", "document", "coder", "reviewer", "vision"]:
+        assert Image.open(k / f"{a}-person.png").size == (64, 64)
+        for d in ["down", "up", "left", "right"]:
+            assert Image.open(k / f"{a}-walk-{d}.png").size == (256, 64)
+    sizes = {"bookshelf": (30, 50), "coffee": (64, 46), "copier": (60, 36), "plant": (26, 36), "trash": (14, 16),
+             "sink": (36, 30), "water": (18, 36)}
+    for name, size in sizes.items():
+        assert Image.open(k / f"{name}.png").size == size, name
+    assert (k / "LICENSE.txt").is_file()

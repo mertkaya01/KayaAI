@@ -285,6 +285,8 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
 - [x] Ofis güzelleştirme (v0.21.3, sahibin Şef/Batı ve Sen çizimleri + zemin): yürüyenler her yönde aynı boy (dolu
   alan, ortanca), tek kareli yürümede adım sekmesi, büyük zemin karosu, duvar/pencere (gece-gündüz), saat, pano, ışık,
   kilim, gölgeler — Python 1, Vitest 3; önizlemede açık/koyu tema ekran görüntüleriyle kontrol edildi
+- [x] v0.21.4: her ajan kendi renkli çizimiyle yürür/oturur (önce hepsi aynı kız), detaylı eşyalar (kitaplık, kahve
+  köşesi, fotokopi, devetabanı, çöp, lavabo, sebil), masada kupa — `scripts/office_art.py`; Vitest 1, Python 1
 - [ ] Sahip: `masa.png` ve ajan karakterleri (zemin tamam)
 
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
