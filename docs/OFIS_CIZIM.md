@@ -25,6 +25,11 @@ Küçük harf, Türkçe karakter yok, `.png`, en çok 5 MB.
 Durum resmi yoksa genel resim, o da yoksa hazır çizim kullanılır. Tek `-yuruyor.png` aşağı bakan yürüme olarak
 kullanılır, sola giderken yansıtılır; yön yön çizersen her yön kendi resmini kullanır.
 
+## Kart fotoğrafı
+
+Karaktere tıklayınca açılan kartta fotoğraf: `<ajan>-foto.png` ya da `.jpg` (ör. `sen-foto.jpg`, `sef-foto.png`).
+Gerçek fotoğraf da olur, çizim de; boyut serbest (en çok 5 MB). Yoksa yürüme çiziminin ön yüzü gösterilir.
+
 ## Ölçüler (pixel)
 
 - **Her kare 64×64 piksel**, arka plan şeffaf.

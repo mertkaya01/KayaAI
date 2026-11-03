@@ -2,6 +2,12 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.21.2] - 2026-11-03
+
+### Eklendi
+- Ofis'te karaktere tıklayınca kartında **fotoğrafı**: `data\ofis\<ajan>-foto.png` ya da `.jpg` (ör. `sen-foto.jpg`,
+  `sef-foto.png`); yoksa aşağı bakan yürüme çiziminin ilk karesi büyük gösterilir
+
 ## [0.21.1] - 2026-11-03
 
 ### Eklendi (sahibin çizimleri: kendi karakteri, masada oturan hâli, damacana)

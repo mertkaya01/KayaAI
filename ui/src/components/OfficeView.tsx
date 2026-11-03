@@ -235,7 +235,20 @@ function Mailbox({ at }: { at: Pt }) {
   );
 }
 
-function Inspector({ a, graph, onClose, onChanged }: { a: Actor; graph: JobGraph | null; onClose: () => void; onChanged: () => void }) {
+/** Kartın fotoğrafı: `<ajan>-foto.png/.jpg` (data/ofis) ya da yoksa aşağı bakan yürüme çiziminin ilk karesi. */
+function Portrait({ a, art }: { a: Actor; art: OfficeAssets | null | undefined }) {
+  const photo = art?.actors[a.id]?.photo;
+  if (photo) return <img className="inspector-photo" src={photo} alt={`${a.label} fotoğrafı`} />;
+  const w = art?.actors[a.id] && (art.actors[a.id].walk_down || art.actors[a.id].walking) ? pickWalk(art, a, "down").s : null;
+  if (!w) return null;
+  return (
+    <svg className="inspector-photo px-card" viewBox={`0 0 ${w.fw} ${w.fh}`} role="img" aria-label={`${a.label} çizimi`}>
+      <image href={w.href} width={w.fw * w.frames} height={w.fh} className="px" preserveAspectRatio="none" />
+    </svg>
+  );
+}
+
+function Inspector({ a, graph, art, onClose, onChanged }: { a: Actor; graph: JobGraph | null; art?: OfficeAssets | null; onClose: () => void; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const run = async (fn: () => Promise<unknown>, ok: string) => {
@@ -250,6 +263,7 @@ function Inspector({ a, graph, onClose, onChanged }: { a: Actor; graph: JobGraph
         <h3><span className="swatch" style={{ background: a.color }} /> {a.label} <span className="muted">· {STATE_TEXT[a.state]}</span></h3>
         <button className="ghost small" onClick={onClose} aria-label="Ayrıntıyı kapat">✕</button>
       </div>
+      <Portrait a={a} art={art} />
       {a.bubble && a.state === "working" && <p className="live-tail" aria-live="polite">{a.bubble}</p>}
       {a.approval && (
         <div className="inspector-approval">
@@ -501,7 +515,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
             ? <Bubble key={`b-${a.id}`} a={a} head={head} note={note} scale={scale} bounds={bounds} />
             : <ThoughtBubble key={`t-${a.id}`} a={a} head={head} />)}
         </svg>
-        {sel && <Inspector a={sel} graph={graph} onClose={() => setSelected(null)} onChanged={() => { setLocalKey((k) => k + 1); void approvals.reload(); }} />}
+        {sel && <Inspector a={sel} graph={graph} art={art} onClose={() => setSelected(null)} onChanged={() => { setLocalKey((k) => k + 1); void approvals.reload(); }} />}
       </div>
       <ul className="sr-only" aria-live="polite">
         {actors.filter((a) => a.state !== "idle").map((a) => <li key={a.id}>{a.label}: {STATE_TEXT[a.state]}</li>)}

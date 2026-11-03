@@ -88,3 +88,13 @@ def test_png_sizes_and_walk_directions(tmp_path: Path):
     assert set(veri) == {"base", "walk_left"} and out["actors"]["coder"]["walking"]
     assert out["sizes"][veri["base"]] == [128, 64] and out["sizes"][veri["walk_left"]] == [256, 64]
     assert "veri-ziplıyor.png" in out["skipped"]
+
+
+def test_photo_card_names(tmp_path: Path):
+    d = tmp_path / "ofis"
+    d.mkdir()
+    (d / "sen-foto.jpg").write_bytes(b"\xff\xd8\xff\xe0fakejpg")
+    (d / "sef-foto.png").write_bytes(PNG)
+    out = scan(tmp_path)
+    assert out["actors"]["owner"]["photo"].startswith("/ofis/sen-foto.jpg")
+    assert out["actors"]["chef"]["photo"].startswith("/ofis/sef-foto.png")

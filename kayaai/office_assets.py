@@ -21,13 +21,14 @@ import re
 from pathlib import Path
 from typing import Any
 
-SUFFIXES = {".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp"}
+SUFFIXES = {".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp", ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg"}  # jpg yalnız fotoğraf kartı için anlamlı (saydamlık yok)
 MAX_BYTES = 5 * 1024 * 1024
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,60}\.(png|svg|webp)$")
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,60}\.(png|svg|webp|jpg|jpeg)$")
 ACTORS = {"genel": "general", "veri": "data", "belge": "document", "kod": "coder", "gorsel": "vision",
           "denetci": "reviewer", "sef": "chef", "sen": "owner", "claude": "claude", "ajan": "default"}
 STATES = {"calisiyor": "working", "bekliyor": "waiting", "hata": "error", "yuruyor": "walking", "bitti": "done",
-          "bosta": "idle", "yuruyor-asagi": "walk_down", "yuruyor-yukari": "walk_up", "yuruyor-sol": "walk_left",
+          "bosta": "idle", "foto": "photo", "yuruyor-asagi": "walk_down", "yuruyor-yukari": "walk_up", "yuruyor-sol": "walk_left",
           "yuruyor-sag": "walk_right"}
 SPECIAL = {"masa": "desk", "zemin": "floor"}
 # Eşyalar (Adım 21b): ad → (sahnedeki yer, en çok yükseklik px). Hazır eşyanın yerine geçer.
