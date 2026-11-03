@@ -282,7 +282,10 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
 - [x] Sahibin ilk çizimleri (kendi karakteri 4 yön + 4 kare yürüme, masada oturan, damacana): `kayaai ofis ice-aktar`
   (ızgara bulma, asıl çözünürlük, hizalama, masa çıkarma), katmanlı masa, eşya değiştirme, senin "iş verdi"
   yürüyüşün — Python 8, Vitest 48, Playwright (senin çizimlerinle canlı ofis), axe 0
-- [ ] Sahip: `masa.png`, `zemin.png` ve ajan karakterleri
+- [x] Ofis güzelleştirme (v0.21.3, sahibin Şef/Batı ve Sen çizimleri + zemin): yürüyenler her yönde aynı boy (dolu
+  alan, ortanca), tek kareli yürümede adım sekmesi, büyük zemin karosu, duvar/pencere (gece-gündüz), saat, pano, ışık,
+  kilim, gölgeler — Python 1, Vitest 3; önizlemede açık/koyu tema ekran görüntüleriyle kontrol edildi
+- [ ] Sahip: `masa.png` ve ajan karakterleri (zemin tamam)
 
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
   açıklar mısın"); veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı

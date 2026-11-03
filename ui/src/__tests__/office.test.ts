@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Approval, FlowNode, JobGraph } from "../api";
-import { actorOf, deriveActors, diffVisits, flows, introVisits, layout, ownSprite, pickArt, pickSeat, pickWalk, PIXEL, propSprite, seatLayers,
-         taskGraph, top, walkDir, workStyle, type OfficeAssets } from "../office/scene";
+import { actorOf, deriveActors, diffVisits, floorTile, flows, introVisits, layout, ownSprite, pickArt, pickSeat, pickWalk, PIXEL, propSprite, seatLayers,
+         taskGraph, top, walkDir, walkHeight, workStyle, type OfficeAssets } from "../office/scene";
 
 function node(id: string, kind: FlowNode["kind"], status: FlowNode["status"], agent: string | null = null, task_id: string | null = null): FlowNode {
   return { id, kind, label: id, status, agent, model: "qwen3:8b", task_id, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null };
@@ -291,5 +291,41 @@ describe("Adım 21b: sahibin çizimleri, katmanlı masa, senin yürüyüşün", 
     expect(introVisits(later)).toEqual([]);
     const prev = graph([node("request", "request", "succeeded"), node("planner", "planner", "pending", "planner")], [["request", "planner"]]);
     expect(diffVisits(prev, { ...g, job_id: prev.job_id }).map((v) => v.note)).toContain("iş verdi");
+  });
+});
+
+describe("Adım 21c: yürüyenler her yönde aynı boyda, zemin karosu kendi boyunda", () => {
+  // Sahibin gerçek çizimlerindeki gibi: sağa bakan kişi diğer yönlerden büyük (45 px), aşağı bakan 96'lık karede
+  const assets: OfficeAssets = { folder: "", exists: true, desk: null, floor: "/ofis/zemin.png", unknown: [], skipped: [],
+    actors: { chef: { base: "/ofis/sef.png", walk_down: "/d.png", walk_right: "/r.png", walk_left: "/l.png", walk_up: "/u.png" },
+              data: { walking: "/w.png" } },
+    sizes: { "/ofis/zemin.png": [64, 64], "/d.png": [96, 96], "/r.png": [64, 64], "/l.png": [64, 64], "/u.png": [64, 64], "/w.png": [256, 64] },
+    bounds: { "/d.png": [36, 20, 60, 72], "/r.png": [22, 3, 41, 48], "/l.png": [24, 12, 39, 48], "/u.png": [24, 11, 39, 48], "/w.png": [20, 16, 44, 48] } };
+
+  it("ortanca boy: aykırı yön düzelir, ayak dolu alanın alt kenarında", () => {
+    // ekrandaki boylar: aşağı 52·128/96 ≈ 69,3 · sağ 90 · sol 72 · yukarı 74 → ortanca (72 + 74) / 2 = 73
+    expect(walkHeight(assets, assets.actors.chef)).toBeCloseTo(73, 5);
+    for (const dir of ["down", "up", "left", "right"] as const) {
+      const { s, flip } = pickWalk(assets, { id: "chef", kind: "chef" }, dir);
+      const box = assets.bounds![s.href];
+      expect(flip).toBe(false);
+      expect((box[3] - box[1]) * s.scale!).toBeCloseTo(73, 5);
+      expect([s.ax, s.ay]).toEqual([(box[0] + box[2]) / 2, box[3]]);
+    }
+  });
+
+  it("tek yürüme resminde boy değişmez; dolu alan bilgisi yoksa eski hizalama", () => {
+    const w = pickWalk(assets, { id: "data", kind: "agent" }, "left");
+    expect([w.flip, w.s.frames, w.s.ax, w.s.ay]).toEqual([true, 4, 32, 48]);
+    expect(32 * w.s.scale!).toBeCloseTo(64, 5);  // 48 − 16 = 32 px, eskisi gibi 2 kat
+    const old = pickWalk({ ...assets, bounds: undefined }, { id: "chef", kind: "chef" }, "right");
+    expect([old.s.scale, old.s.ax, old.s.ay]).toEqual([2, 32, 48]);
+    expect(walkHeight(assets, undefined)).toBeUndefined();
+  });
+
+  it("zemin karosu resmin boyunda döşenir (64×64 → 128 birim); bilinmiyorsa 16×16", () => {
+    expect(floorTile(assets)).toEqual([128, 128]);
+    expect(floorTile(null)).toEqual([32, 32]);
+    expect(floorTile({ ...assets, sizes: {} })).toEqual([32, 32]);
   });
 });

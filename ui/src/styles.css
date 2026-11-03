@@ -466,6 +466,7 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .art-table td, .art-table th { text-align: center; }
 .art-table td:first-child, .art-table th:first-child { text-align: left; }
 .art-thumb { width: 36px; height: 48px; object-fit: contain; image-rendering: auto; }
+.art-thumbs { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 160px; }
 .office { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .office-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .office-head .ghost { margin-left: auto; }
@@ -535,7 +536,6 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .office-scene .floor-b { fill: var(--floor-alt); }
 .office-scene .wall-px { fill: var(--wall); }
 .office-scene .wall-base { fill: var(--wall-dark); }
-.office-scene .window-px { fill: color-mix(in srgb, #7fb6e8 55%, var(--wall)); stroke: var(--wall-dark); stroke-width: 4; }
 .office-scene .nameplate { fill: color-mix(in srgb, var(--bg) 82%, transparent); stroke: var(--line); stroke-width: 1; }
 .office-scene .nameplate.sel { stroke: var(--accent); stroke-width: 2; }
 .office.pixel .office-scene .name { font-size: 11px; font-weight: 600; stroke-width: 0; }
@@ -549,6 +549,55 @@ button.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); c
 .office.pixel .person:focus-visible { outline: none; }
 @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .office.pixel .seated.busy { animation: none; } }
+
+/* Ofis dekoru (Adım 21c): duvar, pencere (koyu tema gece / açık tema gündüz), saat, pano, ışık, kilim, gölgeler */
+:root {
+  --sky-top: #0c1630; --sky-bottom: #24395f; --star-op: .9; --moon-op: 1; --cloud-op: .14;
+  --beam: #a8c0ff; --beam-op: .07; --vignette-op: .3; --shade-op: .34;
+  --wainscot: color-mix(in srgb, var(--wall-dark) 78%, #000); --wainscot-rail: color-mix(in srgb, var(--wall) 70%, #fff 6%);
+  --window-frame: #2a3242; --window-sill: #4a5568;
+}
+:root[data-theme="light"] {
+  --sky-top: #63b0ec; --sky-bottom: #d3ecfc; --star-op: 0; --moon-op: 0; --cloud-op: .95;
+  --beam: #fff0bd; --beam-op: .34; --vignette-op: .16; --shade-op: .2;
+  --wainscot: color-mix(in srgb, var(--wall-dark) 86%, #6b7a90); --wainscot-rail: #eef3f9;
+  --window-frame: #f4f7fb; --window-sill: #ffffff;
+}
+.office-scene .wall-trim { fill: var(--wall-dark); }
+.office-scene .wainscot { fill: var(--wainscot); }
+.office-scene .wainscot-rail { fill: var(--wainscot-rail); }
+.office-scene .wainscot-groove { fill: color-mix(in srgb, var(--wainscot) 70%, #000); }
+.office-scene .wall-base-hi { fill: color-mix(in srgb, var(--wall-dark) 60%, #fff 12%); }
+.office-scene .window-frame { fill: var(--window-frame); }
+.office-scene .window-sill { fill: var(--window-sill); }
+.office-scene .sky-top { stop-color: var(--sky-top); }
+.office-scene .sky-bottom { stop-color: var(--sky-bottom); }
+.office-scene .star { fill: #eef3ff; opacity: var(--star-op); animation: twinkle 3.6s steps(2) infinite; }
+.office-scene .moon rect { fill: #f3e7b4; opacity: var(--moon-op); }
+.office-scene .cloud rect { fill: #ffffff; opacity: var(--cloud-op); }
+.office-scene .glass-shine { fill: #ffffff; opacity: .16; }
+.office-scene .cork-frame { fill: #6e4a2e; }
+.office-scene .cork-board { fill: #c79a62; }
+.office-scene .cork-note { opacity: .92; }
+.office-scene .cork-pin { fill: #e24a3b; }
+.office-scene .clock-rim { fill: #3a4252; }
+.office-scene .clock-face { fill: #f6f3ea; }
+.office-scene .clock-tick { fill: #3a4252; }
+.office-scene .clock-hand { stroke: #2a2f3a; stroke-width: 2; stroke-linecap: square; }
+.office-scene .clock-hand.min { stroke-width: 1.4; }
+.office-scene .beam-top { stop-color: var(--beam); stop-opacity: var(--beam-op); }
+.office-scene .beam-bottom { stop-color: var(--beam); stop-opacity: 0; }
+.office-scene .shade-top { stop-color: #000; stop-opacity: var(--shade-op); }
+.office-scene .shade-bottom { stop-color: #000; stop-opacity: 0; }
+.office-scene .vignette-in { stop-color: #000; stop-opacity: 0; }
+.office-scene .vignette-out { stop-color: #000; stop-opacity: var(--vignette-op); }
+.office-scene .rug-edge { fill: #2c3a52; }
+.office-scene .rug-base { fill: #3a4d6b; }
+.office-scene .rug-line { stroke: #6f86ad; stroke-width: 2; opacity: .55; }
+.office-scene .rug-dot { fill: #8aa0c6; opacity: .5; }
+.office-scene .desk-shadow { fill: #000; opacity: .26; }
+@keyframes twinkle { from { opacity: var(--star-op); } to { opacity: calc(var(--star-op) * .35); } }
+@media (prefers-reduced-motion: reduce) { .office-scene .star { animation: none; } }
 
 /* Bugün (Adım 16b) */
 .today { max-width: 1400px; margin: 0 auto; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 22px; }

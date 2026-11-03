@@ -2,6 +2,24 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.21.3] - 2026-11-03
+
+### Değişti (ofis güzelleştirme — sahibin çizimleri: Şef/Batı, Sen, zemin)
+- **Yürüyenler her yönde aynı boyda**: `/api/office/assets` her PNG karesinin dolu alanını da verir (`bounds`); arayüz
+  karakterin yönlü yürüme çizimlerinin ekrandaki boylarının ortancasına göre ölçekler, ayağı dolu alanın alt kenarına,
+  yatayı dolu alanın ortasına oturtur. Önceden Şef sağa yürürken ~%25 büyüyordu (90 / 72 birim), aşağı bakan Sen küçük
+  kalıyordu. Yansıtılan tek yürüme çiziminde hizalama düzeltildi
+- **Tek kareli yürüme çizimi adım atar**: kare animasyonu yoksa kişi yürürken bir piksel seker (gölge yerde kalır)
+- **Zemin karosu kendi boyunda döşenir**: 16×16'dan büyük karo da olur (32×32, 64×64: daha az tekrar)
+- **Sahne dekoru** (pixel tarzı, iki temaya uyumlu): lambri + süpürgelik, çerçeveli pencereler (koyu temada gece göğü,
+  yıldız, ay; açık temada gündüz, bulut), yere düşen pencere ışığı, duvar dibi gölgesi ve köşe kararması, gerçek saati
+  gösteren duvar saati, ajan renkleriyle not panosu, ekip masalarının altında kilim, masa ve eşya gölgeleri. Pencereler
+  duvar dibindeki eşyaların arkasında kalmayacak yerlere alındı. "Hareketi azalt"ta yıldızlar yanıp sönmez
+- Sahibin çizimleri (`data\ofis`, depoda değil): `zemin.png` üst iki satırındaki renkli şerit ve koyu sol sütun yüzünden
+  yerde noktalı çizgiler çıkıyordu → aynı gri ve aynı benek renkleriyle kusursuz döşenen 64×64 halı karosu; `sen.png`
+  başın solundan taşan çizgi ve saçtaki saydam delik temizlendi (orijinaller `data\ofis_kaynak\yedek-2026-11-03\`);
+  tanınmayan adlı kaynak resimler (`bati_*.png`, `worker2.png`) `data\ofis_kaynak\ofis\`'e taşındı
+
 ## [0.21.2] - 2026-11-03
 
 ### Eklendi

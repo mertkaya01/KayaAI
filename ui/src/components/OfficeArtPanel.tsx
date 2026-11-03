@@ -8,6 +8,19 @@ const CHARACTERS: [string, string, string][] = [
   ["claude", "claude", "Claude"], ["ajan", "default", "Diğer ajanlar"],
 ];
 const STATES: [string, string][] = [["calisiyor", "working"], ["bekliyor", "waiting"], ["yuruyor", "walking"], ["hata", "error"], ["bitti", "done"]];
+// "-yuruyor" sütununda yönlü yürüme çizimleri de görünür (tek -yuruyor yoksa yalnız yönlüler)
+const WALK_DIRS: [string, string][] = [["walk_down", "aşağı"], ["walk_up", "yukarı"], ["walk_left", "sol"], ["walk_right", "sağ"]];
+
+function Thumb({ src, alt }: { src: string; alt: string }) {
+  return <img src={src} alt={alt} title={alt} className="art-thumb" />;
+}
+
+function Cell({ have, st, label }: { have: Record<string, string>; st: string; label: string }) {
+  const imgs: [string, string][] = have[st] ? [[have[st], `${label} ${st}`]] : [];
+  if (st === "walking") for (const [k, dir] of WALK_DIRS) if (have[k]) imgs.push([have[k], `${label} yürüyor (${dir})`]);
+  if (!imgs.length) return <span className="muted">—</span>;
+  return <span className="art-thumbs">{imgs.map(([src, alt]) => <Thumb key={src} src={src} alt={alt} />)}</span>;
+}
 
 export function OfficeArtPanel({ onClose }: { onClose: () => void }) {
   const a = usePolling<OfficeAssets>("/api/office/assets", 0);
@@ -28,8 +41,9 @@ export function OfficeArtPanel({ onClose }: { onClose: () => void }) {
       <p className="muted small">
         Pixel stil, önden-üstten (hazır çizimler gibi). Arka planı şeffaf <strong>PNG</strong>, en çok 5 MB, küçük harfli Türkçe ad.
         Kare <strong>64×64</strong>: masada oturan (arkadan) — masanın altı 61. satırda; yürüyen — ayak 48. satırda. Animasyon için
-        kareleri <strong>yan yana</strong> koy (ör. 4 kare → 256×64). Zemin karosu <strong>16×16</strong>. Yürüme yönlü de olur:
-        <code>-yuruyor-sol</code>, <code>-sag</code>, <code>-yukari</code>, <code>-asagi</code> (tek <code>-yuruyor</code> sola yansıtılır).
+        kareleri <strong>yan yana</strong> koy (ör. 4 kare → 256×64). Zemin karosu <strong>16×16</strong> (32×32, 64×64 de olur).
+        Yürüme yönlü de olur: <code>-yuruyor-sol</code>, <code>-sag</code>, <code>-yukari</code>, <code>-asagi</code> (tek
+        <code>-yuruyor</code> sola yansıtılır); yönler farklı boyda çizildiyse sahnede aynı boya getirilir.
         Olmayan resim yerine hazır çizim kullanılır. <code>masa.png</code> herkesin masasını değiştirir (kişi üstüne oturur);
         eşyalar: <code>su</code>, <code>dolap</code>, <code>kahve</code>, <code>yazici</code>, <code>bitki</code>, <code>cop</code>, <code>lavabo</code>.
         Büyük ya da yapay zekâyla üretilmiş resimleri önce çevir: <code>kayaai ofis ice-aktar resim.png ad</code>.
@@ -44,8 +58,8 @@ export function OfficeArtPanel({ onClose }: { onClose: () => void }) {
               return (
                 <tr key={id}>
                   <td><strong>{label}</strong> <span className="muted small">{file}.png</span></td>
-                  <td>{have.base ? <img src={have.base} alt={`${label} çizimi`} className="art-thumb" /> : <span className="muted">—</span>}</td>
-                  {STATES.map(([, st]) => <td key={st}>{have[st] ? <img src={have[st]} alt={`${label} ${st}`} className="art-thumb" /> : <span className="muted">—</span>}</td>)}
+                  <td>{have.base ? <Thumb src={have.base} alt={`${label} çizimi`} /> : <span className="muted">—</span>}</td>
+                  {STATES.map(([, st]) => <td key={st}><Cell have={have} st={st} label={label} /></td>)}
                 </tr>
               );
             })}

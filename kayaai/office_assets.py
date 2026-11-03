@@ -12,12 +12,15 @@ Kurallar (Türkçe dosya adları, küçük harf):
 - Eşyalar: `su.png`, `dolap.png`, `kahve.png`, `yazici.png`, `bitki.png`, `cop.png`, `lavabo.png` (hazırın yerine)
 - Büyük/yapay zekâ çizimlerini çevirmek için: `kayaai ofis ice-aktar <resim> <ad>` (kayaai/office_import.py)
 - Biçim: PNG, SVG, WEBP; en çok 5 MB. Yalnız bu klasördeki resimler sunulur (alt klasör, başka dosya türü yok).
+- PNG'lerin boyu (`sizes`) ve karenin dolu alanı (`bounds`, Adım 21c) da gönderilir: arayüz kare sayısını bulur,
+  yürüyen karakteri her yönde aynı boya getirir ve ayağını yere oturtur.
 Resimler arayüzde `/ofis/<dosya>` adresinden okunur (yalnız bu bilgisayar; resimde gizli bilgi olmamalı).
 """
 
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +58,7 @@ def scan(data_dir: Path) -> dict[str, Any]:
     """Klasördeki çizimler → arayüz eşlemesi: {actors: {id: {state|'base': url}}, desk, floor, unknown: [...]}."""
     d = folder(data_dir)
     out: dict[str, Any] = {"folder": str(d), "exists": d.is_dir(), "actors": {}, "desk": None, "floor": None,
-                           "unknown": [], "skipped": [], "sizes": {}, "props": {}}
+                           "unknown": [], "skipped": [], "sizes": {}, "bounds": {}, "props": {}}
     if not d.is_dir():
         return out
     for p in sorted(d.iterdir()):
@@ -69,6 +72,10 @@ def scan(data_dir: Path) -> dict[str, Any]:
         size = png_size(p)
         if size:
             out["sizes"][url] = size  # kare sayısı = genişlik / yükseklik (yan yana kareler)
+            st = p.stat()
+            box = content_bounds(str(p), st.st_mtime_ns, st.st_size, max(1, round(size[0] / size[1])))
+            if box:
+                out["bounds"][url] = box  # karenin dolu alanı: yürüyenler her yönde aynı boyda çizilir
         if stem in SPECIAL:
             out[SPECIAL[stem]] = url
             continue
@@ -98,3 +105,29 @@ def png_size(p: Path) -> list[int] | None:
         return None
     w, h = int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
     return [w, h] if 0 < w <= 16384 and 0 < h <= 16384 else None
+
+
+BOUNDS_MAX_PIXELS = 4096 * 1024  # daha büyük resimde dolu alan hesaplanmaz (ofis çizimleri küçüktür)
+
+
+@lru_cache(maxsize=512)
+def content_bounds(path: str, mtime_ns: int, size: int, frames: int) -> list[int] | None:
+    """Karenin dolu (yarıdan fazla opak) alanı, kare içi koordinatla: [x0, y0, x1, y1] — yan yana karelerin birleşimi.
+    Arayüz yürüyen karakteri bu yüksekliğe göre ölçekler ve ayağını alt kenara oturtur: yapay zekâdan gelen yönlü
+    çizimlerde kişi bir yönde büyük, bir yönde küçük çıkabiliyor. Önbellek anahtarı dosya + değişme zamanı + boyut.
+    Okunamayan resimde None (hazır hizalama kullanılır)."""
+    del mtime_ns, size  # yalnız önbellek anahtarı
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            if im.width * im.height > BOUNDS_MAX_PIXELS:
+                return None
+            alpha = im.convert("RGBA").getchannel("A").point(lambda v: 255 if v >= 128 else 0)
+    except Exception:  # bozuk / PNG olmayan dosya: hazır hizalama
+        return None
+    fw = alpha.width // frames
+    boxes = [b for i in range(frames) if (b := alpha.crop((i * fw, 0, (i + 1) * fw, alpha.height)).getbbox())]
+    if not boxes:
+        return None
+    return [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]

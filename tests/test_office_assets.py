@@ -98,3 +98,23 @@ def test_photo_card_names(tmp_path: Path):
     out = scan(tmp_path)
     assert out["actors"]["owner"]["photo"].startswith("/ofis/sen-foto.jpg")
     assert out["actors"]["chef"]["photo"].startswith("/ofis/sef-foto.png")
+
+
+def test_content_bounds_for_walk_sizes(tmp_path: Path):
+    """Adım 21c: karenin dolu alanı (yarıdan fazla opak) — arayüz yürüyenleri her yönde aynı boya getirir."""
+    from PIL import Image
+
+    d = tmp_path / "ofis"
+    d.mkdir()
+    im = Image.new("RGBA", (128, 64), (0, 0, 0, 0))
+    im.paste((200, 50, 50, 255), (10, 5, 20, 40))     # 1. kare
+    im.paste((50, 200, 50, 255), (94, 8, 104, 48))    # 2. kare (kare içi x 30–40)
+    im.paste((0, 0, 0, 60), (0, 60, 64, 64))          # yarı saydam gölge: sayılmaz
+    im.save(d / "veri-yuruyor-sag.png")
+    Image.new("RGBA", (64, 64), (0, 0, 0, 0)).save(d / "veri-yuruyor-sol.png")  # bomboş: dolu alan yok
+    (d / "veri.png").write_bytes(PNG)                  # PNG değil: çökmez, dolu alan yok
+    out = scan(tmp_path)
+    right = out["actors"]["data"]["walk_right"]
+    assert out["bounds"][right] == [10, 5, 40, 48]
+    assert out["actors"]["data"]["walk_left"] not in out["bounds"]
+    assert out["actors"]["data"]["base"] not in out["bounds"]

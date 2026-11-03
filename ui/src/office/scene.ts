@@ -241,6 +241,8 @@ export interface OfficeAssets {
   folder: string; exists: boolean; desk: string | null; floor: string | null;
   actors: Record<string, Record<string, string>>; unknown: string[]; skipped: string[];
   sizes?: Record<string, [number, number]>;  // PNG boyutları: kare sayısı = genişlik / yükseklik
+  // Karenin dolu alanı [x0, y0, x1, y1] (kare içi): yürüyen karakter her yönde aynı boyda, ayağı yerde çizilir
+  bounds?: Record<string, [number, number, number, number]>;
   props?: Record<string, string>;            // Adım 21b: sahibin eşyaları (water, cabinet, coffee…)
 }
 
@@ -272,27 +274,58 @@ export const PIXEL = {
   walk: { down: walkSprite("Julia_walk_Foward.png"), up: walkSprite("Julia_walk_Up.png"),
           left: walkSprite("Julia_walk_Left.png"), right: walkSprite("Julia_walk_Rigth.png") } as Record<WalkDir, Sprite>,
   props: [  // duvar dibi ve köşeler (ızgara birimi; ay = alt kenar). id: sahibin eşyası bunun yerine geçer (su.png…)
-    { id: "cabinet", s: { href: PIX + "cabinet.png", frames: 1, fw: 64, fh: 64, ax: 30, ay: 49 }, at: { x: 0.25, y: 1.05 } },
-    { id: "water", s: { href: PIX + "water-cooler.png", frames: 1, fw: 16, fh: 32, ax: 7, ay: 31 }, at: { x: 0.85, y: 1.0 } },
-    { id: "coffee", s: { href: PIX + "coffee-maker.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 51 }, at: { x: 1.8, y: 1.0 } },
-    { id: "printer", s: { href: PIX + "printer.png", frames: 1, fw: 64, fh: 32, ax: 32, ay: 32 }, at: { x: 5.3, y: 1.0 } },
-    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 6.1, y: 1.0 } },
-    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 0.2, y: 5.45 } },
-    { id: "trash", s: { href: PIX + "Trash.png", frames: 1, fw: 16, fh: 16, ax: 8, ay: 13 }, at: { x: 3.45, y: 4.1 } },
-    { id: "sink", s: { href: PIX + "sink.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 48 }, at: { x: 7.45, y: 4.6 } },
-  ] as { id: string; s: Sprite; at: Pt }[],
+    // sh: yerdeki gölgenin yarı genişliği (sahne birimi; eşyanın dolu alanına göre)
+    { id: "cabinet", s: { href: PIX + "cabinet.png", frames: 1, fw: 64, fh: 64, ax: 30, ay: 49 }, at: { x: 0.25, y: 1.05 }, sh: 26 },
+    { id: "water", s: { href: PIX + "water-cooler.png", frames: 1, fw: 16, fh: 32, ax: 7, ay: 31 }, at: { x: 0.85, y: 1.0 }, sh: 15 },
+    { id: "coffee", s: { href: PIX + "coffee-maker.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 51 }, at: { x: 1.8, y: 1.0 }, sh: 58 },
+    { id: "printer", s: { href: PIX + "printer.png", frames: 1, fw: 64, fh: 32, ax: 32, ay: 32 }, at: { x: 5.3, y: 1.0 }, sh: 58 },
+    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 6.1, y: 1.0 }, sh: 11 },
+    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 0.2, y: 5.45 }, sh: 11 },
+    { id: "trash", s: { href: PIX + "Trash.png", frames: 1, fw: 16, fh: 16, ax: 8, ay: 13 }, at: { x: 3.45, y: 4.1 }, sh: 8 },
+    { id: "sink", s: { href: PIX + "sink.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 48 }, at: { x: 7.45, y: 4.6 }, sh: 34 },
+  ] as { id: string; s: Sprite; at: Pt; sh: number }[],
 };
 
 /** Sahibin resmi → çizim: kareler yan yana (kare sayısı = genişlik/yükseklik), hazır kalıpla aynı hizalama.
  *  Kare 64'ten büyükse (ör. 96 — `kayaai ofis ice-aktar` büyük karakterler için seçer) orantılı küçültülür: sahnede
  *  hazır çizimlerle aynı boyda görünür. */
-export function ownSprite(assets: OfficeAssets | null | undefined, url: string | null, kind: "seat" | "walk"): Sprite | null {
+export function ownSprite(assets: OfficeAssets | null | undefined, url: string | null, kind: "seat" | "walk", walkH?: number): Sprite | null {
   if (!url) return null;
   const size = assets?.sizes?.[url];
   const [w, h] = size ?? [64, 64];
   const frames = Math.max(1, Math.round(w / h));
   const fw = w / frames;
+  const box = kind === "walk" ? assets?.bounds?.[url] : undefined;
+  if (box && walkH && box[3] > box[1]) {
+    // Yürüyen: kişi istenen boyda (sahne birimi), ayakları dolu alanın alt kenarında, yatayda dolu alanın ortası
+    const k = Math.min(4, Math.max(0.5, walkH / (box[3] - box[1])));
+    return { href: url, frames, fw, fh: h, ax: (box[0] + box[2]) / 2, ay: box[3], scale: k };
+  }
   return { href: url, frames, fw, fh: h, ax: fw / 2, ay: kind === "seat" ? h * (61 / 64) : h * (48 / 64), scale: PX * 64 / h };
+}
+
+/** Bir karakterin yürüme boyu (sahne birimi): kendi yönlü çizimlerinin ekrandaki boylarının ortancası. Yapay zekâyla
+ *  ayrı ayrı üretilen yönlerde kişi farklı boyda çıkabiliyor (ör. sağa 90, diğerleri ~72); ortanca tek aykırı çizimi
+ *  düzeltir, karakterler arasındaki gerçek boy farkını korur. Dolu alan bilgisi yoksa undefined (eski hizalama). */
+export function walkHeight(assets: OfficeAssets | null | undefined, own: Record<string, string> | undefined): number | undefined {
+  if (!own || !assets?.bounds) return undefined;
+  const hs: number[] = [];
+  for (const key of ["walk_down", "walk_up", "walk_left", "walk_right", "walking"]) {
+    const url = own[key];
+    const box = url ? assets.bounds[url] : undefined;
+    const fh = url ? assets.sizes?.[url]?.[1] : undefined;
+    if (box && fh && box[3] > box[1]) hs.push((box[3] - box[1]) * PX * 64 / fh);
+  }
+  if (!hs.length) return undefined;
+  hs.sort((a, b) => a - b);
+  const m = hs.length >> 1;
+  return hs.length % 2 ? hs[m] : (hs[m - 1] + hs[m]) / 2;
+}
+
+/** Zemin karosunun sahnedeki boyu: resim kaç pikselse PX katı (16×16 → 32, 64×64 → 128); bilinmiyorsa 16×16. */
+export function floorTile(assets: OfficeAssets | null | undefined): [number, number] {
+  const size = assets?.floor ? assets.sizes?.[assets.floor] : undefined;
+  return size ? [size[0] * PX, size[1] * PX] : [16 * PX, 16 * PX];
 }
 
 /** Sahibin eşyası (su.png…) ya da hazır eşya; çok büyük resim hazır eşyanın 1,5 katına sığdırılır. */
@@ -320,8 +353,9 @@ export function pickWalk(assets: OfficeAssets | null | undefined, a: Pick<Actor,
   const pools = [assets?.actors[a.id], a.kind === "agent" ? assets?.actors["default"] : undefined];
   for (const own of pools) {
     if (!own) continue;
-    if (own[key]) return { s: ownSprite(assets, own[key], "walk")!, flip: false };
-    if (own.walking) return { s: ownSprite(assets, own.walking, "walk")!, flip: dir === "left" };
+    const h = walkHeight(assets, own);
+    if (own[key]) return { s: ownSprite(assets, own[key], "walk", h)!, flip: false };
+    if (own.walking) return { s: ownSprite(assets, own.walking, "walk", h)!, flip: dir === "left" };
   }
   return { s: PIXEL.walk[dir], flip: false };
 }

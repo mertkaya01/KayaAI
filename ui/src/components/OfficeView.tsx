@@ -3,7 +3,7 @@ import { api, ApiError, post, type Approval, type FlowNode, type JobGraph } from
 import { usePolling } from "../hooks";
 import { useProgress } from "../office/progress";
 import {
-  CELL, deriveActors, diffVisits, flows, GRID, introVisits, pickArt, PIXEL, pickWalk, propSprite, PX, seat, seatLayers, STATE_TEXT, taskGraph, top,
+  CELL, deriveActors, diffVisits, floorTile, flows, GRID, introVisits, pickArt, PIXEL, pickWalk, propSprite, PX, seat, seatLayers, STATE_TEXT, taskGraph, top,
   visitorSpot, walkDir, type Actor, type Flow, type OfficeAssets, type Pt, type Sprite, type TaskLite, type Visit, type WalkDir,
 } from "../office/scene";
 
@@ -18,6 +18,7 @@ import {
 const WALK_MS_PER_CELL = 520;
 const STAY_MS = 1500;
 const FRAME_MS = 140;
+const STEP_MS = 260;  // tek kareli yürüme çiziminde adım sekmesi (kare animasyonu yoksa kişi kaymasın, yürüsün)
 const WALL = 92;  // duvar bandı yüksekliği (sahne birimi)
 const STATUS_TEXT: Record<FlowNode["status"], string> = {
   pending: "sırada", running: "çalışıyor", succeeded: "bitti", failed: "hata", waiting: "bekliyor", skipped: "atlandı",
@@ -57,7 +58,8 @@ function legsFor(v: Visit, actors: Actor[], start: number, still: boolean): Leg[
 function SpriteImg({ s, at, frame = 0, flip = false, className }: { s: Sprite; at: Pt; frame?: number; flip?: boolean; className?: string }) {
   const k = s.scale ?? PX;  // sahne birimi / çizim pikseli (büyük karelerde orantılı küçük)
   const w = s.fw * k, h = s.fh * k;
-  const x = at.x - s.ax * k, y = at.y - s.ay * k;
+  // Yansıtılınca oturma pikseli karenin öbür yanına geçer (ax kare ortası değilse kişi kaymasın)
+  const x = at.x - (flip ? s.fw - s.ax : s.ax) * k, y = at.y - s.ay * k;
   const f = s.frames > 1 ? ((frame % s.frames) + s.frames) % s.frames : 0;
   // Konum `transform` özniteliğinde; CSS animasyonu (kıpırdama) yalnız iç katmanda — yoksa CSS konumu ezer
   return (
@@ -235,6 +237,95 @@ function Mailbox({ at }: { at: Pt }) {
   );
 }
 
+/** Duvar ve pencereler (pixel tarzı): lambri, süpürgelik, gökyüzü (açık tema gündüz / koyu tema gece), saat, not
+ *  panosu. Konumlar duvar dibindeki hazır eşyalarla çakışmayacak yerde (dolap, sebil, kahve köşesi, yazıcılar). */
+const WINDOWS = [0.36, 0.545, 0.835];  // pencere ortaları (sahne genişliğinin oranı)
+const WIN = { w: 76, y: 12, h: 40 };
+
+function Wall({ W, clock, notes }: { W: number; clock: Date; notes: string[] }) {
+  const grooves: number[] = [];
+  for (let x = 16; x < W; x += 32) grooves.push(x);
+  const hAng = ((clock.getHours() % 12) + clock.getMinutes() / 60) * 30, mAng = clock.getMinutes() * 6;
+  const cx = W * 0.664, cy = 19;  // saat: yazıcıların üstünde
+  const hand = (deg: number, len: number) => ({ x2: cx + Math.sin(deg * Math.PI / 180) * len, y2: cy - Math.cos(deg * Math.PI / 180) * len });
+  const bx = W * 0.452 - 32;  // not panosu: iki pencere arasında
+  return (
+    <g className="wall-decor">
+      <rect x={0} y={0} width={W} height={WALL} className="wall-px" />
+      <rect x={0} y={0} width={W} height={4} className="wall-trim" />
+      <rect x={0} y={58} width={W} height={28} className="wainscot" />
+      <rect x={0} y={56} width={W} height={3} className="wainscot-rail" />
+      {grooves.map((x) => <rect key={x} x={x} y={60} width={1.5} height={26} className="wainscot-groove" />)}
+      <rect x={0} y={WALL - 6} width={W} height={6} className="wall-base" />
+      <rect x={0} y={WALL - 6} width={W} height={1.5} className="wall-base-hi" />
+      {WINDOWS.map((k, i) => {
+        const x = Math.round(W * k - WIN.w / 2), { y, h } = WIN, w = WIN.w;
+        return (
+          <g key={k}>
+            <rect x={x - 4} y={y - 4} width={w + 8} height={h + 8} className="window-frame" />
+            <rect x={x} y={y} width={w} height={h} fill="url(#office-sky)" />
+            {[[0.18, 0.3], [0.7, 0.18], [0.45, 0.62], [0.86, 0.5], [0.3, 0.8]].map(([sx, sy], j) => (
+              <rect key={j} x={x + w * sx} y={y + h * sy} width={2} height={2} className="star" style={{ animationDelay: `${(i * 5 + j) * 0.7}s` }} />
+            ))}
+            {i === 2 && <g className="moon"><rect x={x + 54} y={y + 7} width={8} height={8} /><rect x={x + 52} y={y + 9} width={12} height={4} /><rect x={x + 56} y={y + 5} width={4} height={12} /></g>}
+            {i !== 2 && <g className="cloud"><rect x={x + 10 + i * 18} y={y + 12} width={22} height={5} /><rect x={x + 15 + i * 18} y={y + 8} width={10} height={5} /></g>}
+            <polygon points={`${x + 8},${y + h} ${x + 26},${y} ${x + 36},${y} ${x + 18},${y + h}`} className="glass-shine" />
+            <rect x={x + w / 2 - 1.5} y={y} width={3} height={h} className="window-frame" />
+            <rect x={x} y={y + h / 2 - 1} width={w} height={2} className="window-frame" />
+            <rect x={x - 7} y={y + h + 4} width={w + 14} height={4} className="window-sill" />
+          </g>
+        );
+      })}
+      <g className="cork" aria-hidden="true">
+        <rect x={bx} y={12} width={64} height={38} className="cork-frame" />
+        <rect x={bx + 3} y={15} width={58} height={32} className="cork-board" />
+        {notes.slice(0, 6).map((c, i) => (
+          <g key={i}>
+            <rect x={bx + 7 + (i % 3) * 18} y={19 + Math.floor(i / 3) * 14 + (i % 2)} width={12} height={10} style={{ fill: c }} className="cork-note" />
+            <rect x={bx + 12 + (i % 3) * 18} y={18 + Math.floor(i / 3) * 14 + (i % 2)} width={2} height={2} className="cork-pin" />
+          </g>
+        ))}
+      </g>
+      <g className="clock">
+        <circle cx={cx} cy={cy} r={12} className="clock-rim" />
+        <circle cx={cx} cy={cy} r={9.5} className="clock-face" />
+        {[0, 90, 180, 270].map((d) => { const t = hand(d, 7.5); return <rect key={d} x={t.x2 - 0.75} y={t.y2 - 0.75} width={1.5} height={1.5} className="clock-tick" />; })}
+        <line x1={cx} y1={cy} {...hand(hAng, 5)} className="clock-hand" />
+        <line x1={cx} y1={cy} {...hand(mAng, 7.5)} className="clock-hand min" />
+        <rect x={cx - 1} y={cy - 1} width={2} height={2} className="clock-tick" />
+      </g>
+    </g>
+  );
+}
+
+/** Pencerelerden yere düşen ışık + duvar dibi gölgesi + köşe kararması (zeminin üstünde, masaların altında). */
+function FloorLight({ W, H }: { W: number; H: number }) {
+  return (
+    <g className="floor-light" aria-hidden="true">
+      {WINDOWS.map((k) => {
+        const x = Math.round(W * k - WIN.w / 2), w = WIN.w;
+        return <polygon key={k} points={`${x + 4},${WALL} ${x + w - 4},${WALL} ${x + w + 46},${WALL + 170} ${x + 26},${WALL + 170}`} fill="url(#office-beam)" />;
+      })}
+      <rect x={0} y={WALL} width={W} height={18} fill="url(#office-wallshade)" />
+      <rect x={0} y={WALL} width={W} height={H + 20 - WALL} fill="url(#office-vignette)" />
+    </g>
+  );
+}
+
+/** Ajan masalarının altındaki kilim (iki sıra masayı bir ekip alanı gibi toplar). */
+function Rug({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  const dots: Pt[] = [];
+  for (let px = x + 22; px < x + w - 16; px += 28) { dots.push({ x: px, y: y + 9 }); dots.push({ x: px, y: y + h - 11 }); }
+  return (
+    <g className="rug" aria-hidden="true" shapeRendering="crispEdges">
+      <rect x={x} y={y} width={w} height={h} className="rug-edge" />
+      <rect x={x + 4} y={y + 4} width={w - 8} height={h - 8} className="rug-base" />
+      <rect x={x + 14} y={y + 14} width={w - 28} height={h - 28} className="rug-line" fill="none" />
+      {dots.map((d, i) => <rect key={i} x={d.x} y={d.y} width={4} height={2} className="rug-dot" />)}
+    </g>
+  );
+}
+
 /** Kartın fotoğrafı: `<ajan>-foto.png/.jpg` (data/ofis) ya da yoksa aşağı bakan yürüme çiziminin ilk karesi. */
 function Portrait({ a, art }: { a: Actor; art: OfficeAssets | null | undefined }) {
   const photo = art?.actors[a.id]?.photo;
@@ -322,8 +413,14 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
   const prev = useRef<JobGraph | null>(null);
   const plans = useRef<Map<string, Leg[]>>(new Map());
   const [localKey, setLocalKey] = useState(0);
+  const [clock, setClock] = useState(() => new Date());
   const live = graph?.status === "running" || graph?.status === "pending";
   const still = reducedMotion();
+
+  useEffect(() => {  // duvar saati
+    const id = window.setInterval(() => setClock(new Date()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!jobId) { setGraph(null); prev.current = null; return; }
@@ -413,6 +510,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
   const flowList = useMemo(() => flows(graph), [graph]);
   const walkFrame = Math.floor(now / FRAME_MS);
   const art = assets.data;
+  const [tileW, tileH] = floorTile(art);
 
   // Derinlik sırası (aşağıdaki önde): masalar (oturan ya da boş) ve yürüyenler birlikte, ayak hizasına göre
   type Layer = { key: string; y: number; node: React.ReactNode };
@@ -444,6 +542,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
     if (!p.away) {  // masasında oturuyor: masa + kişi (katman katman)
       layers.push({ key: `d-${a.id}`, y: d.y, node: (
         <Clickable key={`d-${a.id}`} a={a} selected={isSel} onSelect={onSelect}>
+          <ellipse cx={d.x} cy={d.y - 5} rx={42} ry={8} className="desk-shadow" />
           {a.state === "working" && <ellipse cx={d.x} cy={d.y - 54} rx={46} ry={34} className="desk-glow" style={{ fill: a.color }} />}
           {seatL.desk && <SpriteImg s={seatL.desk} at={d} frame={frame} />}
           <SpriteImg s={seatL.person} at={d} frame={frame} className={a.state === "working" ? "seated busy" : "seated"} />
@@ -452,13 +551,19 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
       heads.push({ a, head: { x: d.x, y: d.y - 84 }, note: p.note });
     } else {  // masası boş, kendisi yolda / başka masanın yanında
       const desk = a.kind === "owner" && !ownerDrawn ? PIXEL.ownerDesk : seatL.desk ?? PIXEL.emptyDesk;
-      layers.push({ key: `d-${a.id}`, y: d.y, node: <SpriteImg key={`d-${a.id}`} s={desk} at={d} frame={frame} /> });
+      layers.push({ key: `d-${a.id}`, y: d.y, node: (
+        <g key={`d-${a.id}`}>
+          <ellipse cx={d.x} cy={d.y - 5} rx={42} ry={8} className="desk-shadow" />
+          <SpriteImg s={desk} at={d} frame={frame} />
+        </g>) });
       const q = top(p.at);
       const w = pickWalk(art, a, p.dir);
+      // Tek kareli çizim (adım animasyonu yok): yürürken bir piksel sekerek adım atar; gölge yerde kalır
+      const hop = p.moving && w.s.frames === 1 && Math.floor(now / STEP_MS) % 2 === 1 ? -PX : 0;
       layers.push({ key: `w-${a.id}`, y: q.y + 1, node: (
         <Clickable key={`w-${a.id}`} a={a} selected={isSel} onSelect={onSelect}>
           <ellipse cx={q.x} cy={q.y} rx={18} ry={6} className="shadow" />
-          <SpriteImg s={w.s} at={q} frame={p.moving ? walkFrame : 0} flip={w.flip} />
+          <SpriteImg s={w.s} at={{ x: q.x, y: q.y + hop }} frame={p.moving ? walkFrame : 0} flip={w.flip} />
         </Clickable>) });
       heads.push({ a, head: { x: q.x, y: q.y - 70 }, note: p.note });
     }
@@ -481,8 +586,8 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
         <svg className="office-scene" viewBox={`${-pad} ${-pad} ${W + 2 * pad} ${H + 2 * pad + 20}`}
              role="group" aria-label={`Canlı ofis${graph ? `: ${graph.objective}` : ""}`}>
           <defs>
-            <pattern id="office-floor" width={32} height={32} patternUnits="userSpaceOnUse">
-              {art?.floor ? <image href={art.floor} width={32} height={32} className="px" preserveAspectRatio="none" /> : (
+            <pattern id="office-floor" width={tileW} height={tileH} patternUnits="userSpaceOnUse">
+              {art?.floor ? <image href={art.floor} width={tileW} height={tileH} className="px" preserveAspectRatio="none" /> : (
                 <>
                   <rect width={32} height={32} className="floor-a" />
                   <rect width={16} height={16} className="floor-b" />
@@ -490,13 +595,33 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
                 </>
               )}
             </pattern>
+            <linearGradient id="office-sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" className="sky-top" /><stop offset="1" className="sky-bottom" />
+            </linearGradient>
+            <linearGradient id="office-beam" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" className="beam-top" /><stop offset="1" className="beam-bottom" />
+            </linearGradient>
+            <linearGradient id="office-wallshade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" className="shade-top" /><stop offset="1" className="shade-bottom" />
+            </linearGradient>
+            <radialGradient id="office-vignette" cx="0.5" cy="0.42" r="0.75">
+              <stop offset="0.55" className="vignette-in" /><stop offset="1" className="vignette-out" />
+            </radialGradient>
           </defs>
           <g aria-hidden="true" shapeRendering="crispEdges">
             <rect x={0} y={0} width={W} height={H + 20} fill="url(#office-floor)" />
-            <rect x={0} y={0} width={W} height={WALL} className="wall-px" />
-            <rect x={0} y={WALL - 6} width={W} height={6} className="wall-base" />
-            {[0.18, 0.5, 0.82].map((k) => <rect key={k} x={W * k - 40} y={14} width={80} height={44} className="window-px" />)}
-            {PIXEL.props.map((pr, i) => <SpriteImg key={i} s={propSprite(art, pr.id, pr.s)} at={top(pr.at)} />)}
+            <FloorLight W={W} H={H} />
+            <Rug x={50} y={112} w={486} h={294} />
+            <Wall W={W} clock={clock} notes={actors.filter((a) => a.kind === "agent").map((a) => a.color)} />
+            {PIXEL.props.map((pr, i) => {
+              const s = propSprite(art, pr.id, pr.s), at = top(pr.at);
+              return (
+                <g key={i}>
+                  <ellipse cx={at.x} cy={at.y - 2} rx={pr.sh} ry={5} className="desk-shadow" />
+                  <SpriteImg s={s} at={at} />
+                </g>
+              );
+            })}
           </g>
           <g className="flows">{flowList.map((fl) => <FlowLine key={fl.key} f={fl} actors={actors} still={still} />)}</g>
           {layers.map((l) => l.node)}
