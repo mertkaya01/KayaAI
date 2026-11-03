@@ -3,7 +3,7 @@ import { api, ApiError, post, type Approval, type FlowNode, type JobGraph } from
 import { usePolling } from "../hooks";
 import { useProgress } from "../office/progress";
 import {
-  CELL, deriveActors, diffVisits, flows, GRID, PIXEL, pickSeat, pickWalk, PX, seat, STATE_TEXT, taskGraph, top,
+  CELL, deriveActors, diffVisits, flows, GRID, introVisits, pickArt, PIXEL, pickWalk, propSprite, PX, seat, seatLayers, STATE_TEXT, taskGraph, top,
   visitorSpot, walkDir, type Actor, type Flow, type OfficeAssets, type Pt, type Sprite, type TaskLite, type Visit, type WalkDir,
 } from "../office/scene";
 
@@ -55,8 +55,9 @@ function legsFor(v: Visit, actors: Actor[], start: number, still: boolean): Leg[
 
 /** Pixel çizim: (at) noktasına çizimin (ax, ay) pikseli oturur; kareler yan yana, gösterilen kare `frame`. */
 function SpriteImg({ s, at, frame = 0, flip = false, className }: { s: Sprite; at: Pt; frame?: number; flip?: boolean; className?: string }) {
-  const w = s.fw * PX, h = s.fh * PX;
-  const x = at.x - s.ax * PX, y = at.y - s.ay * PX;
+  const k = s.scale ?? PX;  // sahne birimi / çizim pikseli (büyük karelerde orantılı küçük)
+  const w = s.fw * k, h = s.fh * k;
+  const x = at.x - s.ax * k, y = at.y - s.ay * k;
   const f = s.frames > 1 ? ((frame % s.frames) + s.frames) % s.frames : 0;
   // Konum `transform` özniteliğinde; CSS animasyonu (kıpırdama) yalnız iç katmanda — yoksa CSS konumu ezer
   return (
@@ -341,7 +342,8 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
   // Yeni grafik → yürüyüş planları
   useEffect(() => {
     if (!graph) return;
-    const visits = diffVisits(prev.current, graph);
+    const fresh = !prev.current || prev.current.job_id !== graph.job_id;
+    const visits = fresh ? introVisits(graph) : diffVisits(prev.current, graph);
     prev.current = graph;
     if (!visits.length) return;
     const t = performance.now();
@@ -413,29 +415,29 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
       heads.push({ a, head: { x: d.x, y: d.y - 64 }, note: p.note });
       continue;
     }
-    if (a.kind === "owner") {
-      const own = art?.actors.owner;
-      const body = own ? { s: pickSeat(art, a), frame: 0 } : { s: PIXEL.owner, frame: a.state === "waiting" ? frame : 0 };
+    // Sen: kendi çizimin (sen.png) varsa ajanlar gibi masanda oturursun; yoksa yazı masasının arkasında ayakta
+    const ownerDrawn = a.kind === "owner" && !!pickArt(art, a);
+    if (a.kind === "owner" && !ownerDrawn && !p.away) {
       layers.push({ key: `d-${a.id}`, y: d.y, node: (
         <Clickable key={`d-${a.id}`} a={a} selected={isSel} onSelect={onSelect}>
-          {!own && <SpriteImg s={body.s} at={{ x: d.x, y: d.y - 54 }} frame={body.frame} />}
-          <SpriteImg s={own ? body.s : PIXEL.ownerDesk} at={d} />
+          <SpriteImg s={PIXEL.owner} at={{ x: d.x, y: d.y - 54 }} frame={a.state === "waiting" ? frame : 0} />
+          <SpriteImg s={PIXEL.ownerDesk} at={d} />
         </Clickable>) });
       heads.push({ a, head: { x: d.x, y: d.y - 116 }, note: p.note });
       continue;
     }
-    if (!p.away) {  // masasında oturuyor
-      const s = pickSeat(art, a);
+    const seatL = seatLayers(art, a);
+    if (!p.away) {  // masasında oturuyor: masa + kişi (katman katman)
       layers.push({ key: `d-${a.id}`, y: d.y, node: (
         <Clickable key={`d-${a.id}`} a={a} selected={isSel} onSelect={onSelect}>
           {a.state === "working" && <ellipse cx={d.x} cy={d.y - 54} rx={46} ry={34} className="desk-glow" style={{ fill: a.color }} />}
-          <SpriteImg s={s} at={d} frame={frame} className={a.state === "working" ? "seated busy" : "seated"} />
+          {seatL.desk && <SpriteImg s={seatL.desk} at={d} frame={frame} />}
+          <SpriteImg s={seatL.person} at={d} frame={frame} className={a.state === "working" ? "seated busy" : "seated"} />
           <WorkFx a={a} at={d} />
         </Clickable>) });
       heads.push({ a, head: { x: d.x, y: d.y - 84 }, note: p.note });
     } else {  // masası boş, kendisi yolda / başka masanın yanında
-      const desk = art?.desk ? { href: art.desk, frames: 1, fw: 64, fh: 64, ax: 32, ay: 61 } as Sprite
-        : a.state === "working" ? PIXEL.busyDesk : PIXEL.emptyDesk;
+      const desk = a.kind === "owner" && !ownerDrawn ? PIXEL.ownerDesk : seatL.desk ?? PIXEL.emptyDesk;
       layers.push({ key: `d-${a.id}`, y: d.y, node: <SpriteImg key={`d-${a.id}`} s={desk} at={d} frame={frame} /> });
       const q = top(p.at);
       const w = pickWalk(art, a, p.dir);
@@ -480,7 +482,7 @@ export function OfficeView({ jobId, jobKind = "conductor", refreshKey, approvals
             <rect x={0} y={0} width={W} height={WALL} className="wall-px" />
             <rect x={0} y={WALL - 6} width={W} height={6} className="wall-base" />
             {[0.18, 0.5, 0.82].map((k) => <rect key={k} x={W * k - 40} y={14} width={80} height={44} className="window-px" />)}
-            {PIXEL.props.map((pr, i) => <SpriteImg key={i} s={pr.s} at={top(pr.at)} />)}
+            {PIXEL.props.map((pr, i) => <SpriteImg key={i} s={propSprite(art, pr.id, pr.s)} at={top(pr.at)} />)}
           </g>
           <g className="flows">{flowList.map((fl) => <FlowLine key={fl.key} f={fl} actors={actors} still={still} />)}</g>
           {layers.map((l) => l.node)}

@@ -2,6 +2,19 @@
 
 Biçim: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/). Sürümleme: SemVer.
 
+## [0.21.1] - 2026-11-03
+
+### Eklendi (sahibin çizimleri: kendi karakteri, masada oturan hâli, damacana)
+- **`kayaai ofis ice-aktar <resim> <ad> [--sec N]`**: yapay zekâyla büyük çözünürlükte üretilmiş "pixel art"ı sahnenin
+  çizimine çevirir — pixel ızgarasını bulur (ör. 20,8 piksel = 1 piksel), asıl çözünürlüğe indirir, figürleri kare
+  kare dizer, yürüyeni/oturanı/masayı hazır kalıplarla aynı hizaya koyar, yarı saydam kenarı temizler, hazır kalıptan
+  türetilmiş oturan çizimden masayı çıkarır (saç masa renginde olsa da korunur); `kayaai ofis` klasör durumu
+- **Katmanlı masa**: masa ve oturan kişi ayrı çizilir → `masa.png` herkesin masasını değiştirir; hazır çalışanların
+  "yalnız kişi" katmanları eklendi
+- **Eşyalar**: `su`, `dolap`, `kahve`, `yazici`, `bitki`, `cop`, `lavabo` hazırın yerine geçer (çok büyükse sığdırılır)
+- **Sen**: kendi çizimin varsa masanda oturursun; iş başlarken isteği Şef'e **yürüyerek götürürsün** ("iş verdi"),
+  yönlü yürüme çizimlerinle. 64'ten büyük kareler orantılı küçültülür (hazırlarla aynı boyda)
+
 ## [0.21.0] - 2026-11-02
 
 ### Değişti (Adım 21 — sahip kararı "ofis A": pixel stil)

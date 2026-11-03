@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Approval, FlowNode, JobGraph } from "../api";
-import { actorOf, deriveActors, diffVisits, flows, layout, ownSprite, pickArt, pickSeat, pickWalk, PIXEL, taskGraph, top, walkDir, workStyle,
-         type OfficeAssets } from "../office/scene";
+import { actorOf, deriveActors, diffVisits, flows, introVisits, layout, ownSprite, pickArt, pickSeat, pickWalk, PIXEL, propSprite, seatLayers,
+         taskGraph, top, walkDir, workStyle, type OfficeAssets } from "../office/scene";
 
 function node(id: string, kind: FlowNode["kind"], status: FlowNode["status"], agent: string | null = null, task_id: string | null = null): FlowNode {
   return { id, kind, label: id, status, agent, model: "qwen3:8b", task_id, duration_s: null, tokens_per_second: null, detail: "", error: null, review: null };
@@ -248,5 +248,48 @@ describe("dış sağlayıcı işareti (Adım 20b)", () => {
     const actors = deriveActors(g, {}, []);
     expect(actors.find((a) => a.id === "general")!.cloud).toBe(true);
     expect(actors.find((a) => a.id === "data")!.cloud).toBe(false);
+  });
+});
+
+
+describe("Adım 21b: sahibin çizimleri, katmanlı masa, senin yürüyüşün", () => {
+  const assets: OfficeAssets = { folder: "", exists: true, desk: "/ofis/masa.png", floor: null, unknown: [], skipped: [],
+    actors: { owner: { base: "/ofis/sen.png", walk_down: "/ofis/sen-yuruyor-asagi.png" } },
+    props: { water: "/ofis/su.png" },
+    sizes: { "/ofis/sen.png": [64, 64], "/ofis/masa.png": [64, 64], "/ofis/su.png": [17, 34], "/ofis/sen-yuruyor-asagi.png": [384, 96] } };
+
+  it("desk layer under every seated person; own masa.png replaces the default desk", () => {
+    const def = seatLayers(null, { id: "data", kind: "agent", state: "idle" });
+    expect(def.desk).toBe(PIXEL.emptyDesk);
+    expect(def.person).toBe(PIXEL.person.data);
+    expect(seatLayers(null, { id: "data", kind: "agent", state: "working" }).desk).toBe(PIXEL.busyDesk);
+    expect(seatLayers(null, { id: "chef", kind: "chef", state: "idle" })).toEqual({ desk: null, person: PIXEL.seat.chef });
+    const own = seatLayers(assets, { id: "owner", kind: "owner", state: "idle" });
+    expect([own.desk?.href, own.person.href]).toEqual(["/ofis/masa.png", "/ofis/sen.png"]);
+    expect(seatLayers(assets, { id: "coder", kind: "agent", state: "idle" }).desk?.href).toBe("/ofis/masa.png");
+  });
+
+  it("big frames are scaled to the same size as the 64×64 ones", () => {
+    const w = pickWalk(assets, { id: "owner", kind: "owner" }, "down");
+    expect([w.s.frames, w.s.fw, w.s.scale, w.s.ay]).toEqual([4, 96, 2 * 64 / 96, 72]);
+  });
+
+  it("own props replace the default ones and huge images are fitted", () => {
+    const water = PIXEL.props.find((p) => p.id === "water")!;
+    expect(propSprite(assets, "water", water.s)).toMatchObject({ href: "/ofis/su.png", fw: 17, fh: 34, ay: 34 });
+    expect(propSprite(null, "water", water.s)).toBe(water.s);
+    const huge = propSprite({ ...assets, props: { water: "/x.png" }, sizes: { "/x.png": [1100, 1400] } }, "water", water.s);
+    expect(huge.fh * (huge.scale ?? 2)).toBeLessThanOrEqual((water.s.ay + 2) * 1.5 * 2 + 0.001);
+  });
+
+  it("you carry the request to the first agent when a job starts", () => {
+    const g = graph([node("request", "request", "succeeded"), node("planner", "planner", "running", "planner", "p1")], [["request", "planner"]]);
+    g.status = "running";
+    expect(introVisits(g)).toEqual([{ key: "planner:request", actor: "owner", host: "chef", kind: "handoff", note: "iş verdi" }]);
+    const later = graph([node("request", "request", "succeeded"), node("planner", "planner", "succeeded", "planner", "p1")], [["request", "planner"]]);
+    later.status = "running";
+    expect(introVisits(later)).toEqual([]);
+    const prev = graph([node("request", "request", "succeeded"), node("planner", "planner", "pending", "planner")], [["request", "planner"]]);
+    expect(diffVisits(prev, { ...g, job_id: prev.job_id }).map((v) => v.note)).toContain("iş verdi");
   });
 });

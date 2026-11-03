@@ -30,7 +30,10 @@ export function OfficeArtPanel({ onClose }: { onClose: () => void }) {
         Kare <strong>64×64</strong>: masada oturan (arkadan) — masanın altı 61. satırda; yürüyen — ayak 48. satırda. Animasyon için
         kareleri <strong>yan yana</strong> koy (ör. 4 kare → 256×64). Zemin karosu <strong>16×16</strong>. Yürüme yönlü de olur:
         <code>-yuruyor-sol</code>, <code>-sag</code>, <code>-yukari</code>, <code>-asagi</code> (tek <code>-yuruyor</code> sola yansıtılır).
-        Olmayan resim yerine hazır çizim kullanılır. Ayrıntı ve kalıplar: <code>docs/OFIS_CIZIM.md</code>.
+        Olmayan resim yerine hazır çizim kullanılır. <code>masa.png</code> herkesin masasını değiştirir (kişi üstüne oturur);
+        eşyalar: <code>su</code>, <code>dolap</code>, <code>kahve</code>, <code>yazici</code>, <code>bitki</code>, <code>cop</code>, <code>lavabo</code>.
+        Büyük ya da yapay zekâyla üretilmiş resimleri önce çevir: <code>kayaai ofis ice-aktar resim.png ad</code>.
+        Ayrıntı: <code>docs/OFIS_CIZIM.md</code>.
       </p>
       <div className="table-wrap">
         <table className="mtable art-table">

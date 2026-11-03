@@ -7,7 +7,10 @@ Kurallar (Türkçe dosya adları, küçük harf):
 - Yürüme: `<ajan>-yuruyor.png` (aşağı doğru; sola/sağa yansıtılır) ya da yönlü `-yuruyor-asagi`, `-yuruyor-yukari`,
   `-yuruyor-sol`, `-yuruyor-sag`
 - Animasyon: kareler YAN YANA, kare kare (64×64 önerilir) — kare sayısı genişlik/yükseklikten anlaşılır
-- Ortak: `masa.png` (boş masa), `zemin.png` (16×16 karo, döşenir), `ajan.png` (adı olmayan ajanlar için)
+- Ortak: `masa.png` (masa; oturan kişi üstüne çizilir), `zemin.png` (16×16 karo, döşenir), `ajan.png` (adı olmayan
+  ajanlar için)
+- Eşyalar: `su.png`, `dolap.png`, `kahve.png`, `yazici.png`, `bitki.png`, `cop.png`, `lavabo.png` (hazırın yerine)
+- Büyük/yapay zekâ çizimlerini çevirmek için: `kayaai ofis ice-aktar <resim> <ad>` (kayaai/office_import.py)
 - Biçim: PNG, SVG, WEBP; en çok 5 MB. Yalnız bu klasördeki resimler sunulur (alt klasör, başka dosya türü yok).
 Resimler arayüzde `/ofis/<dosya>` adresinden okunur (yalnız bu bilgisayar; resimde gizli bilgi olmamalı).
 """
@@ -27,6 +30,9 @@ STATES = {"calisiyor": "working", "bekliyor": "waiting", "hata": "error", "yuruy
           "bosta": "idle", "yuruyor-asagi": "walk_down", "yuruyor-yukari": "walk_up", "yuruyor-sol": "walk_left",
           "yuruyor-sag": "walk_right"}
 SPECIAL = {"masa": "desk", "zemin": "floor"}
+# Eşyalar (Adım 21b): ad → (sahnedeki yer, en çok yükseklik px). Hazır eşyanın yerine geçer.
+PROPS = {"su": ("water", 34), "dolap": ("cabinet", 46), "kahve": ("coffee", 44), "yazici": ("printer", 32),
+         "bitki": ("plant", 28), "cop": ("trash", 14), "lavabo": ("sink", 30)}
 
 
 def folder(data_dir: Path) -> Path:
@@ -48,7 +54,7 @@ def scan(data_dir: Path) -> dict[str, Any]:
     """Klasördeki çizimler → arayüz eşlemesi: {actors: {id: {state|'base': url}}, desk, floor, unknown: [...]}."""
     d = folder(data_dir)
     out: dict[str, Any] = {"folder": str(d), "exists": d.is_dir(), "actors": {}, "desk": None, "floor": None,
-                           "unknown": [], "skipped": [], "sizes": {}}
+                           "unknown": [], "skipped": [], "sizes": {}, "props": {}}
     if not d.is_dir():
         return out
     for p in sorted(d.iterdir()):
@@ -64,6 +70,9 @@ def scan(data_dir: Path) -> dict[str, Any]:
             out["sizes"][url] = size  # kare sayısı = genişlik / yükseklik (yan yana kareler)
         if stem in SPECIAL:
             out[SPECIAL[stem]] = url
+            continue
+        if stem in PROPS:
+            out["props"][PROPS[stem][0]] = url
             continue
         base, _, state = stem.partition("-")
         actor = ACTORS.get(base, base if base in ACTORS.values() else None)

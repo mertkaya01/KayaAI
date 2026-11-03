@@ -279,7 +279,10 @@ iş verisi" (özel/gizli asla). OmniRoute: resmî depo ve lisans kurulumdan önc
   + iş efekti, boş masa, sahibin 64×64 yan yana kareli çizimleri (yönlü yürüme, PNG boyutundan kare sayısı), 🎨 panel
   ve `docs/OFIS_CIZIM.md` rehberi; `/ofis/<iş>` yenileme hatası düzeltildi — Vitest 44, Python 5, Playwright (canlı
   3 adımlı iş: oturan/yürüyen/teslim, açık/koyu), axe 0
-- [ ] Sahip: kendi karakterlerini çiz (`worker1.png` ve `Julia_walk_Foward.png` kalıbıyla) → `data\ofis\` → Yenile
+- [x] Sahibin ilk çizimleri (kendi karakteri 4 yön + 4 kare yürüme, masada oturan, damacana): `kayaai ofis ice-aktar`
+  (ızgara bulma, asıl çözünürlük, hizalama, masa çıkarma), katmanlı masa, eşya değiştirme, senin "iş verdi"
+  yürüyüşün — Python 8, Vitest 48, Playwright (senin çizimlerinle canlı ofis), axe 0
+- [ ] Sahip: `masa.png`, `zemin.png` ve ajan karakterleri
 
 - [ ] Windows: aynı iki soruyu yeniden sor ("bilgisayarım için performans analizi…", "neler yapabildiğinizi tek tek
   açıklar mısın"); veri ajanına CSV ekleyip hesap sorusu; ofis animasyonları; yeni Claude kutusu davranışı

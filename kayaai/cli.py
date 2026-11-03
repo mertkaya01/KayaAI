@@ -1040,6 +1040,49 @@ def cmd_providers(args: argparse.Namespace) -> int:
         rt.close()
 
 
+def cmd_ofis(args: argparse.Namespace) -> int:
+    """Ofis çizimleri (Adım 21b): durum ya da resmi pixel çizime çevirip data/ofis'e yaz."""
+    from .office_assets import scan
+    from .office_import import ImportError_, import_image
+
+    s = load_settings()
+    if args.action == "durum":
+        out = scan(s.data_dir)
+        _print(f"Klasör: {out['folder']}" + ("" if out["exists"] else " (yok — ilk içe aktarmada oluşur)"))
+        for actor, states in out["actors"].items():
+            for st, url in states.items():
+                size = out["sizes"].get(url)
+                frames = f" · {round(size[0] / size[1])} kare {size[1]}×{size[1]}" if size else ""
+                _print(f"  {actor:<9} {st:<11} {url.split('?')[0]}{frames}")
+        for k in ("desk", "floor"):
+            if out[k]:
+                _print(f"  {k:<9} {out[k].split('?')[0]}")
+        for k, url in out["props"].items():
+            _print(f"  eşya      {k:<11} {url.split('?')[0]}")
+        for name in out["unknown"]:
+            _print(f"  [tanınmayan ad] {name}")
+        for name in out["skipped"]:
+            _print(f"  [atlandı: ad/biçim/boyut] {name}")
+        return 0
+    if not args.dosya or not args.ad:
+        _print("[HATA] kullanım: kayaai ofis ice-aktar <resim.png> <ad> [--sec N]   ör. ad: sen, sen-yuruyor-asagi, masa, zemin, su")
+        return 2
+    src = Path(args.dosya)
+    if not src.is_file():
+        _print(f"[HATA] dosya yok: {src}")
+        return 1
+    try:
+        r = import_image(src, args.ad, s.data_dir, pick=args.sec, keep_desk=args.masayi_koru)
+    except (ImportError_, OSError, ValueError) as exc:
+        _print(f"[HATA] {exc}")
+        return 1
+    native = f" · asıl piksel boyu {r['block']} (büyütülmüş çizim küçültüldü)" if r["block"] > 1.5 else ""
+    frames = f" · {r['frames']} kare, kare {r['frame']}×{r['frame']}" if "frame" in r else ""
+    _print(f"[OK] {r['name']} ({r['kind']}) · {r['size'][0]}×{r['size'][1]}{frames}{native}")
+    _print("Ofis → 🎨 Çizimler → Yenile (ya da sayfayı yenile).")
+    return 0
+
+
 def cmd_qdrant(args: argparse.Namespace) -> int:
     """Qdrant vektör deposu (Adım 19b): bu bilgisayarda başlat / durdur / durum / gerçek denetim."""
     from .memory import qdrant_check as qc
@@ -1595,6 +1638,14 @@ def build_parser() -> argparse.ArgumentParser:
                     default="list")
     pv.add_argument("target", nargs="?", help="sağlayıcı kimliği (add için hazır ayar: groq, openrouter, omniroute, custom)")
     pv.set_defaults(func=cmd_providers)
+
+    of = sub.add_parser("ofis", help="ofis çizimleri: durum / resmi pixel çizime çevirip data/ofis'e ekle")
+    of.add_argument("action", nargs="?", choices=["durum", "ice-aktar"], default="durum")
+    of.add_argument("dosya", nargs="?", help="ice-aktar: resim dosyası (PNG, arka planı saydam)")
+    of.add_argument("ad", nargs="?", help="ice-aktar: hedef ad (sen, veri-yuruyor, sen-yuruyor-sol, masa, zemin, su, dolap…)")
+    of.add_argument("--sec", type=int, default=None, help="birden çok figürlü resimde kaçıncı figür (1'den)")
+    of.add_argument("--masayi-koru", action="store_true", help="oturan çizimde hazır masayı çıkarma")
+    of.set_defaults(func=cmd_ofis)
 
     qp = sub.add_parser("qdrant", help="Qdrant vektör deposu (Docker, yalnız 127.0.0.1): başlat / durdur / durum / denetim")
     qp.add_argument("action", nargs="?", choices=["status", "start", "stop", "test"], default="status")

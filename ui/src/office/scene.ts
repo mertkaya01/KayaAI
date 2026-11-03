@@ -186,10 +186,26 @@ export function diffVisits(prev: JobGraph | null, next: JobGraph): Visit[] {
         else out.push({ key: `${e.source}>${n.id}`, actor: from, host: to, kind: "handoff", note: "teslim" });
       }
     }
+    // Adım 21b: iş başlarken sen (sahip) isteği ilk ajana götürürsün
+    if (started && n.kind !== "request") {
+      const fromReq = next.edges.some((e) => e.target === n.id && byId.get(e.source)?.kind === "request");
+      const to = actorOf(n);
+      if (fromReq && to !== "owner") out.push({ key: `${n.id}:request`, actor: "owner", host: to, kind: "handoff", note: "iş verdi" });
+    }
     if (finished && n.kind === "result") out.push({ key: `${n.id}:deliver`, actor: "chef", host: "owner", kind: "deliver", note: "cevap hazır" });
     if (n.kind === "claude" && n.status !== "pending" && was === "pending") out.push({ key: `${n.id}:claude`, actor: "chef", host: "claude", kind: "claude", note: "Claude'a devir" });
   }
   return out;
+}
+
+/** İş ilk kez açıldığında (önceki durum yok) istek yeni başlamışsa: sen isteği ilk ajana götürürsün (bir kez). */
+export function introVisits(g: JobGraph | null): Visit[] {
+  if (!g || (g.status !== "running" && g.status !== "pending")) return [];
+  const byId = new Map(g.nodes.map((n) => [n.id, n]));
+  const first = g.nodes.find((n) => n.kind !== "request" && g.edges.some((e) => e.target === n.id && byId.get(e.source)?.kind === "request"));
+  if (!first || (first.status !== "running" && first.status !== "pending")) return [];
+  const to = actorOf(first);
+  return to === "owner" ? [] : [{ key: `${first.id}:request`, actor: "owner", host: to, kind: "handoff", note: "iş verdi" }];
 }
 
 /** Tek ajanlı iş (şefsiz): istek → ajan → sonuç; ofis aynı sahneyle gösterir (Adım 17'de eklendi). */
@@ -225,10 +241,11 @@ export interface OfficeAssets {
   folder: string; exists: boolean; desk: string | null; floor: string | null;
   actors: Record<string, Record<string, string>>; unknown: string[]; skipped: string[];
   sizes?: Record<string, [number, number]>;  // PNG boyutları: kare sayısı = genişlik / yükseklik
+  props?: Record<string, string>;            // Adım 21b: sahibin eşyaları (water, cabinet, coffee…)
 }
 
 /** Pixel çizim (Adım 21): yan yana kareler; (ax, ay) = sahnedeki noktaya oturan piksel (ayak / masa altı). */
-export interface Sprite { href: string; frames: number; fw: number; fh: number; ax: number; ay: number }
+export interface Sprite { href: string; frames: number; fw: number; fh: number; ax: number; ay: number; scale?: number }
 export type WalkDir = "down" | "up" | "left" | "right";
 
 const PIX = "/office/pixel/";
@@ -242,32 +259,59 @@ export const PIXEL = {
     coder: seatSprite("worker2.png"), reviewer: seatSprite("worker4.png"), vision: seatSprite("worker1.png"),
     chef: seatSprite("boss.png"), default: seatSprite("worker1.png"),
   } as Record<string, Sprite>,
+  // Adım 21b: masada oturanın yalnız kişi katmanı (masa ayrı çizilir → masa.png herkesin masasını değiştirir)
+  person: {
+    general: seatSprite("worker1-person.png"), data: seatSprite("worker2-person.png"), document: seatSprite("worker4-person.png"),
+    coder: seatSprite("worker2-person.png"), reviewer: seatSprite("worker4-person.png"), vision: seatSprite("worker1-person.png"),
+    default: seatSprite("worker1-person.png"),
+  } as Record<string, Sprite>,
   emptyDesk: seatSprite("desk-with-pc.png"),
   busyDesk: seatSprite("Julia_PC.png", 6),          // sahibi kalkmışken ekranı çalışan masa
   ownerDesk: { href: PIX + "writing-table.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 49 } as Sprite,
   owner: { href: PIX + "Julia-Idle.png", frames: 4, fw: 32, fh: 32, ax: 16, ay: 31 } as Sprite,
   walk: { down: walkSprite("Julia_walk_Foward.png"), up: walkSprite("Julia_walk_Up.png"),
           left: walkSprite("Julia_walk_Left.png"), right: walkSprite("Julia_walk_Rigth.png") } as Record<WalkDir, Sprite>,
-  props: [  // duvar dibi ve köşeler (ızgara birimi; ay = alt kenar)
-    { s: { href: PIX + "cabinet.png", frames: 1, fw: 64, fh: 64, ax: 30, ay: 49 }, at: { x: 0.25, y: 1.05 } },
-    { s: { href: PIX + "water-cooler.png", frames: 1, fw: 16, fh: 32, ax: 7, ay: 31 }, at: { x: 0.85, y: 1.0 } },
-    { s: { href: PIX + "coffee-maker.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 51 }, at: { x: 1.8, y: 1.0 } },
-    { s: { href: PIX + "printer.png", frames: 1, fw: 64, fh: 32, ax: 32, ay: 32 }, at: { x: 5.3, y: 1.0 } },
-    { s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 6.1, y: 1.0 } },
-    { s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 0.2, y: 5.45 } },
-    { s: { href: PIX + "Trash.png", frames: 1, fw: 16, fh: 16, ax: 8, ay: 13 }, at: { x: 3.45, y: 4.1 } },
-    { s: { href: PIX + "sink.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 48 }, at: { x: 7.45, y: 4.6 } },
-  ] as { s: Sprite; at: Pt }[],
+  props: [  // duvar dibi ve köşeler (ızgara birimi; ay = alt kenar). id: sahibin eşyası bunun yerine geçer (su.png…)
+    { id: "cabinet", s: { href: PIX + "cabinet.png", frames: 1, fw: 64, fh: 64, ax: 30, ay: 49 }, at: { x: 0.25, y: 1.05 } },
+    { id: "water", s: { href: PIX + "water-cooler.png", frames: 1, fw: 16, fh: 32, ax: 7, ay: 31 }, at: { x: 0.85, y: 1.0 } },
+    { id: "coffee", s: { href: PIX + "coffee-maker.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 51 }, at: { x: 1.8, y: 1.0 } },
+    { id: "printer", s: { href: PIX + "printer.png", frames: 1, fw: 64, fh: 32, ax: 32, ay: 32 }, at: { x: 5.3, y: 1.0 } },
+    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 6.1, y: 1.0 } },
+    { id: "plant", s: { href: PIX + "plant.png", frames: 1, fw: 32, fh: 32, ax: 15, ay: 32 }, at: { x: 0.2, y: 5.45 } },
+    { id: "trash", s: { href: PIX + "Trash.png", frames: 1, fw: 16, fh: 16, ax: 8, ay: 13 }, at: { x: 3.45, y: 4.1 } },
+    { id: "sink", s: { href: PIX + "sink.png", frames: 1, fw: 64, fh: 64, ax: 32, ay: 48 }, at: { x: 7.45, y: 4.6 } },
+  ] as { id: string; s: Sprite; at: Pt }[],
 };
 
-/** Sahibin resmi → çizim: kareler yan yana (kare sayısı = genişlik/yükseklik), hazır kalıpla aynı hizalama. */
+/** Sahibin resmi → çizim: kareler yan yana (kare sayısı = genişlik/yükseklik), hazır kalıpla aynı hizalama.
+ *  Kare 64'ten büyükse (ör. 96 — `kayaai ofis ice-aktar` büyük karakterler için seçer) orantılı küçültülür: sahnede
+ *  hazır çizimlerle aynı boyda görünür. */
 export function ownSprite(assets: OfficeAssets | null | undefined, url: string | null, kind: "seat" | "walk"): Sprite | null {
   if (!url) return null;
   const size = assets?.sizes?.[url];
   const [w, h] = size ?? [64, 64];
   const frames = Math.max(1, Math.round(w / h));
   const fw = w / frames;
-  return { href: url, frames, fw, fh: h, ax: fw / 2, ay: kind === "seat" ? h * (61 / 64) : h * (48 / 64) };
+  return { href: url, frames, fw, fh: h, ax: fw / 2, ay: kind === "seat" ? h * (61 / 64) : h * (48 / 64), scale: PX * 64 / h };
+}
+
+/** Sahibin eşyası (su.png…) ya da hazır eşya; çok büyük resim hazır eşyanın 1,5 katına sığdırılır. */
+export function propSprite(assets: OfficeAssets | null | undefined, id: string, dflt: Sprite): Sprite {
+  const url = assets?.props?.[id];
+  if (!url) return dflt;
+  const [w, h] = assets?.sizes?.[url] ?? [dflt.fw, dflt.fh];
+  const maxH = (dflt.ay + 2) * 1.5;
+  return { href: url, frames: 1, fw: w, fh: h, ax: w / 2, ay: h, scale: h > maxH ? PX * maxH / h : PX };
+}
+
+/** Masada oturan, katman katman: masa (sahibin masa.png'si ya da hazır; çalışırken ekranı oynayan) + kişi.
+ *  `desk` null: kişi çizimi masayla birlikte (hazır Şef: patron masası). */
+export function seatLayers(assets: OfficeAssets | null | undefined, a: Pick<Actor, "id" | "kind" | "state">): { desk: Sprite | null; person: Sprite } {
+  const own = ownSprite(assets, pickArt(assets, a), "seat");
+  const desk = assets?.desk ? ownSprite(assets, assets.desk, "seat")! : a.state === "working" ? PIXEL.busyDesk : PIXEL.emptyDesk;
+  if (own) return { desk, person: own };
+  if (a.kind === "chef") return { desk: null, person: PIXEL.seat.chef };
+  return { desk, person: PIXEL.person[a.id] ?? PIXEL.person.default };
 }
 
 /** Yürürken çizim: sahibin yönlü resmi → tek yürüme resmi (sola yansıtılır) → hazır Julia. */
